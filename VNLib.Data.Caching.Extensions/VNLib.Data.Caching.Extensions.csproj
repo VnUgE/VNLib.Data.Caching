@@ -4,31 +4,16 @@
     <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <PlatformTarget>x64</PlatformTarget>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
-    <Version>1.0.0.1</Version>
+    <Version>1.0.1.1</Version>
     <Authors>Vaughn Nugent</Authors>
     <Copyright>Copyright © 2022 Vaughn Nugent</Copyright>
-    <PackageProjectUrl>www.vaughnnugent.com/resources</PackageProjectUrl>
-    <Platforms>AnyCPU;x64</Platforms>
+    <PackageProjectUrl>https://www.vaughnnugent.com/resources</PackageProjectUrl>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <CheckForOverflowUnderflow>True</CheckForOverflowUnderflow>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <CheckForOverflowUnderflow>True</CheckForOverflowUnderflow>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <CheckForOverflowUnderflow>True</CheckForOverflowUnderflow>
-    <Deterministic>False</Deterministic>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <CheckForOverflowUnderflow>True</CheckForOverflowUnderflow>
-    <Deterministic>False</Deterministic>
+  <PropertyGroup>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <AnalysisLevel>latest-all</AnalysisLevel>
   </PropertyGroup>
 
   <ItemGroup>
@@ -44,7 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\VNLib\Hashing\VNLib.Hashing.Portable.csproj" />
+    <ProjectReference Include="..\..\..\VNLib\Hashing\src\VNLib.Hashing.Portable.csproj" />
     <ProjectReference Include="..\..\..\VNLib\Http\VNLib.Net.Http.csproj" />
     <ProjectReference Include="..\..\..\VNLib\VNLib.Net.Messaging.FBM\src\VNLib.Net.Messaging.FBM.csproj" />
     <ProjectReference Include="..\..\VNLib.Net.Rest.Client\VNLib.Net.Rest.Client.csproj" />

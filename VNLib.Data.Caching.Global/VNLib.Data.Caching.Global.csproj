@@ -6,9 +6,19 @@
     <Nullable>enable</Nullable>
     <Authors>Vaughn Nugent</Authors>
     <Copyright>Copyright © 2022 Vaughn Nugent</Copyright>
-    <Platforms>AnyCPU;ARM32;x64</Platforms>
-    <PlatformTarget>x64</PlatformTarget>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <PackageProjectUrl>https://www.vaughnnugent.com/resources</PackageProjectUrl>
+    <AnalysisLevel>latest-all</AnalysisLevel>
+    <Version>1.0.1.1</Version>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <Deterministic>False</Deterministic>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <Deterministic>False</Deterministic>
   </PropertyGroup>
 
   <ItemGroup>
