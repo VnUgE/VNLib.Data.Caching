@@ -34,5 +34,9 @@ namespace VNLib.Data.Caching.Extensions
         public string? ServerId { get; set; }
         [JsonPropertyName("ip_address")]
         public string? Ip { get; set; }
+        ///<inheritdoc/>
+        public override int GetHashCode() => ServerId!.GetHashCode(StringComparison.OrdinalIgnoreCase);
+        ///<inheritdoc/>
+        public override bool Equals(object? obj) => obj is ActiveServer s && GetHashCode() == s.GetHashCode();
     }
 }

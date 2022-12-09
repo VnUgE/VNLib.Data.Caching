@@ -64,13 +64,13 @@ namespace VNLib.Data.Caching
             DefaultBufferSize = 128
         };
 
-
-        private static readonly ConditionalWeakTable<FBMClient, SemaphoreSlim> GetLock = new();
-        private static readonly ConditionalWeakTable<FBMClient, SemaphoreSlim> UpdateLock = new();
-
-        private static SemaphoreSlim GetLockCtor(FBMClient client) => new (50);
-
-        private static SemaphoreSlim UpdateLockCtor(FBMClient client) => new (25);
+        private static void LogDebug(this FBMClient client, string message, params object?[] args)
+        {
+            if (client.Config.DebugLog != null)
+            {
+                client.Config.DebugLog.Debug($"[CACHE] : {message}", args);
+            }
+        }
 
         /// <summary>
         /// Gets an object from the server if it exists
@@ -87,10 +87,10 @@ namespace VNLib.Data.Caching
         /// <exception cref="InvalidResponseException"></exception>
         public static async Task<T?> GetObjectAsync<T>(this FBMClient client, string objectId, CancellationToken cancellationToken = default)
         {
-            client.Config.DebugLog?.Debug("[DEBUG] Getting object {id}", objectId);
-            SemaphoreSlim getLock = GetLock.GetValue(client, GetLockCtor);
-            //Wait for entry
-            await getLock.WaitAsync(cancellationToken);
+            _ = client ?? throw new ArgumentNullException(nameof(client));
+            
+            client.LogDebug("Getting object {id}", objectId);
+            
             //Rent a new request
             FBMRequest request = client.RentRequest();
             try
@@ -119,7 +119,6 @@ namespace VNLib.Data.Caching
             }
             finally
             {
-                getLock.Release();
                 client.ReturnRequest(request);
             }
         }
@@ -144,10 +143,10 @@ namespace VNLib.Data.Caching
         /// <exception cref="ObjectNotFoundException"></exception>
         public static async Task AddOrUpdateObjectAsync<T>(this FBMClient client, string objectId, string? newId, T data, CancellationToken cancellationToken = default)
         {
-            client.Config.DebugLog?.Debug("[DEBUG] Updating object {id}, newid {nid}", objectId, newId);
-            SemaphoreSlim updateLock = UpdateLock.GetValue(client, UpdateLockCtor);
-            //Wait for entry
-            await updateLock.WaitAsync(cancellationToken);
+            _ = client ?? throw new ArgumentNullException(nameof(client));
+            
+            client.LogDebug("Updating object {id}, newid {nid}", objectId, newId);
+           
             //Rent a new request
             FBMRequest request = client.RentRequest();
             try
@@ -189,7 +188,6 @@ namespace VNLib.Data.Caching
             }
             finally
             {
-                updateLock.Release();
                 //Return the request(clears data and reset)
                 client.ReturnRequest(request);
             }
@@ -208,11 +206,9 @@ namespace VNLib.Data.Caching
         /// <exception cref="ObjectNotFoundException"></exception>
         public static async Task DeleteObjectAsync(this FBMClient client, string objectId, CancellationToken cancellationToken = default)
         {
-            client.Config.DebugLog?.Debug("[DEBUG] Deleting object {id}", objectId);
+            _ = client ?? throw new ArgumentNullException(nameof(client));
 
-            SemaphoreSlim updateLock = UpdateLock.GetValue(client, UpdateLockCtor);
-            //Wait for entry
-            await updateLock.WaitAsync(cancellationToken);
+            client.LogDebug("Deleting object {id}", objectId);
             //Rent a new request
             FBMRequest request = client.RentRequest();
             try
@@ -240,7 +236,6 @@ namespace VNLib.Data.Caching
             }
             finally
             {
-                updateLock.Release();
                 client.ReturnRequest(request);
             }
         }

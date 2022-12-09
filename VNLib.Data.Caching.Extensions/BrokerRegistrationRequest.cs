@@ -23,8 +23,10 @@
 */
 
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 
 using VNLib.Utils;
+using VNLib.Hashing.IdentityUtility;
 
 
 namespace VNLib.Data.Caching.Extensions
@@ -35,6 +37,9 @@ namespace VNLib.Data.Caching.Extensions
     /// </summary>
     public sealed class BrokerRegistrationRequest : VnDisposeable
     {
+        private bool ownsKey;
+        private ReadOnlyJsonWebKey? SigningKey;
+
         /// <summary>
         /// The cache server node id
         /// </summary>
@@ -52,20 +57,19 @@ namespace VNLib.Data.Caching.Extensions
         /// The address for remote clients to use to 
         /// connect to this server
         /// </summary>
-        public string? RegistrationAddress { get; private set; }
+        public string? RegistrationAddress { get; private set; }      
+
         /// <summary>
-        /// The token signature algorithm
+        /// Recovers the private key from the supplied certificate
         /// </summary>
-        public ECDsa SiginingAlg { get; }
-
-        public BrokerRegistrationRequest()
+        /// <param name="jwk">The private key used to sign messages</param>
+        /// <param name="ownsKey">A value that indicates if the current instance owns the key</param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
+        public BrokerRegistrationRequest WithSigningKey(ReadOnlyJsonWebKey jwk, bool ownsKey)
         {
-            SiginingAlg = ECDsa.Create(FBMDataCacheExtensions.CacheCurve);
-        }
-
-        public BrokerRegistrationRequest WithPrivateKey(ReadOnlySpan<byte> privateKey)
-        {
-            SiginingAlg.ImportPkcs8PrivateKey(privateKey, out _);
+            this.ownsKey = ownsKey;
+            SigningKey = jwk ?? throw new ArgumentNullException(nameof(jwk));
             return this;
         }
 
@@ -86,17 +90,27 @@ namespace VNLib.Data.Caching.Extensions
             HeartbeatToken = token;
             return this;
         }
-
+        
         public BrokerRegistrationRequest WithNodeId(string nodeId)
         {
             NodeId = nodeId;
             return this;
         }
 
+        internal void SignJwt(JsonWebToken jwt)
+        {
+            jwt.SignFromJwk(SigningKey);
+        }
+
+        internal IReadOnlyDictionary<string, string?> JsonHeader => SigningKey!.JwtHeader;
+
         ///<inheritdoc/>
         protected override void Free()
         {
-            SiginingAlg.Dispose();
+            if (ownsKey)
+            {
+                SigningKey?.Dispose();
+            }
         }
     }
 }

@@ -25,6 +25,7 @@
 using System.Security.Cryptography;
 
 using VNLib.Hashing;
+using VNLib.Hashing.IdentityUtility;
 using VNLib.Net.Messaging.FBM.Client;
 
 namespace VNLib.Data.Caching.Extensions
@@ -35,45 +36,47 @@ namespace VNLib.Data.Caching.Extensions
     /// </summary>
     public sealed class ClientCacheConfiguration
     {
-        internal ECDsa SigningKey { get; init; }
-        internal ECDsa VerificationKey { get; init; }
-        internal string ServerChallenge { get; init; }
+        internal ReadOnlyJsonWebKey? SigningKey { get; private set; }
+        internal ReadOnlyJsonWebKey? VerificationKey { get; private set; }
+        internal ReadOnlyJsonWebKey? BrokerVerificationKey { get; private set; }
+        
+        internal string ServerChallenge { get; } = RandomHash.GetRandomBase32(24);
         internal string? NodeId { get; set; }
         internal Uri? BrokerAddress { get; set; }
         internal bool UseTls { get; set; }
         internal ActiveServer[]? CacheServers { get; set; }
 
-        public ClientCacheConfiguration()
-        {
-            //Init the algorithms
-            SigningKey = ECDsa.Create(FBMDataCacheExtensions.CacheCurve);
-            VerificationKey = ECDsa.Create(FBMDataCacheExtensions.CacheCurve);
-            ServerChallenge = RandomHash.GetRandomBase32(24);
-        }
+        internal IReadOnlyDictionary<string, string?> JwtHeader => SigningKey!.JwtHeader;
 
         /// <summary>
         /// Imports the private key used to sign messages
         /// </summary>
-        /// <param name="pkcs8PrivKey">The pkcs8 encoded private key to sign messages</param>
+        /// <param name="jwk">The <see cref="ReadOnlyJsonWebKey"/> with a private key loaded</param>
         /// <returns>Chainable fluent object</returns>
         /// <exception cref="ArgumentException"></exception>
         /// <exception cref="CryptographicException"></exception>
-        public ClientCacheConfiguration ImportSigningKey(ReadOnlySpan<byte> pkcs8PrivKey)
+        public ClientCacheConfiguration WithSigningCertificate(ReadOnlyJsonWebKey jwk)
         {
-            SigningKey.ImportPkcs8PrivateKey(pkcs8PrivKey, out _);
+            SigningKey = jwk ?? throw new ArgumentNullException(nameof(jwk));
             return this;
         }
 
         /// <summary>
         /// Imports the public key used to verify messages from the remote server
         /// </summary>
-        /// <param name="spkiPublicKey">The subject-public-key-info formatted cache public key</param>
+        /// <param name="jwk">The <see cref="ReadOnlyJsonWebKey"/> public key only used for message verification</param>
         /// <returns>Chainable fluent object</returns>
         /// <exception cref="ArgumentException"></exception>
         /// <exception cref="CryptographicException"></exception>
-        public ClientCacheConfiguration ImportVerificationKey(ReadOnlySpan<byte> spkiPublicKey)
+        public ClientCacheConfiguration WithVerificationKey(ReadOnlyJsonWebKey jwk)
         {
-            VerificationKey.ImportSubjectPublicKeyInfo(spkiPublicKey, out _);
+            VerificationKey = jwk ?? throw new ArgumentNullException(nameof(jwk));
+            return this;
+        }
+
+        public ClientCacheConfiguration WithBrokerVerificationKey(ReadOnlyJsonWebKey jwk)
+        {
+            BrokerVerificationKey = jwk ?? throw new ArgumentNullException(nameof(jwk));
             return this;
         }
 
@@ -113,10 +116,19 @@ namespace VNLib.Data.Caching.Extensions
             return this;
         }
 
-        ~ClientCacheConfiguration()
+        internal void SignJwt(JsonWebToken jwt)
         {
-            SigningKey.Clear();
-            VerificationKey.Clear();
+            jwt.SignFromJwk(SigningKey);
+        }
+
+        internal bool VerifyCache(JsonWebToken jwt)
+        {
+            return jwt.VerifyFromJwk(VerificationKey);
+        }
+
+        internal bool VerifyBroker(JsonWebToken jwt)
+        {
+            return jwt.VerifyFromJwk(BrokerVerificationKey);
         }
     }
 }

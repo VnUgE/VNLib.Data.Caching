@@ -31,15 +31,16 @@ using System.Security.Cryptography;
 using System.Runtime.CompilerServices;
 
 using RestSharp;
+
+using VNLib.Net.Http;
+using VNLib.Hashing;
+using VNLib.Hashing.IdentityUtility;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
 using VNLib.Utils.Extensions;
-using VNLib.Hashing.IdentityUtility;
-using VNLib.Net.Http;
 using VNLib.Net.Rest.Client;
-using VNLib.Net.Messaging.FBM.Client;
 using VNLib.Net.Messaging.FBM;
-
+using VNLib.Net.Messaging.FBM.Client;
 
 namespace VNLib.Data.Caching.Extensions
 {
@@ -59,18 +60,6 @@ namespace VNLib.Data.Caching.Extensions
         /// </summary>
         public const int MAX_FBM_MESSAGE_HEADER_SIZE = 1024;
 
-        private static readonly IReadOnlyDictionary<string, string> BrokerJwtHeader = new Dictionary<string, string>()
-        {
-            { "alg", "ES384" }, //Must match alg name
-            { "typ", "JWT"}
-        };
-
-
-        /// <summary>
-        /// The raw JWT message header
-        /// </summary>
-        public static ReadOnlyMemory<byte> JwtMessageHeader { get; } = JsonSerializer.SerializeToUtf8Bytes(BrokerJwtHeader);
-
         private static readonly RestClientPool ClientPool = new(2,new RestClientOptions()
         {
             MaxTimeout = 10 * 1000,
@@ -80,17 +69,7 @@ namespace VNLib.Data.Caching.Extensions
             ThrowOnAnyError = true,
         });
 
-        /// <summary>
-        /// The default hashing algorithm used to sign an verify connection
-        /// tokens
-        /// </summary>
-        public static readonly HashAlgorithmName CacheJwtAlgorithm = HashAlgorithmName.SHA384;
-
-        //using the es384 algorithm for signing (friendlyname is secp384r1)
-        /// <summary>
-        /// The default ECCurve used by the connection library
-        /// </summary>
-        public static readonly ECCurve CacheCurve =  ECCurve.CreateFromFriendlyName("secp384r1");
+        private static readonly ConditionalWeakTable<FBMClient, ClientCacheConfiguration> ClientCacheConfig = new();
 
         /// <summary>
         /// Gets a <see cref="FBMClientConfig"/> preconfigured object caching
@@ -119,84 +98,74 @@ namespace VNLib.Data.Caching.Extensions
                 DebugLog = debugLog
             };
         }
-      
 
-        /// <summary>
-        /// Contacts the cache broker to get a list of active servers to connect to
-        /// </summary>
-        /// <param name="brokerAddress">The broker server to connec to</param>
-        /// <param name="clientPrivKey">The private key used to sign messages sent to the broker</param>
-        /// <param name="brokerPubKey">The broker public key used to verify broker messages</param>
-        /// <param name="cancellationToken">A token to cancel the operationS</param>
-        /// <returns>The list of active servers</returns>
-        /// <exception cref="SecurityException"></exception>
-        /// <exception cref="ArgumentNullException"></exception>
-        public static async Task<ActiveServer[]?> ListServersAsync(Uri brokerAddress, ReadOnlyMemory<byte> clientPrivKey, ReadOnlyMemory<byte> brokerPubKey, CancellationToken cancellationToken = default)
+        private static void LogDebug(this FBMClient client, string message)
         {
-            using ECDsa client = ECDsa.Create(CacheCurve);
-            using ECDsa broker = ECDsa.Create(CacheCurve);
-
-            //Import client private key
-            client.ImportPkcs8PrivateKey(clientPrivKey.Span, out _);
-            //Broker public key to verify broker messages
-            broker.ImportSubjectPublicKeyInfo(brokerPubKey.Span, out _);
-
-            return await ListServersAsync(brokerAddress, client, broker, cancellationToken);
+            client.Config.DebugLog?.Debug("{debug}: {data}", "[CACHE]", message);
         }
 
         /// <summary>
         /// Contacts the cache broker to get a list of active servers to connect to
         /// </summary>
-        /// <param name="brokerAddress">The broker server to connec to</param>
-        /// <param name="signingAlg">The signature algorithm used to sign messages to the broker</param>
-        /// <param name="verificationAlg">The signature used to verify broker messages</param>
+        /// <param name="request">The request message used to connecto the broker server</param>
         /// <param name="cancellationToken">A token to cancel the operationS</param>
         /// <returns>The list of active servers</returns>
         /// <exception cref="SecurityException"></exception>
         /// <exception cref="ArgumentNullException"></exception>
-        public static async Task<ActiveServer[]?> ListServersAsync(Uri brokerAddress, ECDsa signingAlg, ECDsa verificationAlg, CancellationToken cancellationToken = default)
+        public static async Task<ActiveServer[]?> ListServersAsync(ListServerRequest request, CancellationToken cancellationToken = default)
         {
-            _ = brokerAddress ?? throw new ArgumentNullException(nameof(brokerAddress));
-            _ = signingAlg ?? throw new ArgumentNullException(nameof(signingAlg));
-            _ = verificationAlg ?? throw new ArgumentNullException(nameof(verificationAlg));
+            _ = request ?? throw new ArgumentNullException(nameof(request));
 
             string jwtBody;
             //Build request jwt
             using (JsonWebToken requestJwt = new())
             {
-                requestJwt.WriteHeader(JwtMessageHeader.Span);
+                requestJwt.WriteHeader(request.JwtHeader);
                 requestJwt.InitPayloadClaim()
                     .AddClaim("iat", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+                    .AddClaim("nonce", RandomHash.GetRandomBase32(16))
                     .CommitClaims();
                 //sign the jwt
-                requestJwt.Sign(signingAlg, in CacheJwtAlgorithm, 512);
+                request.SignJwt(requestJwt);
                 //Compile the jwt
                 jwtBody = requestJwt.Compile();
             }
+
             //New list request
-            RestRequest listRequest = new(brokerAddress, Method.Post);
+            RestRequest listRequest = new(request.BrokerAddress, Method.Post);
+
             //Add the jwt as a string to the request body
             listRequest.AddStringBody(jwtBody, DataFormat.None);
+            listRequest.AddHeader("Accept", HttpHelpers.GetContentTypeString(ContentType.Text));
             listRequest.AddHeader("Content-Type", HttpHelpers.GetContentTypeString(ContentType.Text));
+
+            byte[] data;
+
             //Rent client
-            using ClientContract client = ClientPool.Lease();
-            //Exec list request
-            RestResponse response = await client.Resource.ExecuteAsync(listRequest, cancellationToken);
-            if (!response.IsSuccessful)
+            using (ClientContract client = ClientPool.Lease())
             {
-                throw response.ErrorException!;
+                //Exec list request
+                RestResponse response = await client.Resource.ExecuteAsync(listRequest, cancellationToken);
+
+                if (!response.IsSuccessful)
+                {
+                    throw response.ErrorException!;
+                }
+
+                data = response.RawBytes ?? throw new InvalidOperationException("No data returned from broker");
             }
             //Response is jwt
-            using JsonWebToken responseJwt = JsonWebToken.ParseRaw(response.RawBytes);
+            using JsonWebToken responseJwt = JsonWebToken.ParseRaw(data);
+            
             //Verify the jwt
-            if (!responseJwt.Verify(verificationAlg, in CacheJwtAlgorithm))
+            if (!request.VerifyJwt(responseJwt))
             {
                 throw new SecurityException("Failed to verify the broker's challenge, cannot continue");
             }
+            
             using JsonDocument doc = responseJwt.GetPayload();
             return doc.RootElement.GetProperty("servers").Deserialize<ActiveServer[]>();
         }
-
 
         /// <summary>
         /// Registers the current server as active with the specified broker
@@ -204,6 +173,7 @@ namespace VNLib.Data.Caching.Extensions
         /// <param name="registration">The registration request</param>
         public static async Task ResgisterWithBrokerAsync(BrokerRegistrationRequest registration)
         {
+            _ = registration ?? throw new ArgumentNullException(nameof(registration));
             _ = registration.HeartbeatToken ?? throw new ArgumentException("Missing required heartbeat access token");
             _ = registration.NodeId ?? throw new ArgumentException("Missing required cache server NodeId");
             _ = registration.BrokerAddress ?? throw new ArgumentException("Broker server address has not been configured");
@@ -214,7 +184,7 @@ namespace VNLib.Data.Caching.Extensions
             using (JsonWebToken jwt = new())
             {
                 //Shared jwt header
-                jwt.WriteHeader(JwtMessageHeader.Span);
+                jwt.WriteHeader(registration.JsonHeader);
                 //build jwt claim
                 jwt.InitPayloadClaim()
                     .AddClaim("address", registration.RegistrationAddress)
@@ -223,7 +193,7 @@ namespace VNLib.Data.Caching.Extensions
                     .CommitClaims();
 
                 //Sign the jwt
-                jwt.Sign(registration.SiginingAlg, in CacheJwtAlgorithm, 512);
+                registration.SignJwt(jwt);
                 //Compile and save
                 requestData = jwt.Compile();
             }
@@ -240,9 +210,7 @@ namespace VNLib.Data.Caching.Extensions
                 throw response.ErrorException!;
             }
         }
-
-
-        private static readonly ConditionalWeakTable<FBMClient, ClientCacheConfiguration> ClientCacheConfig = new();
+    
 
         /// <summary>
         /// Allows for configuration of an <see cref="FBMClient"/>
@@ -259,6 +227,7 @@ namespace VNLib.Data.Caching.Extensions
         /// <param name="token">A token to cancel the discovery</param>
         /// <returns>A task the resolves the list of active servers on the broker server</returns>
         public static Task<ActiveServer[]?> DiscoverCacheNodesAsync(this FBMClientWorkerBase client, CancellationToken token = default) => client.Client.DiscoverCacheNodesAsync(token);
+       
         /// <summary>
         /// Discovers cache nodes in the broker configured for the current client.
         /// </summary>
@@ -268,8 +237,10 @@ namespace VNLib.Data.Caching.Extensions
         public static async Task<ActiveServer[]?> DiscoverCacheNodesAsync(this FBMClient client, CancellationToken token = default)
         {
             ClientCacheConfiguration conf = ClientCacheConfig.GetOrCreateValue(client);
+            //Request from config
+            using ListServerRequest req = ListServerRequest.FromConfig(conf);
             //List servers async
-            ActiveServer[]? servers = await ListServersAsync(conf.BrokerAddress!, conf.SigningKey, conf.VerificationKey, token);
+            ActiveServer[]? servers = await ListServersAsync(req, token);
             conf.CacheServers = servers;
             return servers;
         }
@@ -332,16 +303,15 @@ namespace VNLib.Data.Caching.Extensions
         /// <exception cref="ObjectDisposedException"></exception>
         public static Task ConnectToCacheAsync(this FBMClient client, ActiveServer server, CancellationToken token = default)
         {
+            _ = client ?? throw new ArgumentNullException(nameof(client));
+            _ = server ?? throw new ArgumentNullException(nameof(server));
+            
             //Get stored config
             ClientCacheConfiguration conf = ClientCacheConfig.GetOrCreateValue(client);
             //Connect to server (no server id because client not replication server)
             return ConnectToCacheAsync(client, conf, server, token);
         }
-
-        private static void LogDebug(this FBMClient client, string message)
-        {
-            client.Config.DebugLog.Debug("{debug}: {data}","[CACHE]", message);
-        }
+     
 
         private static async Task ConnectToCacheAsync(FBMClient client, ClientCacheConfiguration request, ActiveServer server, CancellationToken token = default)
         {
@@ -358,10 +328,13 @@ namespace VNLib.Data.Caching.Extensions
             //Init jwt for connecting to server
             using (JsonWebToken jwt = new())
             {
-                jwt.WriteHeader(JwtMessageHeader.Span);
+                jwt.WriteHeader(request.JwtHeader);
+                
                 //Init claim
                 JwtPayload claim = jwt.InitPayloadClaim();
+                
                 claim.AddClaim("chl", request.ServerChallenge);
+                
                 if (!string.IsNullOrWhiteSpace(request.NodeId))
                 {
                     /*
@@ -370,10 +343,11 @@ namespace VNLib.Data.Caching.Extensions
                     */
                     claim.AddClaim("sub", request.NodeId);
                 }
+                
                 claim.CommitClaims();
 
                 //Sign jwt
-                jwt.Sign(request.SigningKey, in CacheJwtAlgorithm, 512);
+                request.SignJwt(jwt);
 
                 //Compile to string
                 jwtMessage = jwt.Compile();
@@ -382,16 +356,19 @@ namespace VNLib.Data.Caching.Extensions
             RestRequest negotation = new(serverUri, Method.Get);
             //Set the jwt auth header for negotiation
             negotation.AddHeader("Authorization", jwtMessage);
+            negotation.AddHeader("Accept", HttpHelpers.GetContentTypeString(ContentType.Text));
 
             client.LogDebug("Negotiating with cache server");
-
+            
+            string authToken;
+            
             //rent client
             using (ClientContract clientContract = ClientPool.Lease())
             {
                 //Execute the request
-                RestResponse response = await clientContract.Resource.ExecuteAsync(negotation, token);
+                RestResponse response = await clientContract.Resource.ExecuteGetAsync(negotation, token);
+                
                 //Check verify the response
-
                 if (!response.IsSuccessful)
                 {
                     throw response.ErrorException!;
@@ -401,27 +378,28 @@ namespace VNLib.Data.Caching.Extensions
                 {
                     throw new FBMServerNegiationException("Failed to negotiate with the server, no response");
                 }
-
+                
                 //Raw content
-                string authToken = response.Content;
+                authToken = response.Content;
+            }
 
-                //Parse the jwt
-                using JsonWebToken jwt = JsonWebToken.Parse(authToken);
-
+            //Parse the jwt
+            using (JsonWebToken jwt = JsonWebToken.Parse(authToken))
+            {
                 //Verify the jwt
-                if (!jwt.Verify(request.VerificationKey, in CacheJwtAlgorithm))
+                if (!request.VerifyCache(jwt))
                 {
-                    throw new SecurityException("Failed to verify the broker's negotiation message, cannot continue");
+                    throw new SecurityException("Failed to verify the cache server's negotiation message, cannot continue");
                 }
 
                 //Confirm the server's buffer configuration
                 ValidateServerNegotation(client, request.ServerChallenge, jwt);
-
-                client.LogDebug("Server negotiation validated, connecting to server");
-
-                //The client authorization header is the exact response
-                client.ClientSocket.Headers[HttpRequestHeader.Authorization] = authToken;
             }
+            
+            client.LogDebug("Server negotiation validated, connecting to server");
+
+            //The client authorization header is the exact response
+            client.ClientSocket.Headers[HttpRequestHeader.Authorization] = authToken;
 
             //Connect async
             await client.ConnectAsync(uriBuilder.Uri, token);
@@ -442,15 +420,15 @@ namespace VNLib.Data.Caching.Extensions
                 string challengeResponse = args["chl"].GetString()!;
 
                 //Check the challenge response
-                if (challenge.Equals(challengeResponse, StringComparison.Ordinal))
+                if (!challenge.Equals(challengeResponse, StringComparison.Ordinal))
                 {
                     throw new FBMServerNegiationException("Failed to negotiate with the server, challenge response does not match");
                 }
 
                 //Get the negiation values
                 uint recvBufSize = args[FBMClient.REQ_RECV_BUF_QUERY_ARG].GetUInt32();
-                uint headerBufSize= args[FBMClient.REQ_HEAD_BUF_QUERY_ARG].GetUInt32();
-                uint maxMessSize= args[FBMClient.REQ_MAX_MESS_QUERY_ARG].GetUInt32();
+                uint headerBufSize = args[FBMClient.REQ_HEAD_BUF_QUERY_ARG].GetUInt32();
+                uint maxMessSize = args[FBMClient.REQ_MAX_MESS_QUERY_ARG].GetUInt32();
                 
                 //Verify the values
                 if (client.Config.RecvBufferSize > recvBufSize)
