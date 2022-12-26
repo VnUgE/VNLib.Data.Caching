@@ -26,7 +26,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\VNLib\Utils\src\VNLib.Utils.csproj" />
-    <ProjectReference Include="..\VNLib.Data.Caching\src\VNLib.Data.Caching.csproj" />
   </ItemGroup>
 
 </Project>

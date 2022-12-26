@@ -30,7 +30,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\VNLib\Hashing\src\VNLib.Hashing.Portable.csproj" />
-    <ProjectReference Include="..\..\..\VNLib\Http\VNLib.Net.Http.csproj" />
+    <ProjectReference Include="..\..\..\VNLib\Http\src\VNLib.Net.Http.csproj" />
     <ProjectReference Include="..\..\..\VNLib\VNLib.Net.Messaging.FBM\src\VNLib.Net.Messaging.FBM.csproj" />
     <ProjectReference Include="..\..\VNLib.Net.Rest.Client\VNLib.Net.Rest.Client.csproj" />
   </ItemGroup>

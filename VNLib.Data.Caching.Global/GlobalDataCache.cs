@@ -139,7 +139,7 @@ namespace VNLib.Data.Caching.Global
                 throw new CacheNotLoadedException("Global cache provider was not found");
             }
             //set the value in the store
-            await prov.SetAsync<T>(key, value);
+            await prov.AddOrUpdateAsync<T>(key, null, value);
         }
 
         /// <summary>

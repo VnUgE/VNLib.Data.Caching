@@ -9,17 +9,17 @@
 * VNLib collection of libraries and utilities.
 *
 * VNLib.Data.Caching.ObjectCache is free software: you can redistribute it and/or modify 
-* it under the terms of the GNU General Public License as published
-* by the Free Software Foundation, either version 2 of the License,
-* or (at your option) any later version.
+* it under the terms of the GNU Affero General Public License as 
+* published by the Free Software Foundation, either version 3 of the
+* License, or (at your option) any later version.
 *
 * VNLib.Data.Caching.ObjectCache is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
-* General Public License for more details.
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Affero General Public License for more details.
 *
-* You should have received a copy of the GNU General Public License 
-* along with VNLib.Data.Caching.ObjectCache. If not, see http://www.gnu.org/licenses/.
+* You should have received a copy of the GNU Affero General Public License
+* along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
 using System;
@@ -27,7 +27,6 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-using VNLib.Utils.IO;
 using VNLib.Utils.Async;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
@@ -247,6 +246,9 @@ namespace VNLib.Data.Caching.ObjectCache
                 {
                     Cache?.Clear();
                 }
+                
+                StoreLock.Dispose();
+                
                 disposedValue = true;
             }
         }
