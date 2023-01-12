@@ -1,9 +1,8 @@
-# DataCaching
-*A collection of data-caching libraries and server plugins for cache clients, servers, and clustering*
+# ObjectCacheServer
+*A clustered VNCache object cache server plugin. Provides a high-performance key-value memory cache*
 
 #### Builds
 Debug build w/ symbols & xml docs, release builds, NuGet packages, and individually packaged source code are available on my [website](https://www.vaughnnugent.com/resources/software). All tar-gzip (.tgz) files will have an associated .sha384 appended checksum of the desired download file.
 
-
-## Licensing
-Projects contained in this repository are individually licensed, either GNU GPL V2+ or GNU GPL GPL Aferro V3+. Builds contain the required license txt files in the archive.
+## License
+Source files in for this project are licensed to you under the GNU Affero General Public License (or any later version). See the LICENSE files for more information.
