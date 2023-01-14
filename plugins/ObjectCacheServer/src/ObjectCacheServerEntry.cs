@@ -74,7 +74,7 @@ namespace VNLib.Plugins.Essentials.Sessions.Server
         protected override void OnLoad()
         {
             //Create default heap
-            IUnmangedHeap CacheHeap = Memory.InitializeNewHeapForProcess();
+            IUnmangedHeap CacheHeap = MemoryUtil.InitializeNewHeapForProcess();
             try
             {
                 IReadOnlyDictionary<string, JsonElement> clusterConf = this.GetConfig("cluster");

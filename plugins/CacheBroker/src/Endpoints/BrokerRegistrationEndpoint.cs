@@ -200,8 +200,10 @@ namespace VNLib.Plugins.Cache.Broker.Endpoints
         {
             //get a buffer to store data in
             using VnMemoryStream buffer = new();
+            
             //Copy input stream to buffer
-            await inputStream.CopyToAsync(buffer, 4096, Memory.Shared);
+            await inputStream.CopyToAsync(buffer, 4096, MemoryUtil.Shared);
+            
             //Parse jwt
             return JsonWebToken.ParseRaw(buffer.AsSpan());
         }

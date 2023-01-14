@@ -105,7 +105,7 @@ namespace VNLib.Plugins.Extensions.VNCache
             Uri brokerUri = new(brokerAddress);
 
             //Init the client with default settings
-            FBMClientConfig conf = FBMDataCacheExtensions.GetDefaultConfig(ClientHeap ?? Memory.Shared, maxMessageSize, DebugLog);
+            FBMClientConfig conf = FBMDataCacheExtensions.GetDefaultConfig(ClientHeap ?? MemoryUtil.Shared, maxMessageSize, DebugLog);
 
             _client = new(conf);
 

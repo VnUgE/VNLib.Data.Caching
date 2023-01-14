@@ -171,7 +171,7 @@ namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
                 auth.WriteHeader(cert.JwtHeader);
                 auth.InitPayloadClaim()
                     .AddClaim("aud", AudienceLocalServerId)
-                    .AddClaim("exp", DateTimeOffset.UtcNow.Add(AuthTokenExpiration).ToUnixTimeSeconds())
+                    .AddClaim("exp", entity.RequestedTimeUtc.Add(AuthTokenExpiration).ToUnixTimeSeconds())
                     .AddClaim("nonce", RandomHash.GetRandomBase32(8))
                     .AddClaim("chl", challenge!)
                     //Set the ispeer flag if the request was signed by a cache server
@@ -279,7 +279,7 @@ namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
                     }
 
                     if (!doc.RootElement.TryGetProperty("exp", out JsonElement expEl)
-                        || DateTimeOffset.FromUnixTimeSeconds(expEl.GetInt64()) < DateTimeOffset.UtcNow)
+                        || DateTimeOffset.FromUnixTimeSeconds(expEl.GetInt64()) < entity.RequestedTimeUtc)
                     {
                         entity.CloseResponse(HttpStatusCode.Unauthorized);
                         return VfReturnType.VirtualSkip;
