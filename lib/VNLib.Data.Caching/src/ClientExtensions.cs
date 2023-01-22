@@ -23,7 +23,6 @@
 */
 
 using System;
-using System.IO;
 using System.Linq;
 using System.Buffers;
 using System.Text.Json;
@@ -31,23 +30,26 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using System.Runtime.CompilerServices;
 
 using VNLib.Utils.Logging;
+using VNLib.Utils.Memory.Caching;
 using VNLib.Net.Messaging.FBM;
 using VNLib.Net.Messaging.FBM.Client;
 using VNLib.Net.Messaging.FBM.Server;
 using VNLib.Data.Caching.Exceptions;
-
 using static VNLib.Data.Caching.Constants;
 
 namespace VNLib.Data.Caching
 {
-
     /// <summary>
     /// Provides caching extension methods for <see cref="FBMClient"/>
     /// </summary>
     public static class ClientExtensions
     {
+        //Create threadlocal writer for attempted reuse without locks
+        private static readonly ObjectRental<ReusableJsonWriter> JsonWriterPool = ObjectRental.Create<ReusableJsonWriter>();
+
         private static readonly JsonSerializerOptions LocalOptions = new()
         {
             DictionaryKeyPolicy = JsonNamingPolicy.CamelCase,
@@ -63,12 +65,10 @@ namespace VNLib.Data.Caching
             DefaultBufferSize = 128
         };
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void LogDebug(this FBMClient client, string message, params object?[] args)
         {
-            if (client.Config.DebugLog != null)
-            {
-                client.Config.DebugLog.Debug($"[CACHE] : {message}", args);
-            }
+            client.Config.DebugLog?.Debug($"[CACHE] : {message}", args);
         }
 
         /// <summary>
@@ -96,24 +96,29 @@ namespace VNLib.Data.Caching
             {
                 //Set action as get/create
                 request.WriteHeader(HeaderCommand.Action, Actions.Get);
-                //Set session-id header
+                
+                //Set object id header
                 request.WriteHeader(Constants.ObjectId, objectId);
                 
                 //Make request
                 using FBMResponse response = await client.SendAsync(request, cancellationToken);
-
                 response.ThrowIfNotSet();
+                
                 //Get the status code
                 ReadOnlyMemory<char> status = response.Headers.FirstOrDefault(static a => a.Key == HeaderCommand.Status).Value;
+
+                //Check ok status code, then its safe to deserialize
                 if (status.Span.Equals(ResponseCodes.Okay, StringComparison.Ordinal))
                 {
                     return JsonSerializer.Deserialize<T>(response.ResponseBody, LocalOptions);
                 }
-                //Session may not exist on the server yet
+                
+                //Object  may not exist on the server yet
                 if (status.Span.Equals(ResponseCodes.NotFound, StringComparison.Ordinal))
                 {
                     return default;
                 }
+
                 throw new InvalidStatusException("Invalid status code recived for object get request", status.ToString());
             }
             finally
@@ -145,34 +150,39 @@ namespace VNLib.Data.Caching
             _ = client ?? throw new ArgumentNullException(nameof(client));
             
             client.LogDebug("Updating object {id}, newid {nid}", objectId, newId);
-           
+
+            //Rent new json writer
+            ReusableJsonWriter writer = JsonWriterPool.Rent();
+
             //Rent a new request
             FBMRequest request = client.RentRequest();
             try
             {
                 //Set action as get/create
                 request.WriteHeader(HeaderCommand.Action, Actions.AddOrUpdate);
+                
                 //Set session-id header
                 request.WriteHeader(Constants.ObjectId, objectId);
+
                 //if new-id set, set the new-id header
                 if (!string.IsNullOrWhiteSpace(newId))
                 {
                     request.WriteHeader(Constants.NewObjectId, newId);
                 }
+                
                 //Get the body writer for the message
                 IBufferWriter<byte> bodyWriter = request.GetBodyWriter();
-                //Write json data to the message
-                using (Utf8JsonWriter jsonWriter = new(bodyWriter))
-                {
-                    JsonSerializer.Serialize(jsonWriter, data, LocalOptions);
-                }
+
+                //Serialize the message
+                writer.Serialize(bodyWriter, data, LocalOptions);
 
                 //Make request
                 using FBMResponse response = await client.SendAsync(request, cancellationToken);
-
                 response.ThrowIfNotSet();
+                
                 //Get the status code
                 ReadOnlyMemory<char> status = response.Headers.FirstOrDefault(static a => a.Key == HeaderCommand.Status).Value;
+                
                 //Check status code
                 if (status.Span.Equals(ResponseCodes.Okay, StringComparison.OrdinalIgnoreCase))
                 {
@@ -182,6 +192,7 @@ namespace VNLib.Data.Caching
                 {
                     throw new ObjectNotFoundException($"object {objectId} not found on remote server");
                 }
+                
                 //Invalid status
                 throw new InvalidStatusException("Invalid status code recived for object upsert request", status.ToString());
             }
@@ -189,6 +200,8 @@ namespace VNLib.Data.Caching
             {
                 //Return the request(clears data and reset)
                 client.ReturnRequest(request);
+                //Return writer to pool later
+                JsonWriterPool.Return(writer);
             }
         }
         
@@ -208,6 +221,7 @@ namespace VNLib.Data.Caching
             _ = client ?? throw new ArgumentNullException(nameof(client));
 
             client.LogDebug("Deleting object {id}", objectId);
+            
             //Rent a new request
             FBMRequest request = client.RentRequest();
             try
@@ -219,10 +233,11 @@ namespace VNLib.Data.Caching
 
                 //Make request
                 using FBMResponse response = await client.SendAsync(request, cancellationToken);
-
                 response.ThrowIfNotSet();
+                
                 //Get the status code
                 ReadOnlyMemory<char> status = response.Headers.FirstOrDefault(static a => a.Key == HeaderCommand.Status).Value;
+                
                 if (status.Span.Equals(ResponseCodes.Okay, StringComparison.Ordinal))
                 {
                     return;
@@ -231,6 +246,7 @@ namespace VNLib.Data.Caching
                 {
                     throw new ObjectNotFoundException($"object {objectId} not found on remote server");
                 }
+
                 throw new InvalidStatusException("Invalid status code recived for object get request", status.ToString());
             }
             finally
@@ -278,38 +294,44 @@ namespace VNLib.Data.Caching
         /// <param name="context"></param>
         /// <returns>The id of the object requested</returns>
         /// <exception cref="InvalidOperationException"></exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string ObjectId(this FBMContext context)
         {
             return context.Request.Headers.First(static kvp => kvp.Key == Constants.ObjectId).Value.ToString();
         }
+        
         /// <summary>
         /// Gets the new ID of the object if specified from the request. Null if the request did not specify an id update
         /// </summary>
         /// <param name="context"></param>
         /// <returns>The new ID of the object if speicifed, null otherwise</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string? NewObjectId(this FBMContext context)
         {
             return context.Request.Headers.FirstOrDefault(static kvp => kvp.Key == Constants.NewObjectId).Value.ToString();
         }
+
         /// <summary>
         /// Gets the request method for the request
         /// </summary>
         /// <param name="context"></param>
         /// <returns>The request method string</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string Method(this FBMContext context)
         {
             return context.Request.Headers.First(static kvp => kvp.Key == HeaderCommand.Action).Value.ToString();
         }
+
         /// <summary>
         /// Closes a response with a status code
         /// </summary>
         /// <param name="context"></param>
         /// <param name="responseCode">The status code to send to the client</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void CloseResponse(this FBMContext context, string responseCode)
         {
             context.Response.WriteHeader(HeaderCommand.Status, responseCode);
         }
-
 
         /// <summary>
         /// Initializes the worker for a reconnect policy and returns an object that can listen for changes
