@@ -8,17 +8,12 @@
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <Nullable>enable</Nullable>
     <DocumentationFile></DocumentationFile>
+    <AnalysisLevel>latest-all</AnalysisLevel>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>Provides constants and extensions for a key-value data caching protocol layer atop the Fixed Buffer Messaging protocol to work VNCache servers. Provides rapid cache development</Description>
     <PackageProjectUrl>https://www.vaughnnugent.com/resources/software</PackageProjectUrl>
     <SignAssembly>True</SignAssembly>
     <AssemblyOriginatorKeyFile>\\vaughnnugent.com\Internal\Folder Redirection\vman\Documents\Programming\Software\StrongNameingKey.snk</AssemblyOriginatorKeyFile>
-  </PropertyGroup>
-
-  <PropertyGroup>
-    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-    <AnalysisLevel>latest-all</AnalysisLevel>
-    <Title>$(AssemblyName)</Title>
-    <Description>Provides constants and extensions for a key-value data caching protocol layer atop the Fixed Buffer Messaging protocol to work VNCache servers. Provides rapid cache development</Description>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
