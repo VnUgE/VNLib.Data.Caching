@@ -308,7 +308,7 @@ namespace VNLib.Data.Caching
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string? NewObjectId(this FBMContext context)
         {
-            return context.Request.Headers.FirstOrDefault(static kvp => kvp.Header == Constants.NewObjectId).Value.ToString();
+            return context.Request.Headers.FirstOrDefault(static kvp => kvp.Header == Constants.NewObjectId).GetValueString();
         }
 
         /// <summary>

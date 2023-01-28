@@ -68,7 +68,6 @@ namespace VNLib.Data.Caching.ObjectCache
         /// <summary>
         /// Initialzies a new <see cref="ObjectCacheStore"/>
         /// </summary>
-        /// <param name="dir">The <see cref="DirectoryInfo"/> to store blob files to</param>
         /// <param name="cacheMax"></param>
         /// <param name="log"></param>
         /// <param name="heap"></param>
