@@ -27,11 +27,23 @@ namespace VNLib.Data.Caching.ObjectCache
     /// <summary>
     /// An event object that is passed when change events occur
     /// </summary>
-    public class ChangeEvent
+    public sealed class ChangeEvent
     {
-        public readonly string CurrentId;
-        public readonly string? AlternateId;
-        public readonly bool Deleted;
+        /// <summary>
+        /// The current id of the changed object
+        /// </summary>
+        public string CurrentId { get; }
+
+        /// <summary>
+        /// The alternate id of the changed object if specified
+        /// </summary>
+        public string? AlternateId { get; }
+        
+        /// <summary>
+        /// A value that indicates if the object was deleted 
+        /// </summary>
+        public bool Deleted { get; }
+        
         internal ChangeEvent(string id, string? alternate, bool deleted)
         {
             CurrentId = id;

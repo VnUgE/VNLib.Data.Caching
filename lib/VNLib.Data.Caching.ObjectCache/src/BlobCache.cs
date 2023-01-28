@@ -23,116 +23,134 @@
 */
 
 using System;
-using System.IO;
-using System.Linq;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 
-using VNLib.Utils.IO;
-using VNLib.Utils.Logging;
-using VNLib.Utils.Memory;
 using VNLib.Utils.Memory.Caching;
 
 namespace VNLib.Data.Caching
 {
+
     /// <summary>
     /// A general purpose binary data storage
     /// </summary>
-    public class BlobCache : LRUCache<string, MemoryHandle<byte>>
+    public class BlobCache : LRUCache<string, CacheEntry>
     {
-        readonly IUnmangedHeap Heap;
-        readonly DirectoryInfo SwapDir;
-        readonly ILogProvider Log;
         ///<inheritdoc/>
         public override bool IsReadOnly { get; }
+
         ///<inheritdoc/>
         protected override int MaxCapacity { get; }
-       
-          
+
+
         /// <summary>
         /// Initializes a new <see cref="BlobCache"/> store
         /// </summary>
-        /// <param name="swapDir">The <see cref="IsolatedStorageDirectory"/> to swap blob data to when cache</param>
         /// <param name="maxCapacity">The maximum number of items to keep in memory</param>
-        /// <param name="log">A <see cref="ILogProvider"/> to write log data to</param>
-        /// <param name="heap">A <see cref="IUnmangedHeap"/> to allocate buffers and store <see cref="BlobItem"/> data in memory</param>
-        public BlobCache(DirectoryInfo swapDir, int maxCapacity, ILogProvider log, IUnmangedHeap heap)
+        /// <exception cref="ArgumentException"></exception>
+        public BlobCache(int maxCapacity)
             :base(StringComparer.Ordinal)
         {
-            IsReadOnly = false;
+            if(maxCapacity < 1)
+            {
+                throw new ArgumentException("The maxium capacity of the store must be a positive integer larger than 0", nameof(maxCapacity));   
+            }
+
             MaxCapacity = maxCapacity;
-            SwapDir = swapDir;
+
             //Update the lookup table size
             LookupTable.EnsureCapacity(maxCapacity);
-            //Set default heap if not specified
-            Heap = heap;
-            Log = log;
         }
+
         ///<inheritdoc/>
-        protected override bool CacheMiss(string key, [NotNullWhen(true)] out MemoryHandle<byte>? value)
+        protected override bool CacheMiss(string key, out CacheEntry value)
         {
-            value = null;
+            value = default;
             return false;
         }
+
         ///<inheritdoc/>
-        protected override void Evicted(KeyValuePair<string, MemoryHandle<byte>> evicted)
+        protected override void Evicted(ref KeyValuePair<string, CacheEntry> evicted)
         {
-            //Dispose the blob
+            //Dispose the cache item
             evicted.Value.Dispose();
         }
+
         /// <summary>
-        /// If the <see cref="BlobItem"/> is found in the store, changes the key 
+        /// If the <see cref="CacheEntry"/> is found in the store, changes the key 
         /// that referrences the blob. 
         /// </summary>
         /// <param name="currentKey">The key that currently referrences the blob in the store</param>
         /// <param name="newKey">The new key that will referrence the blob</param>
-        /// <param name="blob">The <see cref="BlobItem"/> if its found in the store</param>
+        /// <param name="blob">The <see cref="CacheEntry"/> if its found in the store</param>
         /// <returns>True if the record was found and the key was changes</returns>
-        public bool TryChangeKey(string currentKey, string newKey, [NotNullWhen(true)] out MemoryHandle<byte>? blob)
+        public bool TryChangeKey(string currentKey, string newKey, out CacheEntry blob)
         {
-            if (LookupTable.Remove(currentKey, out LinkedListNode<KeyValuePair<string, MemoryHandle<byte>>>? node))
+            //Try to get the node at the current key
+            if (LookupTable.Remove(currentKey, out LinkedListNode<KeyValuePair<string, CacheEntry>> ? node))
             {
                 //Remove the node from the ll
                 List.Remove(node);
-                //Update the node kvp
-                blob = node.Value.Value;
-                node.Value = new KeyValuePair<string, MemoryHandle<byte>>(newKey, blob);
+
+                //Get the stored blob
+                blob = node.ValueRef.Value;
+
+                //Update the 
+                node.Value = new KeyValuePair<string, CacheEntry>(newKey, blob);
+
                 //Add to end of list
                 List.AddLast(node);
+
                 //Re-add to lookup table with new key
                 LookupTable.Add(newKey, node);
+
                 return true;
             }
-            blob = null;
+
+            blob = default;
             return false;
         }
+
         /// <summary>
-        /// Removes the <see cref="BlobItem"/> from the store without disposing the blobl
+        /// Removes the <see cref="CacheEntry"/> from the store, and frees its resources
         /// </summary>
-        /// <param name="key">The key that referrences the <see cref="BlobItem"/> in the store</param>
+        /// <param name="key">The key that referrences the <see cref="CacheEntry"/> in the store</param>
         /// <returns>A value indicating if the blob was removed</returns>
         public override bool Remove(string key)
         {
             //Remove the item from the lookup table and if it exists, remove the node from the list
-            if (LookupTable.Remove(key, out LinkedListNode<KeyValuePair<string, MemoryHandle<byte>>>? node))
+            if (!LookupTable.Remove(key, out LinkedListNode<KeyValuePair<string, CacheEntry>>? node))
             {
-                //Remove the new from the list
-                List.Remove(node);
-                //dispose the buffer
-                node.Value.Value.Dispose();
-                return true;
+                return false;
             }
-            return false;
+
+            //always dispose blob
+            using (node.ValueRef.Value)
+            {
+                //Remove the node from the list
+                List.Remove(node);
+            }
+            return true;
         }
+
         /// <summary>
-        /// Removes and disposes all blobl elements in cache (or in the backing store)
+        /// Removes all cache entires and disposes their held resources
         /// </summary>
         public override void Clear()
         {
-            foreach (MemoryHandle<byte> blob in List.Select(kp => kp.Value))
+            //Start from first node
+            LinkedListNode<KeyValuePair<string, CacheEntry>>? node = List.First;
+
+            //Classic ll node itteration
+            while(node != null)
             {
-                blob.Dispose();
+                //Dispose the cache entry
+                node.ValueRef.Value.Dispose();
+                
+                //Move to next node
+                node = node.Next;
             }
+           
+            //empty all cache entires in the store
             base.Clear();
         }
     }

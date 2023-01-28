@@ -56,11 +56,12 @@ using VNLib.Net.Rest.Client;
 namespace VNLib.Plugins.Cache.Broker.Endpoints
 {
     [ConfigurationName("broker_endpoint")]
-    public sealed class BrokerRegistrationEndpoint : ResourceEndpointBase
+    public sealed class BrokerRegistrationEndpoint : ResourceEndpointBase, IDisposable
     {
         const string HEARTBEAT_PATH = "/heartbeat";
 
-        private static readonly RestClientPool ClientPool = new(10,new RestClientOptions()
+        //Client pool is instance based and may be disposed when the plugin is unloaded
+        private readonly RestClientPool ClientPool = new(10,new RestClientOptions()
         {
             Encoding = Encoding.UTF8,
             FollowRedirects = false,
@@ -69,6 +70,7 @@ namespace VNLib.Plugins.Cache.Broker.Endpoints
         }, null);
       
 
+        //Matches the json schema set by the FBM caching extensions library
         private class ActiveServer
         {
             [JsonIgnore]
@@ -407,6 +409,13 @@ namespace VNLib.Plugins.Cache.Broker.Endpoints
             {
                 _ = ActiveServers.Remove(server.ServerId!);
             }
+        }
+
+        
+        void IDisposable.Dispose()
+        {
+            //Cleanup client pool when exiting
+            ClientPool.Dispose();
         }
     }
 }

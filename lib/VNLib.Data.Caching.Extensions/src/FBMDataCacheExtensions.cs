@@ -81,14 +81,28 @@ namespace VNLib.Data.Caching.Extensions
         /// <returns>A preconfigured <see cref="FBMClientConfig"/> for object caching</returns>
         public static FBMClientConfig GetDefaultConfig(IUnmangedHeap heap, int maxMessageSize, ILogProvider? debugLog = null)
         {
+            /*
+             * Max message size (for server) should account for max data + the additional header buffer
+             */
+            int maxExtra = (int)Helpers.ToNearestKb((int)(maxMessageSize * 1.2) + MAX_FBM_MESSAGE_HEADER_SIZE);
+
             return new()
             {
                 BufferHeap = heap,
-                MaxMessageSize = maxMessageSize * 2,
-                RecvBufferSize = maxMessageSize,
-                MessageBufferSize = maxMessageSize,
+               
+                //Max message size is referrences 
+                MaxMessageSize = maxExtra,
 
+                //The size of the buffer used for buffering incoming messages
+                RecvBufferSize = maxExtra,
+
+                //Message buffer should be max message + headers
+                MessageBufferSize = (int)Helpers.ToNearestKb(maxMessageSize + MAX_FBM_MESSAGE_HEADER_SIZE),
+
+                //Caching only requires a fixed number of request headers, so we can used a fixed buffer size
                 MaxHeaderBufferSize = MAX_FBM_MESSAGE_HEADER_SIZE,
+
+                //Set the optional cache sub-protocol
                 SubProtocol = CACHE_WS_SUB_PROCOL,
 
                 HeaderEncoding = Helpers.DefaultEncoding,

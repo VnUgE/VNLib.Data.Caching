@@ -105,16 +105,16 @@ namespace VNLib.Data.Caching
                 response.ThrowIfNotSet();
                 
                 //Get the status code
-                ReadOnlyMemory<char> status = response.Headers.FirstOrDefault(static a => a.Key == HeaderCommand.Status).Value;
+                FBMMessageHeader status = response.Headers.FirstOrDefault(static a => a.Header == HeaderCommand.Status);
 
                 //Check ok status code, then its safe to deserialize
-                if (status.Span.Equals(ResponseCodes.Okay, StringComparison.Ordinal))
+                if (status.Value.Equals(ResponseCodes.Okay, StringComparison.Ordinal))
                 {
                     return JsonSerializer.Deserialize<T>(response.ResponseBody, LocalOptions);
                 }
                 
                 //Object  may not exist on the server yet
-                if (status.Span.Equals(ResponseCodes.NotFound, StringComparison.Ordinal))
+                if (status.Value.Equals(ResponseCodes.NotFound, StringComparison.Ordinal))
                 {
                     return default;
                 }
@@ -181,14 +181,14 @@ namespace VNLib.Data.Caching
                 response.ThrowIfNotSet();
                 
                 //Get the status code
-                ReadOnlyMemory<char> status = response.Headers.FirstOrDefault(static a => a.Key == HeaderCommand.Status).Value;
+                FBMMessageHeader status = response.Headers.FirstOrDefault(static a => a.Header == HeaderCommand.Status);
                 
                 //Check status code
-                if (status.Span.Equals(ResponseCodes.Okay, StringComparison.OrdinalIgnoreCase))
+                if (status.Value.Equals(ResponseCodes.Okay, StringComparison.OrdinalIgnoreCase))
                 {
                     return;
                 }
-                else if(status.Span.Equals(ResponseCodes.NotFound, StringComparison.OrdinalIgnoreCase))
+                else if(status.Value.Equals(ResponseCodes.NotFound, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new ObjectNotFoundException($"object {objectId} not found on remote server");
                 }
@@ -236,13 +236,13 @@ namespace VNLib.Data.Caching
                 response.ThrowIfNotSet();
                 
                 //Get the status code
-                ReadOnlyMemory<char> status = response.Headers.FirstOrDefault(static a => a.Key == HeaderCommand.Status).Value;
+                FBMMessageHeader status = response.Headers.FirstOrDefault(static a => a.Header == HeaderCommand.Status);
                 
-                if (status.Span.Equals(ResponseCodes.Okay, StringComparison.Ordinal))
+                if (status.Value.Equals(ResponseCodes.Okay, StringComparison.Ordinal))
                 {
                     return;
                 }
-                else if(status.Span.Equals(ResponseCodes.NotFound, StringComparison.OrdinalIgnoreCase))
+                else if(status.Value.Equals(ResponseCodes.NotFound, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new ObjectNotFoundException($"object {objectId} not found on remote server");
                 }
@@ -277,9 +277,9 @@ namespace VNLib.Data.Caching
 
                 return new()
                 {
-                    Status = response.Headers.FirstOrDefault(static a => a.Key == HeaderCommand.Status).Value.ToString(),
-                    CurrentId = response.Headers.SingleOrDefault(static v => v.Key == Constants.ObjectId).Value.ToString(),
-                    NewId = response.Headers.SingleOrDefault(static v => v.Key == Constants.NewObjectId).Value.ToString()
+                    Status = response.Headers.FirstOrDefault(static a => a.Header == HeaderCommand.Status).Value.ToString(),
+                    CurrentId = response.Headers.SingleOrDefault(static v => v.Header == Constants.ObjectId).Value.ToString(),
+                    NewId = response.Headers.SingleOrDefault(static v => v.Header == Constants.NewObjectId).Value.ToString()
                 };
             }
             finally
@@ -297,7 +297,7 @@ namespace VNLib.Data.Caching
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string ObjectId(this FBMContext context)
         {
-            return context.Request.Headers.First(static kvp => kvp.Key == Constants.ObjectId).Value.ToString();
+            return context.Request.Headers.First(static kvp => kvp.Header == Constants.ObjectId).Value.ToString();
         }
         
         /// <summary>
@@ -308,7 +308,7 @@ namespace VNLib.Data.Caching
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string? NewObjectId(this FBMContext context)
         {
-            return context.Request.Headers.FirstOrDefault(static kvp => kvp.Key == Constants.NewObjectId).Value.ToString();
+            return context.Request.Headers.FirstOrDefault(static kvp => kvp.Header == Constants.NewObjectId).Value.ToString();
         }
 
         /// <summary>
@@ -319,7 +319,7 @@ namespace VNLib.Data.Caching
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string Method(this FBMContext context)
         {
-            return context.Request.Headers.First(static kvp => kvp.Key == HeaderCommand.Action).Value.ToString();
+            return context.Request.Headers.First(static kvp => kvp.Header == HeaderCommand.Action).Value.ToString();
         }
 
         /// <summary>

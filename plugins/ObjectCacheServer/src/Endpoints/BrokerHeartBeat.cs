@@ -30,12 +30,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
+using VNLib.Plugins;
+using VNLib.Plugins.Essentials;
 using VNLib.Hashing.IdentityUtility;
 using VNLib.Plugins.Essentials.Endpoints;
 using VNLib.Plugins.Essentials.Extensions;
 using VNLib.Plugins.Extensions.Loading;
 
-namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
+namespace VNLib.Data.Caching.ObjectCache.Server
 {
     internal sealed class BrokerHeartBeat : ResourceEndpointBase
     {

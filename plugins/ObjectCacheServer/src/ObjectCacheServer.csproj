@@ -2,31 +2,22 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <Nullable>enable</Nullable>
-    <Authors>Vaughn Nugent</Authors>
+    <RootNamespace>VNLib.Data.Caching.ObjectCache.Server</RootNamespace>
     <Version>1.0.1.1</Version>
-    <RootNamespace>VNLib.Plugins.Essentials.Sessions.Server</RootNamespace>
-    <Copyright>Copyright © 2023 Vaughn Nugent</Copyright>
     <SignAssembly>True</SignAssembly>
     <AssemblyOriginatorKeyFile>\\vaughnnugent.com\Internal\Folder Redirection\vman\Documents\Programming\Software\StrongNameingKey.snk</AssemblyOriginatorKeyFile>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <AnalysisLevel>latest-all</AnalysisLevel>
+    <ProduceReferenceAssembly>True</ProduceReferenceAssembly>
+    <GenerateDocumentationFile>False</GenerateDocumentationFile>
   </PropertyGroup>
 
   <!-- Resolve nuget dll files and store them in the output dir -->
   <PropertyGroup>
-    <EnableDynamicLoading>true</EnableDynamicLoading>
-    <GenerateDocumentationFile>False</GenerateDocumentationFile>
-    <PackageProjectUrl>https://www.vaughnnugent.com/resources</PackageProjectUrl>
-    <AnalysisLevel>latest-all</AnalysisLevel>
-    <ProduceReferenceAssembly>True</ProduceReferenceAssembly>
-    
+    <Authors>Vaughn Nugent</Authors>
+    <Copyright>Copyright © 2023 Vaughn Nugent</Copyright>
+    <PackageProjectUrl>https://www.vaughnnugent.com/resources/software</PackageProjectUrl>
   </PropertyGroup>
-  <ItemGroup>
-    <Compile Remove="liveplugin2\**" />
-    <Compile Remove="liveplugin\**" />
-    <EmbeddedResource Remove="liveplugin2\**" />
-    <EmbeddedResource Remove="liveplugin\**" />
-    <None Remove="liveplugin2\**" />
-    <None Remove="liveplugin\**" />
-  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="ErrorProne.NET.CoreAnalyzers" Version="0.1.2">
       <PrivateAssets>all</PrivateAssets>
@@ -42,10 +33,4 @@
     <ProjectReference Include="..\..\..\lib\VNLib.Data.Caching.ObjectCache\src\VNLib.Data.Caching.ObjectCache.csproj" />
     <ProjectReference Include="..\..\CacheBroker\src\CacheBroker.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <None Update="ObjectCacheServer.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
 </Project>

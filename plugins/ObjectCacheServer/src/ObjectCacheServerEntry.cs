@@ -34,34 +34,67 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 
+using VNLib.Plugins;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
-using VNLib.Utils.Extensions;
+using VNLib.Utils.Memory.Diagnostics;
 using VNLib.Hashing;
 using VNLib.Hashing.IdentityUtility;
-using VNLib.Data.Caching;
 using VNLib.Data.Caching.Extensions;
-using VNLib.Data.Caching.ObjectCache;
 using static VNLib.Data.Caching.Constants;
 using VNLib.Net.Messaging.FBM;
 using VNLib.Net.Messaging.FBM.Client;
 using VNLib.Plugins.Cache.Broker.Endpoints;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Plugins.Extensions.Loading.Routing;
-using VNLib.Plugins.Essentials.Sessions.Server.Endpoints;
 
 
-namespace VNLib.Plugins.Essentials.Sessions.Server
+namespace VNLib.Data.Caching.ObjectCache.Server
 {
     public sealed class ObjectCacheServerEntry : PluginBase
     {
         public override string PluginName => "ObjectCache.Service";
 
+        private readonly Lazy<IUnmangedHeap> _cacheHeap;
+        private readonly object ServerLock;
+        private readonly HashSet<ActiveServer> ListeningServers;
+        private readonly ManualResetEvent BrokerSyncHandle;
+
+        /// <summary>
+        /// Gets the shared heap for the plugin 
+        /// </summary>
+        internal IUnmangedHeap CacheHeap => _cacheHeap.Value;
+
+        public ObjectCacheServerEntry()
+        {
+            //Init heap
+            _cacheHeap = new Lazy<IUnmangedHeap>(InitializeHeap, LazyThreadSafetyMode.PublicationOnly);
+
+            ServerLock = new();
+            ListeningServers = new();
+
+            //Set sync handle
+            BrokerSyncHandle = new(false);
+        }
+
+        private IUnmangedHeap InitializeHeap()
+        {
+            //Create default heap
+            IUnmangedHeap _heap = MemoryUtil.InitializeNewHeapForProcess();
+            try
+            {
+                //If the plugin is in debug mode enable heap tracking
+                return this.IsDebug() ? new TrackedHeapWrapper(_heap) : _heap;
+            }
+            catch
+            {
+                _heap.Dispose();
+                throw;
+            }
+        }
+
+
         private string? BrokerHeartBeatToken;
-
-        private readonly object ServerLock = new();
-        private readonly HashSet<ActiveServer> ListeningServers = new();
-
 
         private void RemoveServer(ActiveServer server)
         {
@@ -71,55 +104,45 @@ namespace VNLib.Plugins.Essentials.Sessions.Server
             }
         }
 
+        private FBMClientConfig ClientConfig;
+
+
         protected override void OnLoad()
         {
-            //Create default heap
-            IUnmangedHeap CacheHeap = MemoryUtil.InitializeNewHeapForProcess();
             try
             {
                 IReadOnlyDictionary<string, JsonElement> clusterConf = this.GetConfig("cluster");
 
-                string brokerAddress = clusterConf["broker_address"].GetString() ?? throw new KeyNotFoundException("Missing required key 'broker_address' for config 'cluster'");
-
-                string swapDir = PluginConfig.GetProperty("swap_dir").GetString() ?? throw new KeyNotFoundException("Missing required key 'swap_dir' for config");
-                int cacheSize = PluginConfig.GetProperty("max_cache").GetInt32();
-                string connectPath = PluginConfig.GetProperty("connect_path").GetString() ?? throw new KeyNotFoundException("Missing required element 'connect_path' for config 'cluster'");
-                //TimeSpan cleanupInterval = PluginConfig.GetProperty("cleanup_interval_sec").GetTimeSpan(TimeParseType.Seconds);
-                //TimeSpan validFor = PluginConfig.GetProperty("valid_for_sec").GetTimeSpan(TimeParseType.Seconds);
-                int maxMessageSize = PluginConfig.GetProperty("max_blob_size").GetInt32();
+                Uri brokerAddress = new(clusterConf["broker_address"].GetString() ?? throw new KeyNotFoundException("Missing required key 'broker_address' for config 'cluster'"));
              
-                //Init dir
-                DirectoryInfo dir = new(swapDir);
-                dir.Create();
-                //Init cache listener, single threaded reader
-                ObjectCacheStore CacheListener = new(dir, cacheSize, Log, CacheHeap, true);
-                
+
                 //Init connect endpoint
-                {
-                    //Init connect endpoint
-                    ConnectEndpoint endpoint = new(connectPath, CacheListener, this);
-                    Route(endpoint);
-                }
-                
+                ConnectEndpoint endpoint = this.Route<ConnectEndpoint>();
+
+                //Get the cache store from the connection endpoint
+                ICacheStore store = endpoint.GetCacheStore();
+
+                //Log max memory usage
+                Log.Debug("Maxium memory consumption {mx}Mb", ((ulong)endpoint.CacheConfig.MaxCacheEntries * (ulong)endpoint.CacheConfig.MaxMessageSize) / (ulong)(1024 * 1000));
+
                 //Setup broker and regitration
                 {
-                    //init mre to pass the broker heartbeat signal to the registration worker
-                    ManualResetEvent mre = new(false);
+
                     //Route the broker endpoint
-                    BrokerHeartBeat brokerEp = new(() => BrokerHeartBeatToken!, mre, new Uri(brokerAddress), this);
+                    BrokerHeartBeat brokerEp = new(() => BrokerHeartBeatToken!, BrokerSyncHandle, brokerAddress, this);
                     Route(brokerEp);
                     
                     //start registration 
-                    _ = this.DeferTask(() => RegisterServerAsync(mre), 200);
+                    _ = this.ObserveTask(() => RegisterServerAsync(endpoint.Path), 200);
                 }
                 
                 //Setup cluster worker
                 {
                     //Get pre-configured fbm client config for caching
-                    FBMClientConfig conf = FBMDataCacheExtensions.GetDefaultConfig(CacheHeap, maxMessageSize, this.IsDebug() ? Log : null);
+                    ClientConfig = FBMDataCacheExtensions.GetDefaultConfig(CacheHeap, endpoint.CacheConfig.MaxMessageSize / 2, this.IsDebug() ? Log : null);
 
                     //Start Client runner
-                    _ = this.DeferTask(() => RunClientAsync(CacheListener, new Uri(brokerAddress), conf), 300);
+                    _ = this.ObserveTask(() => RunClientAsync(store, brokerAddress), 300);
                 }
                 
                 //Load a cache broker to the current server if the config is defined
@@ -129,38 +152,32 @@ namespace VNLib.Plugins.Essentials.Sessions.Server
                         this.Route<BrokerRegistrationEndpoint>();
                     }
                 }
-                
-                void Cleanup()
-                {
-                    CacheHeap.Dispose();
-                    CacheListener.Dispose();
-                }
-                
-                //Regsiter cleanup
-                _ = UnloadToken.RegisterUnobserved(Cleanup);
 
                 Log.Information("Plugin loaded");
             }
             catch (KeyNotFoundException kne)
             {
-                CacheHeap.Dispose();
                 Log.Error("Missing required configuration variables {m}", kne.Message);
-            }
-            catch
-            {
-                CacheHeap.Dispose();
-                throw;
             }
         }
 
         protected override void OnUnLoad()
         {
+            //dispose heap if initialized
+            if(_cacheHeap.IsValueCreated)
+            {
+                _cacheHeap.Value.Dispose();
+            }
+
+            //Dispose mre sync handle
+            BrokerSyncHandle.Dispose();
+
             Log.Information("Plugin unloaded");
         }
 
         #region Registration
 
-        private async Task RegisterServerAsync(ManualResetEvent keepaliveWait)
+        private async Task RegisterServerAsync(string connectPath)
         {
             try
             {
@@ -169,9 +186,9 @@ namespace VNLib.Plugins.Essentials.Sessions.Server
                 
                 //Server id is just dns name for now
                 string serverId = Dns.GetHostName();
-                int heartBeatDelayMs = clusterConfig["heartbeat_timeout_sec"].GetInt32() * 1000;
 
-                string? connectPath = PluginConfig.GetProperty("connect_path").GetString();
+                int heartBeatDelayMs = clusterConfig["heartbeat_timeout_sec"].GetInt32() * 1000;
+               
                 
                 //Get the port of the primary webserver
                 int port;
@@ -227,15 +244,17 @@ namespace VNLib.Plugins.Essentials.Sessions.Server
                         while (true)
                         {
                             await Task.Delay(heartBeatDelayMs, UnloadToken);
+
                             //Set the timeout to 0 to it will just check the status without blocking
-                            if (!keepaliveWait.WaitOne(0))
+                            if (!BrokerSyncHandle.WaitOne(0))
                             {
                                 //server miseed a keepalive event, time to break the loop and retry
                                 Log.Debug("Broker missed a heartbeat request, attempting to re-register");
                                 break;
                             }
+
                             //Reset the msr
-                            keepaliveWait.Reset();
+                            BrokerSyncHandle.Reset();
                         }
                     }
                     catch (TaskCanceledException)
@@ -275,7 +294,6 @@ namespace VNLib.Plugins.Essentials.Sessions.Server
             }
             finally
             {
-                keepaliveWait.Dispose();
                 BrokerHeartBeatToken = null;
             }
             Log.Debug("Registration worker exited");
@@ -305,20 +323,25 @@ namespace VNLib.Plugins.Essentials.Sessions.Server
         /// <param name="serverId">The node-id of the current server</param>
         /// <param name="clientConf">The configuration to use when initializing synchronization clients</param>
         /// <returns>A task that resolves when the plugin unloads</returns>
-        private async Task RunClientAsync(ObjectCacheStore cacheStore, Uri brokerAddress, FBMClientConfig clientConf)
+        private async Task RunClientAsync(ICacheStore cacheStore, Uri brokerAddress)
         {
             TimeSpan noServerDelay = TimeSpan.FromSeconds(10);
+
+            //The node id is just the dns hostname of the current machine
             string nodeId = Dns.GetHostName();
+
             ListServerRequest listRequest = new(brokerAddress);
             try
             {
                 //Get the broker config element
                 IReadOnlyDictionary<string, JsonElement> clusterConf = this.GetConfig("cluster");
+
                 int serverCheckMs = clusterConf["update_interval_sec"].GetInt32() * 1000;
 
                 //Setup signing and verification certificates
                 ReadOnlyJsonWebKey cacheSig = await GetCachePrivate();
                 ReadOnlyJsonWebKey brokerPub = await GetBrokerPublic();
+
                 //Import certificates
                 listRequest.WithVerificationKey(brokerPub)
                             .WithSigningKey(cacheSig);
@@ -340,6 +363,7 @@ namespace VNLib.Plugins.Essentials.Sessions.Server
 
                             //Get server list
                             servers = await FBMDataCacheExtensions.ListServersAsync(listRequest, UnloadToken);
+
                             //Servers are loaded, so continue
                             break;
                         }
@@ -355,8 +379,10 @@ namespace VNLib.Plugins.Essentials.Sessions.Server
                         {
                             Log.Warn(ex, "Failed to get server list from broker");
                         }
+
                         //Gen random ms delay
                         int randomMsDelay = RandomNumberGenerator.GetInt32(1000, 2000);
+
                         //Delay 
                         await Task.Delay(randomMsDelay, UnloadToken);
                     }
@@ -386,7 +412,7 @@ namespace VNLib.Plugins.Essentials.Sessions.Server
                                 ListeningServers.Add(server);
 
                                 //Run listener background task
-                                _ = this.DeferTask(() => RunSyncTaskAsync(server, cacheStore, clientConf, nodeId));
+                                _ = this.ObserveTask(() => RunSyncTaskAsync(server, cacheStore, nodeId));
                             }
                         }
                     }
@@ -417,10 +443,10 @@ namespace VNLib.Plugins.Essentials.Sessions.Server
             Log.Debug("Cluster sync worker exited");
         }
 
-        private async Task RunSyncTaskAsync(ActiveServer server, ObjectCacheStore cacheStore, FBMClientConfig conf, string nodeId)
+        private async Task RunSyncTaskAsync(ActiveServer server, ICacheStore cacheStore, string nodeId)
         {
             //Setup client 
-            FBMClient client = new(conf);
+            FBMClient client = new(ClientConfig);
             try
             {
                 async Task UpdateRecordAsync(string objectId, string newId)
@@ -440,7 +466,7 @@ namespace VNLib.Plugins.Essentials.Sessions.Server
                         response.ThrowIfNotSet();
 
                         //Check response code
-                        string status = response.Headers.First(static s => s.Key == HeaderCommand.Status).Value.ToString();
+                        string status = response.Headers.First(static s => s.Header == HeaderCommand.Status).Value.ToString();
                         if (ResponseCodes.Okay.Equals(status, StringComparison.Ordinal))
                         {
                             //Update the record

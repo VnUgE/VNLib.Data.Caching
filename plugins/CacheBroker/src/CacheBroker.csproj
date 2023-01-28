@@ -2,19 +2,13 @@
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
-    <Copyright>Copyright © 2023 Vaughn Nugent</Copyright>
     <RootNamespace>VNLib.Plugins.Cache.Broker</RootNamespace>
-    <Authors>Vaughn Nugent</Authors>
     <Version>1.0.1.2</Version>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <AnalysisLevel>latest-all</AnalysisLevel>
     <SignAssembly>True</SignAssembly>
     <AssemblyOriginatorKeyFile>\\vaughnnugent.com\Internal\Folder Redirection\vman\Documents\Programming\Software\StrongNameingKey.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
-
-  <ItemGroup>
-    <Compile Remove="liveplugin\**" />
-    <EmbeddedResource Remove="liveplugin\**" />
-    <None Remove="liveplugin\**" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="ErrorProne.NET.CoreAnalyzers" Version="0.1.2">
@@ -26,14 +20,13 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
-  
+
   <PropertyGroup>
     <!--Enable dynamic loading-->
     <EnableDynamicLoading>true</EnableDynamicLoading>
-    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <Authors>Vaughn Nugent</Authors>
+    <Copyright>Copyright © 2023 Vaughn Nugent</Copyright>
     <PackageProjectUrl>https://www.vaughnnugent.com/resources/software</PackageProjectUrl>
-    <AnalysisLevel>latest-all</AnalysisLevel>
-    
   </PropertyGroup>
   
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -50,12 +43,5 @@
     <ProjectReference Include="..\..\..\..\..\core\lib\Utils\src\VNLib.Utils.csproj" />
     <ProjectReference Include="..\..\..\..\Extensions\lib\VNLib.Plugins.Extensions.Loading\src\VNLib.Plugins.Extensions.Loading.csproj" />
   </ItemGroup>
-
-
-  <ItemGroup>
-    <None Update="CacheBroker.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
+  
 </Project>

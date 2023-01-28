@@ -67,7 +67,7 @@ namespace VNLib.Plugins.Extensions.VNCache
             VnCacheClient client = new(debugLog);
 
             //Begin cache connections by scheduling a task on the plugin's scheduler
-            _ = pbase.DeferTask(() => RunClientAsync(pbase, config, localized, client), 250);
+            _ = pbase.ObserveTask(() => RunClientAsync(pbase, config, localized, client), 250);
 
             return client;
         }

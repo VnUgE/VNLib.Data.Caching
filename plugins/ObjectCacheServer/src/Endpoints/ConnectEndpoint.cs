@@ -31,34 +31,29 @@ using System.Threading.Channels;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 
-using VNLib.Net.Http;
+using VNLib.Plugins;
 using VNLib.Hashing;
+using VNLib.Net.Http;
 using VNLib.Utils.Async;
+using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
 using VNLib.Hashing.IdentityUtility;
 using VNLib.Net.Messaging.FBM;
 using VNLib.Net.Messaging.FBM.Client;
 using VNLib.Net.Messaging.FBM.Server;
-using VNLib.Data.Caching.ObjectCache;
+using VNLib.Plugins.Essentials;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Plugins.Essentials.Endpoints;
 using VNLib.Plugins.Essentials.Extensions;
+using System.Text.Json.Serialization;
 
-
-namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
+namespace VNLib.Data.Caching.ObjectCache.Server
 {
-    internal sealed class ConnectEndpoint : ResourceEndpointBase
-    {
-        const int MAX_RECV_BUF_SIZE = 1000 * 1024;
-        const int MIN_RECV_BUF_SIZE = 8 * 1024;
-        const int MAX_HEAD_BUF_SIZE = 2048;
-        const int MIN_MESSAGE_SIZE = 10 * 1024;
-        const int MAX_MESSAGE_SIZE = 1000 * 1024;
-        const int MIN_HEAD_BUF_SIZE = 128;
-        const int MAX_EVENT_QUEUE_SIZE = 10000;
-        const int MAX_RESPONSE_BUFFER_SIZE = 10 * 1024;
 
-        private static readonly TimeSpan AuthTokenExpiration = TimeSpan.FromSeconds(30);
+    [ConfigurationName("store")]
+    internal sealed class ConnectEndpoint : ResourceEndpointBase, IDisposable, IAsyncBackgroundWork
+    {
+        private static readonly TimeSpan AuthTokenExpiration = TimeSpan.FromSeconds(30);      
 
         private readonly string AudienceLocalServerId;
         private readonly ObjectCacheStore Store;
@@ -68,7 +63,15 @@ namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
 
         private uint _connectedClients;
 
+        /// <summary>
+        /// Gets the number of active connections 
+        /// </summary>
         public uint ConnectedClients => _connectedClients;
+
+        /// <summary>
+        /// The cache store configuration
+        /// </summary>
+        public CacheConfiguration CacheConfig { get; }
 
         //Loosen up protection settings
         protected override ProtectionSettings EndpointProtectionSettings { get; } = new()
@@ -78,19 +81,88 @@ namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
             DisableCrossSiteDenied = true
         };
 
-        public ConnectEndpoint(string path, ObjectCacheStore store, PluginBase pbase)
+        public ConnectEndpoint(PluginBase plugin, IReadOnlyDictionary<string, JsonElement> config)
         {
-            InitPathAndLog(path, pbase.Log);
-            Store = store;//Load client public key to verify signed messages
-            Pbase = pbase;
+            string? path = config["path"].GetString();
 
+            InitPathAndLog(path, plugin.Log);
+          
+            Pbase = plugin;
+
+            //Parse cache config or use default
+            if(config.TryGetValue("cache", out JsonElement confEl))
+            {
+                CacheConfig = confEl.Deserialize<CacheConfiguration>()!;
+            }
+            else
+            {
+                //Init default config if not fount
+                CacheConfig = new();
+
+                Log.Verbose("Loading default cache buffer configuration");
+            }
+
+            //Create event queue client lookup table 
             StatefulEventQueue = new(StringComparer.OrdinalIgnoreCase);
 
-            //Start the queue worker
-            _ = pbase.DeferTask(() => ChangeWorkerAsync(pbase.UnloadToken), 10);
+            //Init the cache store
+            Store = InitializeCache((ObjectCacheServerEntry)plugin, CacheConfig.MaxCacheEntries);
 
+            /*
+            * Generate a random guid for the current server when created so we 
+            * know client tokens belong to us when singed by the same key
+            */
             AudienceLocalServerId = Guid.NewGuid().ToString("N");
+
+            //Schedule the queue worker to be run
+            _ = plugin.ObserveWork(this, 100);
         }
+
+        private static ObjectCacheStore InitializeCache(ObjectCacheServerEntry plugin, int maxCache)
+        {
+            if(maxCache < 2)
+            {
+                throw new ArgumentException("You must configure a 'max_cache' size larger than 1 item");
+            }
+
+            //Suggestion
+            if(maxCache < 200)
+            {
+                plugin.Log.Information("Suggestion: You may want a larger cache size, you have less than 200 items in cache");
+            }
+
+            //Endpoint only allows for a single reader
+            return new (maxCache, plugin.Log, plugin.CacheHeap, true);
+        }
+
+        /// <summary>
+        /// Gets the configured cache store
+        /// </summary>
+        /// <returns></returns>
+        public ICacheStore GetCacheStore() => new CacheStore(Store);
+      
+
+        //Dispose will be called by the host plugin on unload
+        void IDisposable.Dispose()
+        {
+            //Dispose the store on cleanup
+            Store.Dispose();
+        }
+
+
+        private async Task<ReadOnlyJsonWebKey> GetClientPubAsync()
+        {
+            return await Pbase.TryGetSecretAsync("client_public_key").ToJsonWebKey() ?? throw new KeyNotFoundException("Missing required secret : client_public_key");
+        }
+        private async Task<ReadOnlyJsonWebKey> GetCachePubAsync()
+        {
+            return await Pbase.TryGetSecretAsync("cache_public_key").ToJsonWebKey() ?? throw new KeyNotFoundException("Missing required secret : client_public_key");
+        }
+        private async Task<ReadOnlyJsonWebKey> GetCachePrivateKeyAsync()
+        {
+            return await Pbase.TryGetSecretAsync("cache_private_key").ToJsonWebKey() ?? throw new KeyNotFoundException("Missing required secret : client_public_key");
+        }
+
 
         /*
          * Used as a client negotiation and verification request
@@ -132,7 +204,7 @@ namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
                     {
                         verified = true;
                     }
-                    //May be signed by a cahce server
+                    //May be signed by a cache server
                     else
                     {
                         using ReadOnlyJsonWebKey cacheCert = await GetCachePubAsync();
@@ -163,8 +235,10 @@ namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
             }
 
             Log.Debug("Received negotiation request from node {node}", nodeId);
+
             //Verified, now we can create an auth message with a short expiration
             using JsonWebToken auth = new();
+
             //Sign the auth message from the cache certificate's private key
             using (ReadOnlyJsonWebKey cert = await GetCachePrivateKeyAsync())
             {
@@ -179,9 +253,9 @@ namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
                     //Specify the server's node id if set
                     .AddClaim("sub", nodeId!)
                     //Add negotiaion args
-                    .AddClaim(FBMClient.REQ_HEAD_BUF_QUERY_ARG, MAX_HEAD_BUF_SIZE)
-                    .AddClaim(FBMClient.REQ_RECV_BUF_QUERY_ARG, MAX_RECV_BUF_SIZE)
-                    .AddClaim(FBMClient.REQ_MAX_MESS_QUERY_ARG, MAX_MESSAGE_SIZE)
+                    .AddClaim(FBMClient.REQ_HEAD_BUF_QUERY_ARG, CacheConfig.MaxHeaderBufferSize)
+                    .AddClaim(FBMClient.REQ_RECV_BUF_QUERY_ARG, CacheConfig.MaxRecvBufferSize)
+                    .AddClaim(FBMClient.REQ_MAX_MESS_QUERY_ARG, CacheConfig.MaxMessageSize)
                     .CommitClaims();
 
                 auth.SignFromJwk(cert);
@@ -192,27 +266,17 @@ namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
             return VfReturnType.VirtualSkip;
         }
 
-        private async Task<ReadOnlyJsonWebKey> GetClientPubAsync()
-        {
-            return await Pbase.TryGetSecretAsync("client_public_key").ToJsonWebKey() ?? throw new KeyNotFoundException("Missing required secret : client_public_key");
-        }
-        private async Task<ReadOnlyJsonWebKey> GetCachePubAsync()
-        {
-            return await Pbase.TryGetSecretAsync("cache_public_key").ToJsonWebKey() ?? throw new KeyNotFoundException("Missing required secret : client_public_key");
-        }
-        private async Task<ReadOnlyJsonWebKey> GetCachePrivateKeyAsync()
-        {
-            return await Pbase.TryGetSecretAsync("cache_private_key").ToJsonWebKey() ?? throw new KeyNotFoundException("Missing required secret : client_public_key");
-        }
 
-        private async Task ChangeWorkerAsync(CancellationToken cancellation)
+        //Background worker to process event queue items
+        async Task IAsyncBackgroundWork.DoWorkAsync(ILogProvider pluginLog, CancellationToken exitToken)
         {
             try
             {
                 //Listen for changes
                 while (true)
                 {
-                    ChangeEvent ev = await Store.EventQueue.DequeueAsync(cancellation);
+                    ChangeEvent ev = await Store.EventQueue.DequeueAsync(exitToken);
+
                     //Add event to queues
                     foreach (AsyncQueue<ChangeEvent> queue in StatefulEventQueue.Values)
                     {
@@ -224,10 +288,8 @@ namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
                 }
             }
             catch (OperationCanceledException)
-            { }
-            catch (Exception ex)
             {
-                Log.Error(ex);
+                //Normal exit
             }
         }
 
@@ -238,6 +300,12 @@ namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
             public int MaxMessageSize { get; init; }
             public int MaxResponseBufferSize { get; init; }
             public AsyncQueue<ChangeEvent>? SyncQueue { get; init; }
+
+            public override string ToString()
+            {
+                return 
+              $"{nameof(RecvBufferSize)}:{RecvBufferSize}, {nameof(MaxHeaderBufferSize)}: {MaxHeaderBufferSize}, {nameof(MaxMessageSize)}:{MaxMessageSize}, {nameof(MaxResponseBufferSize)}:{MaxResponseBufferSize}";
+            }
         }
 
         protected override async ValueTask<VfReturnType> WebsocketRequestedAsync(HttpEntity entity)
@@ -246,6 +314,7 @@ namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
             {
                 //Parse jwt from authorization
                 string? jwtAuth = entity.Server.Headers[HttpRequestHeader.Authorization];
+
                 if (string.IsNullOrWhiteSpace(jwtAuth))
                 {
                     entity.CloseResponse(HttpStatusCode.Unauthorized);
@@ -253,6 +322,7 @@ namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
                 }
                 
                 string? nodeId = null;
+
                 //Parse jwt
                 using (JsonWebToken jwt = JsonWebToken.Parse(jwtAuth))
                 {
@@ -301,11 +371,12 @@ namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
                 string maxMessageSizeCmd = entity.QueryArgs[FBMClient.REQ_MAX_MESS_QUERY_ARG];
                 
                 //Parse recv buffer size
-                int recvBufSize = int.TryParse(recvBufCmd, out int rbs) ? rbs : MIN_RECV_BUF_SIZE;
-                int maxHeadBufSize = int.TryParse(maxHeaderCharCmd, out int hbs) ? hbs : MIN_HEAD_BUF_SIZE;
-                int maxMessageSize = int.TryParse(maxMessageSizeCmd, out int mxs) ? mxs : MIN_MESSAGE_SIZE;
+                int recvBufSize = int.TryParse(recvBufCmd, out int rbs) ? rbs : CacheConfig.MinRecvBufferSize;
+                int maxHeadBufSize = int.TryParse(maxHeaderCharCmd, out int hbs) ? hbs : CacheConfig.MinHeaderBufferSize;
+                int maxMessageSize = int.TryParse(maxMessageSizeCmd, out int mxs) ? mxs : CacheConfig.MaxMessageSize;
                 
                 AsyncQueue<ChangeEvent>? nodeQueue = null;
+
                 //The connection may be a caching server node, so get its node-id
                 if (!string.IsNullOrWhiteSpace(nodeId))
                 {
@@ -317,7 +388,7 @@ namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
                      * and change events may be processed on mutliple threads.
                     */
 
-                    BoundedChannelOptions queueOptions = new(MAX_EVENT_QUEUE_SIZE)
+                    BoundedChannelOptions queueOptions = new(CacheConfig.MaxEventQueueDepth)
                     {
                         AllowSynchronousContinuations = true,
                         SingleReader = false,
@@ -327,21 +398,41 @@ namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
                     };
 
                     _ = StatefulEventQueue.TryAdd(nodeId, new(queueOptions));
+
                     //Get the queue
                     nodeQueue = StatefulEventQueue[nodeId];
                 }
-                
+
+                /*
+                 * Buffer sizing can get messy as the response/resquest sizes can vary
+                 * and will include headers, this is a drawback of the FBM protocol 
+                 * so we need to properly calculate efficient buffer sizes as 
+                 * negotiated with the client.
+                 */
+
+                int maxMessageSizeClamp = Math.Clamp(maxMessageSize, CacheConfig.MinRecvBufferSize, CacheConfig.MaxRecvBufferSize);
+
                 //Init new ws state object and clamp the suggested buffer sizes
                 WsUserState state = new()
                 {
-                    RecvBufferSize = Math.Clamp(recvBufSize, MIN_RECV_BUF_SIZE, MAX_RECV_BUF_SIZE),
-                    MaxHeaderBufferSize = Math.Clamp(maxHeadBufSize, MIN_HEAD_BUF_SIZE, MAX_HEAD_BUF_SIZE),
-                    MaxMessageSize = Math.Clamp(maxMessageSize, MIN_MESSAGE_SIZE, MAX_MESSAGE_SIZE),
-                    MaxResponseBufferSize = Math.Min(maxMessageSize, MAX_RESPONSE_BUFFER_SIZE),
+                    RecvBufferSize = Math.Clamp(recvBufSize, CacheConfig.MinRecvBufferSize, CacheConfig.MaxRecvBufferSize),
+                    MaxHeaderBufferSize = Math.Clamp(maxHeadBufSize, CacheConfig.MinHeaderBufferSize, CacheConfig.MaxHeaderBufferSize),
+
+                    MaxMessageSize = maxMessageSizeClamp,
+
+                    /*
+                     * Response buffer needs to be large enough to store a max message 
+                     * as a response along with all response headers
+                     */
+                    MaxResponseBufferSize = (int)MemoryUtil.NearestPage(maxMessageSizeClamp),
+
                     SyncQueue = nodeQueue
                 };
                 
                 Log.Debug("Client recv buffer suggestion {recv}, header buffer size {head}, response buffer size {r}", recvBufCmd, maxHeaderCharCmd, state.MaxResponseBufferSize);
+
+                //Print state message to console
+                Log.Verbose("Client buffer state {state}", state);
                 
                 //Accept socket and pass state object
                 entity.AcceptWebSocket(WebsocketAcceptedAsync, state);
@@ -370,6 +461,7 @@ namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
                     RecvBufferSize = state.RecvBufferSize,
                     ResponseBufferSize = state.MaxResponseBufferSize,
                     MaxHeaderBufferSize = state.MaxHeaderBufferSize,
+
                     HeaderEncoding = Helpers.DefaultEncoding,
                 };
 
@@ -394,6 +486,32 @@ namespace VNLib.Plugins.Essentials.Sessions.Server.Endpoints
                 reg.Unregister();
             }
             Log.Debug("Server websocket exited");
+        }
+       
+
+        private sealed class CacheStore : ICacheStore
+        {
+            private readonly ObjectCacheStore _cache;
+
+            public CacheStore(ObjectCacheStore cache)
+            {
+                _cache = cache;
+            }
+
+            ValueTask ICacheStore.AddOrUpdateBlobAsync<T>(string objectId, string? alternateId, GetBodyDataCallback<T> bodyData, T state, CancellationToken token)
+            {
+                return _cache.AddOrUpdateBlobAsync(objectId, alternateId, bodyData, state, token);
+            }
+
+            void ICacheStore.Clear()
+            {
+                throw new NotImplementedException();
+            }
+
+            ValueTask<bool> ICacheStore.DeleteItemAsync(string id, CancellationToken token)
+            {
+                return _cache.DeleteItemAsync(id, token);
+            }
         }
     }
 }
