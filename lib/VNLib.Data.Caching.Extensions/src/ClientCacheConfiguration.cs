@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2022 Vaughn Nugent
+* Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Extensions
@@ -22,6 +22,8 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
+using System;
+using System.Collections.Generic;
 using System.Security.Cryptography;
 
 using VNLib.Hashing;
