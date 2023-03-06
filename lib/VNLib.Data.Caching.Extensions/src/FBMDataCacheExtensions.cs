@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2022 Vaughn Nugent
+* Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Extensions
@@ -78,8 +78,9 @@ namespace VNLib.Data.Caching.Extensions
         /// <param name="heap">The client buffer heap</param>
         /// <param name="maxMessageSize">The maxium message size (in bytes)</param>
         /// <param name="debugLog">An optional debug log</param>
+        /// <param name="timeout">Request message timeout</param>
         /// <returns>A preconfigured <see cref="FBMClientConfig"/> for object caching</returns>
-        public static FBMClientConfig GetDefaultConfig(IUnmangedHeap heap, int maxMessageSize, ILogProvider? debugLog = null)
+        public static FBMClientConfig GetDefaultConfig(IUnmangedHeap heap, int maxMessageSize, TimeSpan timeout = default, ILogProvider? debugLog = null)
         {
             /*
              * Max message size (for server) should account for max data + the additional header buffer
@@ -108,6 +109,8 @@ namespace VNLib.Data.Caching.Extensions
                 HeaderEncoding = Helpers.DefaultEncoding,
 
                 KeepAliveInterval = TimeSpan.FromSeconds(30),
+
+                RequestTimeout = timeout,
 
                 DebugLog = debugLog
             };

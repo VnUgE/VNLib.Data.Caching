@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2022 Vaughn Nugent
+* Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -29,11 +29,9 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
-using System.Text.Json.Serialization;
 using System.Runtime.CompilerServices;
 
 using VNLib.Utils.Logging;
-using VNLib.Utils.Memory.Caching;
 using VNLib.Net.Messaging.FBM;
 using VNLib.Net.Messaging.FBM.Client;
 using VNLib.Net.Messaging.FBM.Server;
@@ -42,28 +40,14 @@ using static VNLib.Data.Caching.Constants;
 
 namespace VNLib.Data.Caching
 {
+
     /// <summary>
     /// Provides caching extension methods for <see cref="FBMClient"/>
     /// </summary>
     public static class ClientExtensions
     {
-        //Create threadlocal writer for attempted reuse without locks
-        private static readonly ObjectRental<ReusableJsonWriter> JsonWriterPool = ObjectRental.Create<ReusableJsonWriter>();
 
-        private static readonly JsonSerializerOptions LocalOptions = new()
-        {
-            DictionaryKeyPolicy = JsonNamingPolicy.CamelCase,
-            NumberHandling = JsonNumberHandling.Strict,
-            ReadCommentHandling = JsonCommentHandling.Disallow,
-            WriteIndented = false,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            IgnoreReadOnlyFields = true,
-            PropertyNameCaseInsensitive = true,
-            IncludeFields = false,
-
-            //Use small buffers
-            DefaultBufferSize = 128
-        };
+        private static readonly JsonCacheObjectSerializer DefaultSerializer = new();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void LogDebug(this FBMClient client, string message, params object?[] args)
@@ -72,7 +56,8 @@ namespace VNLib.Data.Caching
         }
 
         /// <summary>
-        /// Gets an object from the server if it exists
+        /// Gets an object from the server if it exists, and uses the default serialzer to 
+        /// recover the object
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="client"></param>
@@ -84,35 +69,77 @@ namespace VNLib.Data.Caching
         /// <exception cref="InvalidStatusException"></exception>
         /// <exception cref="ObjectDisposedException"></exception>
         /// <exception cref="InvalidResponseException"></exception>
-        public static async Task<T?> GetObjectAsync<T>(this FBMClient client, string objectId, CancellationToken cancellationToken = default)
+        public static Task<T?> GetObjectAsync<T>(this FBMClient client, string objectId, CancellationToken cancellationToken = default)
+        {
+            return GetObjectAsync<T>(client, objectId, DefaultSerializer, cancellationToken);
+        }
+
+        /// <summary>
+        /// Updates the state of the object, and optionally updates the ID of the object. The data 
+        /// parameter is serialized, buffered, and streamed to the remote server
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="client"></param>
+        /// <param name="objectId">The id of the object to update or replace</param>
+        /// <param name="newId">An optional parameter to specify a new ID for the old object</param>
+        /// <param name="data">The payload data to serialize and set as the data state of the session</param>
+        /// <param name="cancellationToken">A token to cancel the operation</param>
+        /// <returns>A task that resolves when the server responds</returns>
+        /// <exception cref="JsonException"></exception>
+        /// <exception cref="OutOfMemoryException"></exception>
+        /// <exception cref="InvalidStatusException"></exception>
+        /// <exception cref="ObjectDisposedException"></exception>
+        /// <exception cref="InvalidResponseException"></exception>
+        /// <exception cref="MessageTooLargeException"></exception>
+        /// <exception cref="ObjectNotFoundException"></exception>
+        public static Task AddOrUpdateObjectAsync<T>(this FBMClient client, string objectId, string? newId, T data, CancellationToken cancellationToken = default)
+        {
+            //Use the default/json serialzer if not specified
+            return AddOrUpdateObjectAsync(client, objectId, newId, data, DefaultSerializer, cancellationToken);
+        }
+
+        /// <summary>
+        /// Gets an object from the server if it exists
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="client"></param>
+        /// <param name="objectId">The id of the object to get</param>
+        /// <param name="cancellationToken">A token to cancel the operation</param>
+        /// <param name="deserialzer">The custom data deserialzer used to deserialze the binary cache result</param>
+        /// <returns>A task that completes to return the results of the response payload</returns>
+        /// <exception cref="InvalidStatusException"></exception>
+        /// <exception cref="ObjectDisposedException"></exception>
+        /// <exception cref="InvalidResponseException"></exception>
+        public static async Task<T?> GetObjectAsync<T>(this FBMClient client, string objectId, ICacheObjectDeserialzer deserialzer, CancellationToken cancellationToken = default)
         {
             _ = client ?? throw new ArgumentNullException(nameof(client));
-            
+            _ = deserialzer ?? throw new ArgumentNullException(nameof(deserialzer));
+
             client.LogDebug("Getting object {id}", objectId);
-            
+
             //Rent a new request
             FBMRequest request = client.RentRequest();
             try
             {
                 //Set action as get/create
                 request.WriteHeader(HeaderCommand.Action, Actions.Get);
-                
+
                 //Set object id header
                 request.WriteHeader(Constants.ObjectId, objectId);
-                
+
                 //Make request
                 using FBMResponse response = await client.SendAsync(request, cancellationToken);
                 response.ThrowIfNotSet();
-                
+
                 //Get the status code
                 FBMMessageHeader status = response.Headers.FirstOrDefault(static a => a.Header == HeaderCommand.Status);
 
                 //Check ok status code, then its safe to deserialize
                 if (status.Value.Equals(ResponseCodes.Okay, StringComparison.Ordinal))
                 {
-                    return JsonSerializer.Deserialize<T>(response.ResponseBody, LocalOptions);
+                    return (T?)deserialzer.Deserialze(typeof(T), response.ResponseBody);
                 }
-                
+
                 //Object  may not exist on the server yet
                 if (status.Value.Equals(ResponseCodes.NotFound, StringComparison.Ordinal))
                 {
@@ -136,23 +163,27 @@ namespace VNLib.Data.Caching
         /// <param name="objectId">The id of the object to update or replace</param>
         /// <param name="newId">An optional parameter to specify a new ID for the old object</param>
         /// <param name="data">The payload data to serialize and set as the data state of the session</param>
+        /// <param name="serializer">The custom serializer to used to serialze the object to binary</param>
         /// <param name="cancellationToken">A token to cancel the operation</param>
         /// <returns>A task that resolves when the server responds</returns>
-        /// <exception cref="JsonException"></exception>
         /// <exception cref="OutOfMemoryException"></exception>
         /// <exception cref="InvalidStatusException"></exception>
         /// <exception cref="ObjectDisposedException"></exception>
         /// <exception cref="InvalidResponseException"></exception>
         /// <exception cref="MessageTooLargeException"></exception>
         /// <exception cref="ObjectNotFoundException"></exception>
-        public static async Task AddOrUpdateObjectAsync<T>(this FBMClient client, string objectId, string? newId, T data, CancellationToken cancellationToken = default)
+        public static async Task AddOrUpdateObjectAsync<T>(
+            this FBMClient client,
+            string objectId,
+            string? newId,
+            T data,
+            ICacheObjectSerialzer serializer,
+            CancellationToken cancellationToken = default)
         {
             _ = client ?? throw new ArgumentNullException(nameof(client));
-            
-            client.LogDebug("Updating object {id}, newid {nid}", objectId, newId);
+            _ = serializer ?? throw new ArgumentNullException(nameof(serializer));
 
-            //Rent new json writer
-            ReusableJsonWriter writer = JsonWriterPool.Rent();
+            client.LogDebug("Updating object {id}, newid {nid}", objectId, newId);
 
             //Rent a new request
             FBMRequest request = client.RentRequest();
@@ -160,7 +191,7 @@ namespace VNLib.Data.Caching
             {
                 //Set action as get/create
                 request.WriteHeader(HeaderCommand.Action, Actions.AddOrUpdate);
-                
+
                 //Set session-id header
                 request.WriteHeader(Constants.ObjectId, objectId);
 
@@ -169,30 +200,30 @@ namespace VNLib.Data.Caching
                 {
                     request.WriteHeader(Constants.NewObjectId, newId);
                 }
-                
+
                 //Get the body writer for the message
                 IBufferWriter<byte> bodyWriter = request.GetBodyWriter();
 
                 //Serialize the message
-                writer.Serialize(bodyWriter, data, LocalOptions);
+                serializer.Serialize(data, bodyWriter);
 
                 //Make request
                 using FBMResponse response = await client.SendAsync(request, cancellationToken);
                 response.ThrowIfNotSet();
-                
+
                 //Get the status code
                 FBMMessageHeader status = response.Headers.FirstOrDefault(static a => a.Header == HeaderCommand.Status);
-                
+
                 //Check status code
                 if (status.Value.Equals(ResponseCodes.Okay, StringComparison.OrdinalIgnoreCase))
                 {
                     return;
                 }
-                else if(status.Value.Equals(ResponseCodes.NotFound, StringComparison.OrdinalIgnoreCase))
+                else if (status.Value.Equals(ResponseCodes.NotFound, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new ObjectNotFoundException($"object {objectId} not found on remote server");
                 }
-                
+
                 //Invalid status
                 throw new InvalidStatusException("Invalid status code recived for object upsert request", status.ToString());
             }
@@ -200,11 +231,9 @@ namespace VNLib.Data.Caching
             {
                 //Return the request(clears data and reset)
                 client.ReturnRequest(request);
-                //Return writer to pool later
-                JsonWriterPool.Return(writer);
             }
         }
-        
+
         /// <summary>
         /// Asynchronously deletes an object in the remote store
         /// </summary>
@@ -245,6 +274,135 @@ namespace VNLib.Data.Caching
                 else if(status.Value.Equals(ResponseCodes.NotFound, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new ObjectNotFoundException($"object {objectId} not found on remote server");
+                }
+
+                throw new InvalidStatusException("Invalid status code recived for object get request", status.ToString());
+            }
+            finally
+            {
+                client.ReturnRequest(request);
+            }
+        }
+
+        /// <summary>
+        /// Updates the state of the object, and optionally updates the ID of the object. The data 
+        /// parameter is serialized, buffered, and streamed to the remote server
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="client"></param>
+        /// <param name="objectId">The id of the object to update or replace</param>
+        /// <param name="newId">An optional parameter to specify a new ID for the old object</param>
+        /// <param name="data">An <see cref="IObjectData"/> that represents the data to set</param>
+        /// <param name="cancellationToken">A token to cancel the operation</param>
+        /// <returns>A task that resolves when the server responds</returns>
+        /// <exception cref="OutOfMemoryException"></exception>
+        /// <exception cref="InvalidStatusException"></exception>
+        /// <exception cref="ObjectDisposedException"></exception>
+        /// <exception cref="InvalidResponseException"></exception>
+        /// <exception cref="MessageTooLargeException"></exception>
+        /// <exception cref="ObjectNotFoundException"></exception>
+        public async static Task AddOrUpdateObjectAsync(this FBMClient client, string objectId, string? newId, IObjectData data, CancellationToken cancellationToken = default)
+        {
+            _ = client ?? throw new ArgumentNullException(nameof(client));
+            _ = data ?? throw new ArgumentNullException(nameof(data));
+
+            client.LogDebug("Updating object {id}, newid {nid}", objectId, newId);
+
+            //Rent a new request
+            FBMRequest request = client.RentRequest();
+            try
+            {
+                //Set action as get/create
+                request.WriteHeader(HeaderCommand.Action, Actions.AddOrUpdate);
+
+                //Set session-id header
+                request.WriteHeader(Constants.ObjectId, objectId);
+
+                //if new-id set, set the new-id header
+                if (!string.IsNullOrWhiteSpace(newId))
+                {
+                    request.WriteHeader(Constants.NewObjectId, newId);
+                }
+
+                //Write the message body as the objet data
+                request.WriteBody(data.GetData());
+
+                //Make request
+                using FBMResponse response = await client.SendAsync(request, cancellationToken);
+                response.ThrowIfNotSet();
+
+                //Get the status code
+                FBMMessageHeader status = response.Headers.FirstOrDefault(static a => a.Header == HeaderCommand.Status);
+
+                //Check status code
+                if (status.Value.Equals(ResponseCodes.Okay, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+                else if (status.Value.Equals(ResponseCodes.NotFound, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new ObjectNotFoundException($"object {objectId} not found on remote server");
+                }
+
+                //Invalid status
+                throw new InvalidStatusException("Invalid status code recived for object upsert request", status.ToString());
+            }
+            finally
+            {
+                //Return the request(clears data and reset)
+                client.ReturnRequest(request);
+            }
+        }
+
+        /// <summary>
+        /// Gets an object from the server if it exists. If data is retreived, it sets
+        /// the <see cref="IObjectData.SetData(ReadOnlySpan{byte})"/>, if no data is 
+        /// found, this method returns and never calls SetData.
+        /// </summary>
+        /// <param name="client"></param>
+        /// <param name="objectId">The id of the object to get</param>
+        /// <param name="cancellationToken">A token to cancel the operation</param>
+        /// <param name="data">An <see cref="IObjectData"/> that represents the object data to set</param>
+        /// <returns>A task that completes to return the results of the response payload</returns>
+        /// <exception cref="InvalidStatusException"></exception>
+        /// <exception cref="ObjectDisposedException"></exception>
+        /// <exception cref="InvalidResponseException"></exception>
+        public static async Task GetObjectAsync(this FBMClient client, string objectId, IObjectData data, CancellationToken cancellationToken = default)
+        {
+            _ = client ?? throw new ArgumentNullException(nameof(client));
+            _ = data ?? throw new ArgumentNullException(nameof(data));
+
+            client.LogDebug("Getting object {id}", objectId);
+
+            //Rent a new request
+            FBMRequest request = client.RentRequest();
+            try
+            {
+                //Set action as get/create
+                request.WriteHeader(HeaderCommand.Action, Actions.Get);
+
+                //Set object id header
+                request.WriteHeader(Constants.ObjectId, objectId);
+
+                //Make request
+                using FBMResponse response = await client.SendAsync(request, cancellationToken);
+                response.ThrowIfNotSet();
+
+                //Get the status code
+                FBMMessageHeader status = response.Headers.FirstOrDefault(static a => a.Header == HeaderCommand.Status);
+
+                //Check ok status code, then its safe to deserialize
+                if (status.Value.Equals(ResponseCodes.Okay, StringComparison.Ordinal))
+                {
+                    //Write the object data
+                    data.SetData(response.ResponseBody);
+                    return;
+                }
+
+                //Object may not exist on the server yet
+                if (status.Value.Equals(ResponseCodes.NotFound, StringComparison.Ordinal))
+                {
+                    return;
                 }
 
                 throw new InvalidStatusException("Invalid status code recived for object get request", status.ToString());
@@ -346,5 +504,6 @@ namespace VNLib.Data.Caching
             //Return new manager
             return new (worker, retryDelay, serverUri);
         }
+       
     }
 }

@@ -2,18 +2,25 @@
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
-    <Authors>Vaughn Nugent</Authors>
-    <Copyright>Copyright © 2023 Vaughn Nugent</Copyright>
-    <Version>1.0.1.1</Version>
-    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <RootNamespace>VNLib.Data.Caching</RootNamespace>
+    <AssemblyName>VNLib.Data.Caching</AssemblyName>
     <Nullable>enable</Nullable>
-    <DocumentationFile></DocumentationFile>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <AnalysisLevel>latest-all</AnalysisLevel>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <Description>Provides constants and extensions for a key-value data caching protocol layer atop the Fixed Buffer Messaging protocol to work VNCache servers. Provides rapid cache development</Description>
-    <PackageProjectUrl>https://www.vaughnnugent.com/resources/software</PackageProjectUrl>
-    <SignAssembly>True</SignAssembly>
-    <AssemblyOriginatorKeyFile>\\vaughnnugent.com\Internal\Folder Redirection\vman\Documents\Programming\Software\StrongNameingKey.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>VNLib.Data.Caching</PackageId>
+    <Authors>Vaughn Nugent</Authors>
+    <Company>Vaughn Nugent</Company>
+    <Product>VNLib FBM Data caching extension library</Product>
+    <Description>
+      Provides constants and extensions for a key-value data caching protocol layer atop the Fixed Buffer Messaging protocol to work VNCache servers. Provides rapid cache development
+    </Description>
+    <Copyright>Copyright © 2023 Vaughn Nugent</Copyright>
+    <PackageProjectUrl>https://www.vaughnnugent.com/resources/software/modules/VNLib.Data.Caching</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/VnUgE/VNLib.Data.Caching/tree/master/lib/VNLib.Data.Caching</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>

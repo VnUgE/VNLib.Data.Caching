@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2022 Vaughn Nugent
+* Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -64,5 +64,27 @@ namespace VNLib.Data.Caching
         /// <param name="cancellation">A token to cancel the async operation</param>
         /// <returns>A task that completes when the delete operation has compelted</returns>
         Task DeleteAsync(string key, CancellationToken cancellation);
+
+        /// <summary>
+        /// Asynchronously gets a value from the backing cache store
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="key">The key identifying the object to recover from cache</param>
+        /// <param name="deserializer">The specific deserialzer to deserialze the object</param>
+        /// <param name="cancellation">A token to cancel the async operation</param>
+        /// <returns>The value if found, or null if it does not exist in the store</returns>
+        Task<T?> GetAsync<T>(string key, ICacheObjectDeserialzer deserializer, CancellationToken cancellation);
+
+        /// <summary>
+        /// Asynchronously sets (or updates) a cached value in the backing cache store
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="key">The key identifying the object to recover from cache</param>
+        /// <param name="newKey">An optional key that will be changed for the new object</param>
+        /// <param name="cancellation">A token to cancel the async operation</param>
+        /// <param name="value">The value to set at the given key</param>
+        /// <param name="serialzer">The <see cref="ICacheObjectSerialzer{T}"/> used to serialze the entity</param>
+        /// <returns>A task that completes when the update operation has compelted</returns>
+        Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerialzer serialzer, CancellationToken cancellation);
     }
 }
