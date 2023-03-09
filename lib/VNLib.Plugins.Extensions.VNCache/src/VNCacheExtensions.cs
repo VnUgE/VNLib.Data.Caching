@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2022 Vaughn Nugent
+* Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Plugins.Extensions.VNCache
@@ -23,14 +23,13 @@
 */
 
 using System;
-using System.Text.Json;
-using System.Threading.Tasks;
-using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
-using VNLib.Utils.Logging;
+using VNLib.Hashing;
+using VNLib.Utils.Memory;
+using VNLib.Utils.Extensions;
 using VNLib.Data.Caching;
-using VNLib.Data.Caching.Extensions;
-using VNLib.Plugins.Extensions.Loading;
+using VNLib.Plugins.Extensions.VNCache.DataModel;
 
 namespace VNLib.Plugins.Extensions.VNCache
 {
@@ -40,72 +39,84 @@ namespace VNLib.Plugins.Extensions.VNCache
     /// </summary>
     public static class VNCacheExtensions
     {
+        internal const string CACHE_CONFIG_KEY = "vncache";
+        internal const string MEMORY_CACHE_CONFIG_KEY = "memory_cache";
+        internal const string MEMORY_CACHE_ONLY_KEY = "memory_only";
+      
+
         /// <summary>
-        /// Loads the shared cache provider for the current plugin
+        /// Gets a simple scoped cache based on an entity prefix. The prefix is appended
+        /// to the object id on each cache operation
         /// </summary>
-        /// <param name="pbase"></param>
-        /// <param name="localized">A localized log provider to write cache logging information to</param>
-        /// <returns>The shared <see cref="IGlobalCacheProvider"/> </returns>
-        /// <remarks>
-        /// The returned instance, background work, logging, and its lifetime 
-        /// are managed by the current plugin. Beware when calling this method
-        /// network connections may be spawend and managed in the background by 
-        /// this library.
-        /// </remarks>
-        public static VnCacheClient GetGlobalCache(this PluginBase pbase, ILogProvider? localized = null) 
-            => LoadingExtensions.GetOrCreateSingleton<VnCacheClient>(pbase, localized == null ? LoadCacheClient : (pbase) => LoadCacheClient(pbase, localized));
-
-        private static VnCacheClient LoadCacheClient(PluginBase pbase) => LoadCacheClient(pbase, pbase.Log);
-
-        private static VnCacheClient LoadCacheClient(PluginBase pbase, ILogProvider localized)
+        /// <param name="cache"></param>
+        /// <param name="prefix">The simple prefix string to append to object ids before computing hashes</param>
+        /// <param name="digest">The algorithm used to hash the combined object-ids</param>
+        /// <param name="encoding">The string encoding method used to encode the hash output</param>
+        /// <returns>The <see cref="ScopedCache"/> instance that will use the prefix to compute object ids</returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static ScopedCache GetPrefixedCache(this IGlobalCacheProvider cache, string prefix, HashAlg digest = HashAlg.SHA1, HashEncodingMode encoding = HashEncodingMode.Base64)
         {
-            //Get config for client
-            IReadOnlyDictionary<string, JsonElement> config = pbase.GetConfigForType<VnCacheClient>();
-
-            //Init client
-            ILogProvider? debugLog = pbase.IsDebug() ? pbase.Log : null;
-            VnCacheClient client = new(debugLog);
-
-            //Begin cache connections by scheduling a task on the plugin's scheduler
-            _ = pbase.ObserveTask(() => RunClientAsync(pbase, config, localized, client), 250);
-
-            return client;
+            _ = cache ?? throw new ArgumentNullException(nameof(cache));
+            _ = prefix ?? throw new ArgumentNullException(nameof(prefix));
+            //Create simple cache key generator
+            SimpleCacheKeyImpl keyProv = new(prefix, digest, encoding);
+            //Create the scoped cache from the simple provider
+            return cache.GetScopedCache(keyProv);
         }
 
-        private static async Task RunClientAsync(PluginBase pbase, IReadOnlyDictionary<string, JsonElement> config, ILogProvider localized, VnCacheClient client)
+        private sealed class SimpleCacheKeyImpl : ICacheKeyGenerator
         {
-            ILogProvider Log = localized;
+            private readonly string Prefix;
+            private readonly HashAlg Digest;
+            private readonly HashEncodingMode Encoding;
 
-            try
+            public SimpleCacheKeyImpl(string prefix, HashAlg digest, HashEncodingMode encoding)
             {
-                //Try loading config
-                await client.LoadConfigAsync(pbase, config);
-
-                Log.Verbose("VNCache client configration loaded successfully");
-
-                //Run and wait for exit
-                await client.RunAsync(Log, pbase.UnloadToken);
-            }
-            catch (OperationCanceledException)
-            { }
-            catch (KeyNotFoundException e)
-            {
-                Log.Error("Missing required configuration variable for VnCache client: {0}", e.Message);
-            }
-            catch (FBMServerNegiationException fne)
-            {
-                Log.Error("Failed to negotiate connection with cache server {reason}", fne.Message);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Unhandled exception occured in background cache client listening task");
-            }
-            finally
-            {
-                client.Dispose();
+                Prefix = prefix;
+                Digest = digest;
+                Encoding = encoding;
             }
 
-            Log.Information("Cache client exited");
-        }     
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private int ComputeBufferSize(string id) => id.Length + Prefix.Length;
+
+
+            string ICacheKeyGenerator.ComputedKey(string entityId)
+            {
+                //Compute the required character buffer size
+                int bufferSize = ComputeBufferSize(entityId);
+
+                if(bufferSize < 128)
+                {
+                    //Stack alloc a buffer
+                    Span<char> buffer = stackalloc char[bufferSize];
+
+                    //Writer to accumulate data
+                    ForwardOnlyWriter<char> writer = new(buffer);
+
+                    //Append prefix and entity id
+                    writer.Append(Prefix);
+                    writer.Append(entityId);
+
+                    //Compute the simple hash of the combined values
+                    return ManagedHash.ComputeHash(writer.AsSpan(), Digest, Encoding);
+                }
+                else
+                {
+                    //Alloc heap buffer for string concatination
+                    using UnsafeMemoryHandle<char> buffer = MemoryUtil.UnsafeAlloc<char>(bufferSize, true);
+
+                    //Writer to accumulate data
+                    ForwardOnlyWriter<char> writer = new(buffer);
+
+                    //Append prefix and entity id
+                    writer.Append(Prefix);
+                    writer.Append(entityId);
+
+                    //Compute the simple hash of the combined values
+                    return ManagedHash.ComputeHash(writer.AsSpan(), Digest, Encoding);
+                }
+            }
+        }
     }
 }

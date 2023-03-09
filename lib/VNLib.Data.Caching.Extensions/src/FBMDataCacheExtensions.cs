@@ -30,6 +30,7 @@ using System.Security;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Runtime.CompilerServices;
 
@@ -44,7 +45,7 @@ using VNLib.Utils.Extensions;
 using VNLib.Net.Rest.Client;
 using VNLib.Net.Messaging.FBM;
 using VNLib.Net.Messaging.FBM.Client;
-using System.Collections.Generic;
+
 
 namespace VNLib.Data.Caching.Extensions
 {
@@ -226,10 +227,7 @@ namespace VNLib.Data.Caching.Extensions
             using ClientContract cc = ClientPool.Lease();
             //Exec the regitration request
             RestResponse response = await cc.Resource.ExecutePutAsync(regRequest);
-            if(!response.IsSuccessful)
-            {
-                throw response.ErrorException!;
-            }
+            response.ThrowIfError();
         }
     
 
@@ -386,12 +384,8 @@ namespace VNLib.Data.Caching.Extensions
             {
                 //Execute the request
                 RestResponse response = await clientContract.Resource.ExecuteGetAsync(negotation, token);
-                
-                //Check verify the response
-                if (!response.IsSuccessful)
-                {
-                    throw response.ErrorException!;
-                }
+
+                response.ThrowIfError();
 
                 if (response.Content == null)
                 {

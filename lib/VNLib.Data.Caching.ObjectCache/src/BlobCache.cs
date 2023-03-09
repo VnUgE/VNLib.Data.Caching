@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2022 Vaughn Nugent
+* Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
@@ -24,36 +24,46 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 
+using VNLib.Utils.Memory;
 using VNLib.Utils.Memory.Caching;
 
-namespace VNLib.Data.Caching
+namespace VNLib.Data.Caching.ObjectCache
 {
 
     /// <summary>
     /// A general purpose binary data storage
     /// </summary>
-    public class BlobCache : LRUCache<string, CacheEntry>
+    public sealed class BlobCache : LRUCache<string, CacheEntry>, IBlobCache
     {
+        private bool disposedValue;
+
         ///<inheritdoc/>
         public override bool IsReadOnly { get; }
 
         ///<inheritdoc/>
         protected override int MaxCapacity { get; }
+        
+        ///<inheritdoc/>
+        public IUnmangedHeap CacheHeap { get; }
 
 
         /// <summary>
         /// Initializes a new <see cref="BlobCache"/> store
         /// </summary>
         /// <param name="maxCapacity">The maximum number of items to keep in memory</param>
+        /// <param name="heap">The unmanaged heap used to allocate cache entry buffers from</param>
         /// <exception cref="ArgumentException"></exception>
-        public BlobCache(int maxCapacity)
+        public BlobCache(int maxCapacity, IUnmangedHeap heap)
             :base(StringComparer.Ordinal)
         {
             if(maxCapacity < 1)
             {
                 throw new ArgumentException("The maxium capacity of the store must be a positive integer larger than 0", nameof(maxCapacity));   
             }
+
+            CacheHeap = heap;
 
             MaxCapacity = maxCapacity;
 
@@ -75,18 +85,11 @@ namespace VNLib.Data.Caching
             evicted.Value.Dispose();
         }
 
-        /// <summary>
-        /// If the <see cref="CacheEntry"/> is found in the store, changes the key 
-        /// that referrences the blob. 
-        /// </summary>
-        /// <param name="currentKey">The key that currently referrences the blob in the store</param>
-        /// <param name="newKey">The new key that will referrence the blob</param>
-        /// <param name="blob">The <see cref="CacheEntry"/> if its found in the store</param>
-        /// <returns>True if the record was found and the key was changes</returns>
-        public bool TryChangeKey(string currentKey, string newKey, out CacheEntry blob)
+        ///<inheritdoc/>
+        public bool TryChangeKey(string objectId, string newId, out CacheEntry blob)
         {
             //Try to get the node at the current key
-            if (LookupTable.Remove(currentKey, out LinkedListNode<KeyValuePair<string, CacheEntry>> ? node))
+            if (LookupTable.Remove(objectId, out LinkedListNode<KeyValuePair<string, CacheEntry>> ? node))
             {
                 //Remove the node from the ll
                 List.Remove(node);
@@ -95,13 +98,13 @@ namespace VNLib.Data.Caching
                 blob = node.ValueRef.Value;
 
                 //Update the 
-                node.Value = new KeyValuePair<string, CacheEntry>(newKey, blob);
+                node.Value = new KeyValuePair<string, CacheEntry>(newId, blob);
 
                 //Add to end of list
                 List.AddLast(node);
 
                 //Re-add to lookup table with new key
-                LookupTable.Add(newKey, node);
+                LookupTable.Add(newId, node);
 
                 return true;
             }
@@ -110,11 +113,7 @@ namespace VNLib.Data.Caching
             return false;
         }
 
-        /// <summary>
-        /// Removes the <see cref="CacheEntry"/> from the store, and frees its resources
-        /// </summary>
-        /// <param name="key">The key that referrences the <see cref="CacheEntry"/> in the store</param>
-        /// <returns>A value indicating if the blob was removed</returns>
+        ///<inheritdoc/>
         public override bool Remove(string key)
         {
             //Remove the item from the lookup table and if it exists, remove the node from the list
@@ -129,6 +128,7 @@ namespace VNLib.Data.Caching
                 //Remove the node from the list
                 List.Remove(node);
             }
+
             return true;
         }
 
@@ -152,6 +152,45 @@ namespace VNLib.Data.Caching
            
             //empty all cache entires in the store
             base.Clear();
+        }
+
+        ///<inheritdoc/>
+        public bool Remove(string objectId, out CacheEntry entry)
+        {
+            //Try to get the stored object
+            if(TryGetValue(objectId, out entry))
+            {
+                //remove the entry and bypass the disposal
+                bool result = base.Remove(objectId);
+#if DEBUG
+                Debug.Assert(result == true);
+#endif
+                return true;
+            }
+            
+            entry = default;
+            return false;
+        }
+
+        ///<inheritdoc/>
+        void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                    Clear();
+                }
+                disposedValue = true;
+            }
+        }
+
+        ///<inheritdoc/>
+        public void Dispose()
+        {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }

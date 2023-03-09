@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2022 Vaughn Nugent
+* Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -111,10 +111,9 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         {
             try
             {
-                IReadOnlyDictionary<string, JsonElement> clusterConf = this.GetConfig("cluster");
+                IConfigScope clusterConf = this.GetConfig("cluster");
 
-                Uri brokerAddress = new(clusterConf["broker_address"].GetString() ?? throw new KeyNotFoundException("Missing required key 'broker_address' for config 'cluster'"));
-             
+                Uri brokerAddress = new(clusterConf["broker_address"].GetString() ?? throw new KeyNotFoundException("Missing required key 'broker_address' for config 'cluster'"));             
 
                 //Init connect endpoint
                 ConnectEndpoint endpoint = this.Route<ConnectEndpoint>();
@@ -122,27 +121,30 @@ namespace VNLib.Data.Caching.ObjectCache.Server
                 //Get the cache store from the connection endpoint
                 ICacheStore store = endpoint.GetCacheStore();
 
+                ulong maxByteSize = ((ulong)endpoint.CacheConfig.MaxCacheEntries * (ulong)endpoint.CacheConfig.BucketCount * (ulong)endpoint.CacheConfig.MaxMessageSize);
+
                 //Log max memory usage
-                Log.Debug("Maxium memory consumption {mx}Mb", ((ulong)endpoint.CacheConfig.MaxCacheEntries * (ulong)endpoint.CacheConfig.MaxMessageSize) / (ulong)(1024 * 1000));
+                Log.Debug("Maxium memory consumption {mx}Mb", maxByteSize / (ulong)(1024 * 1000));
 
                 //Setup broker and regitration
                 {
-
                     //Route the broker endpoint
                     BrokerHeartBeat brokerEp = new(() => BrokerHeartBeatToken!, BrokerSyncHandle, brokerAddress, this);
                     Route(brokerEp);
                     
                     //start registration 
-                    _ = this.ObserveTask(() => RegisterServerAsync(endpoint.Path), 200);
+                    _ = this.ObserveWork(() => RegisterServerAsync(endpoint.Path), 200);
                 }
                 
                 //Setup cluster worker
                 {
+                    TimeSpan timeout = TimeSpan.FromSeconds(10);
+
                     //Get pre-configured fbm client config for caching
-                    ClientConfig = FBMDataCacheExtensions.GetDefaultConfig(CacheHeap, endpoint.CacheConfig.MaxMessageSize / 2, this.IsDebug() ? Log : null);
+                    ClientConfig = FBMDataCacheExtensions.GetDefaultConfig(CacheHeap, endpoint.CacheConfig.MaxMessageSize / 2, timeout, this.IsDebug() ? Log : null);
 
                     //Start Client runner
-                    _ = this.ObserveTask(() => RunClientAsync(store, brokerAddress), 300);
+                    _ = this.ObserveWork(() => RunClientAsync(store, brokerAddress), 300);
                 }
                 
                 //Load a cache broker to the current server if the config is defined
@@ -182,7 +184,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             try
             {
                 //Get the broker config element
-                IReadOnlyDictionary<string, JsonElement> clusterConfig = this.GetConfig("cluster");                
+                IConfigScope clusterConfig = this.GetConfig("cluster");                
                 
                 //Server id is just dns name for now
                 string serverId = Dns.GetHostName();
@@ -226,6 +228,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
                     {
                         //Gen a random reg token before registering
                         BrokerHeartBeatToken = RandomHash.GetRandomHex(32);
+
                         //Assign new hb token
                         request.WithHeartbeatToken(BrokerHeartBeatToken);
 
@@ -334,7 +337,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             try
             {
                 //Get the broker config element
-                IReadOnlyDictionary<string, JsonElement> clusterConf = this.GetConfig("cluster");
+                IConfigScope clusterConf = this.GetConfig("cluster");
 
                 int serverCheckMs = clusterConf["update_interval_sec"].GetInt32() * 1000;
 
@@ -412,7 +415,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
                                 ListeningServers.Add(server);
 
                                 //Run listener background task
-                                _ = this.ObserveTask(() => RunSyncTaskAsync(server, cacheStore, nodeId));
+                                _ = this.ObserveWork(() => RunSyncTaskAsync(server, cacheStore, nodeId));
                             }
                         }
                     }
@@ -431,6 +434,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             }
             catch (TaskCanceledException)
             {
+                //normal exit/unload
             }
             catch (Exception ex)
             {

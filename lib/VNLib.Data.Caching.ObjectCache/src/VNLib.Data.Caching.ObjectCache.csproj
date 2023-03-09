@@ -2,18 +2,25 @@
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
-    
-    <Authors>Vaughn Nugent</Authors>
-    <Copyright>Copyright © 2023 Vaughn Nugent</Copyright>
+    <RootNamespace>VNLib.Data.Caching.ObjectCache</RootNamespace>
+    <AssemblyName>VNLib.Data.Caching.ObjectCache</AssemblyName>   
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
-    <PackageProjectUrl>https://www.vaughnnugent.com/resources</PackageProjectUrl>
-    <AssemblyVersion>1.0.0.1</AssemblyVersion>
-    <Version>1.0.1.1</Version>
     <AnalysisLevel>latest-all</AnalysisLevel>
-    <SignAssembly>True</SignAssembly>
-    <AssemblyOriginatorKeyFile>\\vaughnnugent.com\Internal\Folder Redirection\vman\Documents\Programming\Software\StrongNameingKey.snk</AssemblyOriginatorKeyFile>
-    <Description>Provides server-side object-cache related infrastructure</Description>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Authors>Vaughn Nugent</Authors>
+    <Company>Vaughn Nugent</Company>
+    <Product>VNLib.Data.Caching.ObjectCache</Product>
+    <PackageId>VNLib.Data.Caching.ObjectCache</PackageId>
+    <Description>
+      A library for a high-performance in-memory object-data caching, based on key-derrived cache buckets 
+      for wait distribution.
+    </Description>
+    <Copyright>Copyright © 2023 Vaughn Nugent</Copyright>
+    <PackageProjectUrl>https://www.vaughnnugent.com/resources/software/modules/VNLib.Data.Caching</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/VnUgE/VNLib.Data.Caching/tree/master/lib/VNLib.Data.Caching.ObjectCache</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>

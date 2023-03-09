@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2022 Vaughn Nugent
+* Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Plugins.Extensions.VNCache
@@ -24,7 +24,6 @@
 
 using System;
 using System.Net.Http;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Sockets;
@@ -32,71 +31,74 @@ using System.Net.WebSockets;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 
-using VNLib.Utils;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
 using VNLib.Utils.Extensions;
 using VNLib.Hashing.IdentityUtility;
 using VNLib.Data.Caching;
 using VNLib.Data.Caching.Extensions;
+using VNLib.Data.Caching.ObjectCache;
 using VNLib.Net.Messaging.FBM.Client;
 using VNLib.Plugins.Extensions.Loading;
 
 
 namespace VNLib.Plugins.Extensions.VNCache
 {
-    /// <summary>
-    /// A wrapper to simplify a shared global cache client
-    /// </summary>
-    [ConfigurationName("vncache")]
-    public sealed class VnCacheClient : VnDisposeable, IGlobalCacheProvider
+    public interface ICacheRefreshPolicy
     {
-        FBMClient? _client;
+        TimeSpan MaxCacheAge { get; }
 
-        private TimeSpan RetryInterval;
+        TimeSpan RefreshInterval { get; }
+    }
 
-        private readonly ILogProvider? DebugLog;
-        private readonly IUnmangedHeap? ClientHeap;
-
-        /// <summary>
-        /// Initializes an emtpy client wrapper that still requires 
-        /// configuration loading
-        /// </summary>
-        /// <param name="debugLog">An optional debugging log</param>
-        /// <param name="heap">An optional <see cref="IUnmangedHeap"/> for <see cref="FBMClient"/> buffers</param>
-        internal VnCacheClient(ILogProvider? debugLog, IUnmangedHeap? heap = null)
-        {
-            DebugLog = debugLog;
-            //Default to 10 seconds
-            RetryInterval = TimeSpan.FromSeconds(10);
-
-            ClientHeap = heap;
-        }
-
-        ///<inheritdoc/>
-        protected override void Free()
-        {
-            _client?.Dispose();
-            _client = null;
-        }
-
+    /// <summary>
+    /// A base class that manages 
+    /// </summary>
+    [ConfigurationName(VNCacheExtensions.CACHE_CONFIG_KEY)]
+    internal class VnCacheClient : IGlobalCacheProvider, IAsyncBackgroundWork, IAsyncConfigurable
+    {
+        private readonly TimeSpan RetryInterval;
 
         /// <summary>
-        /// Loads required configuration variables from the config store and 
-        /// intializes the interal client
+        /// The internal client
         /// </summary>
-        /// <param name="pbase"></param>
-        /// <param name="config">A dictionary of configuration varables</param>
-        /// <exception cref="KeyNotFoundException"></exception>
-        internal async Task LoadConfigAsync(PluginBase pbase, IReadOnlyDictionary<string, JsonElement> config)
+        public FBMClient Client { get; }
+
+        /// <summary>
+        /// Gets a value that determines if the client is currently connected to a server
+        /// </summary>
+        public bool IsConnected { get; private set; }
+
+        public VnCacheClient(PluginBase pbase, IConfigScope config)
         {
+            //Get required configuration variables
             int maxMessageSize = config["max_message_size"].GetInt32();
             string? brokerAddress = config["broker_address"].GetString() ?? throw new KeyNotFoundException("Missing required configuration variable broker_address");
+            RetryInterval = config["retry_interval_sec"].GetTimeSpan(TimeParseType.Seconds);
+            TimeSpan timeout = config["request_timeout_sec"].GetTimeSpan(TimeParseType.Seconds);
 
+            Uri brokerUri = new(brokerAddress);
+
+            //Setup debug log if the plugin is in debug mode
+            ILogProvider? debugLog = pbase.IsDebug() ? pbase.Log : null;
+
+            //Init the client with default settings
+            FBMClientConfig conf = FBMDataCacheExtensions.GetDefaultConfig(MemoryUtil.Shared, maxMessageSize, timeout, debugLog);
+
+            Client = new(conf);
+
+            //Add the configuration to the client
+            Client.GetCacheConfiguration()
+                .WithBroker(brokerUri)
+                .WithTls(brokerUri.Scheme == Uri.UriSchemeHttps);
+        }
+
+        public virtual async Task ConfigureServiceAsync(PluginBase plugin)
+        {
             //Get keys async
-            Task<ReadOnlyJsonWebKey?> clientPrivTask = pbase.TryGetSecretAsync("client_private_key").ToJsonWebKey();
-            Task<ReadOnlyJsonWebKey?> brokerPubTask = pbase.TryGetSecretAsync("broker_public_key").ToJsonWebKey();
-            Task<ReadOnlyJsonWebKey?> cachePubTask = pbase.TryGetSecretAsync("cache_public_key").ToJsonWebKey();
+            Task<ReadOnlyJsonWebKey?> clientPrivTask = plugin.TryGetSecretAsync("client_private_key").ToJsonWebKey();
+            Task<ReadOnlyJsonWebKey?> brokerPubTask = plugin.TryGetSecretAsync("broker_public_key").ToJsonWebKey();
+            Task<ReadOnlyJsonWebKey?> cachePubTask = plugin.TryGetSecretAsync("cache_public_key").ToJsonWebKey();
 
             //Wait for all tasks to complete
             _ = await Task.WhenAll(clientPrivTask, brokerPubTask, cachePubTask);
@@ -105,132 +107,151 @@ namespace VNLib.Plugins.Extensions.VNCache
             ReadOnlyJsonWebKey brokerPub = await brokerPubTask ?? throw new KeyNotFoundException("Missing required secret broker_public_key");
             ReadOnlyJsonWebKey cachePub = await cachePubTask ?? throw new KeyNotFoundException("Missing required secret cache_public_key");
 
-            RetryInterval = config["retry_interval_sec"].GetTimeSpan(TimeParseType.Seconds);
-
-            Uri brokerUri = new(brokerAddress);
-
-            //Init the client with default settings
-            FBMClientConfig conf = FBMDataCacheExtensions.GetDefaultConfig(ClientHeap ?? MemoryUtil.Shared, maxMessageSize, DebugLog);
-
-            _client = new(conf);
-
-            //Add the configuration to the client
-            _client.GetCacheConfiguration()
-                .WithBroker(brokerUri)
+            //Connection authentication methods
+            Client.GetCacheConfiguration()
                 .WithVerificationKey(cachePub)
                 .WithSigningCertificate(clientPriv)
-                .WithBrokerVerificationKey(brokerPub)
-                .WithTls(brokerUri.Scheme == Uri.UriSchemeHttps);
+                .WithBrokerVerificationKey(brokerPub);
         }
 
-        /// <summary>
-        /// Discovers nodes in the configured cluster and connects to a random node
-        /// </summary>
-        /// <param name="Log">A <see cref="ILogProvider"/> to write log events to</param>
-        /// <param name="cancellationToken">A token to cancel the operation</param>
-        /// <returns>A task that completes when the operation has been cancelled or an unrecoverable error occured</returns>
-        /// <exception cref="InvalidOperationException"></exception>
-        /// <exception cref="OperationCanceledException"></exception>
-        internal async Task RunAsync(ILogProvider Log, CancellationToken cancellationToken)
+        /*
+         * Background work method manages the remote cache connection
+         * to the cache cluster
+         */
+        public virtual async Task DoWorkAsync(ILogProvider pluginLog, CancellationToken exitToken)
         {
-            _ = _client ?? throw new InvalidOperationException("Client configuration not loaded, cannot connect to cache servers");
-
-            while (true)
-            {
-                //Load the server list
-                ActiveServer[]? servers;
+            try
+            {      
                 while (true)
                 {
+                    //Load the server list
+                    ActiveServer[]? servers;
+                    while (true)
+                    {
+                        try
+                        {
+                            pluginLog.Debug("Discovering cluster nodes in broker");
+                            //Get server list
+                            servers = await Client.DiscoverCacheNodesAsync(exitToken);
+                            break;
+                        }
+                        catch (HttpRequestException re) when (re.InnerException is SocketException)
+                        {
+                            pluginLog.Warn("Broker server is unreachable");
+                        }
+                        catch (Exception ex)
+                        {
+                            pluginLog.Warn("Failed to get server list from broker, reason {r}", ex.Message);
+                        }
+
+                        //Gen random ms delay
+                        int randomMsDelay = RandomNumberGenerator.GetInt32(1000, 2000);
+                        await Task.Delay(randomMsDelay, exitToken);
+                    }
+
+                    if (servers?.Length == 0)
+                    {
+                        pluginLog.Warn("No cluster nodes found, retrying");
+                        await Task.Delay(RetryInterval, exitToken);
+                        continue;
+                    }
+
                     try
                     {
-                        Log.Debug("Discovering cluster nodes in broker");
-                        //Get server list
-                        servers = await _client.DiscoverCacheNodesAsync(cancellationToken);
-                        break;
+                        pluginLog.Debug("Connecting to random cache server");
+
+                        //Connect to a random server
+                        ActiveServer selected = await Client.ConnectToRandomCacheAsync(exitToken);
+                        pluginLog.Debug("Connected to cache server {s}", selected.ServerId);
+
+                        //Set connection status flag
+                        IsConnected = true;
+
+                        //Wait for disconnect
+                        await Client.WaitForExitAsync(exitToken);
+
+                        pluginLog.Debug("Cache server disconnected");
                     }
-                    catch (HttpRequestException re) when (re.InnerException is SocketException)
+                    catch (WebSocketException wse)
                     {
-                        Log.Warn("Broker server is unreachable");
+                        pluginLog.Warn("Failed to connect to cache server {reason}", wse.Message);
+                        continue;
                     }
-                    catch (Exception ex)
+                    catch (HttpRequestException he) when (he.InnerException is SocketException)
                     {
-                        Log.Warn("Failed to get server list from broker, reason {r}", ex.Message);
+                        pluginLog.Debug("Failed to connect to random cache server server");
+                        //Continue next loop
+                        continue;
                     }
-
-                    //Gen random ms delay
-                    int randomMsDelay = RandomNumberGenerator.GetInt32(1000, 2000);
-                    await Task.Delay(randomMsDelay, cancellationToken);
-                }
-
-                if (servers?.Length == 0)
-                {
-                    Log.Warn("No cluster nodes found, retrying");
-                    await Task.Delay(RetryInterval, cancellationToken);
-                    continue;
-                }
-
-                try
-                {
-                    Log.Debug("Connecting to random cache server");
-
-                    //Connect to a random server
-                    ActiveServer selected = await _client.ConnectToRandomCacheAsync(cancellationToken);
-                    Log.Debug("Connected to cache server {s}", selected.ServerId);
-
-                    //Set connection status flag
-                    IsConnected = true;
-
-                    //Wait for disconnect
-                    await _client.WaitForExitAsync(cancellationToken);
-
-                    Log.Debug("Cache server disconnected");
-                }
-                catch (WebSocketException wse)
-                {
-                    Log.Warn("Failed to connect to cache server {reason}", wse.Message);
-                    continue;
-                }
-                catch (HttpRequestException he) when (he.InnerException is SocketException)
-                {
-                    Log.Debug("Failed to connect to random cache server server");
-                    //Continue next loop
-                    continue;
-                }
-                finally
-                {
-                    IsConnected = false;
+                    finally
+                    {
+                        IsConnected = false;
+                    }
                 }
             }
+            catch (OperationCanceledException)
+            {
+                //Normal exit from listening loop
+            }
+            catch (KeyNotFoundException e)
+            {
+                pluginLog.Error("Missing required configuration variable for VnCache client: {0}", e.Message);
+            }
+            catch (FBMServerNegiationException fne)
+            {
+                pluginLog.Error("Failed to negotiate connection with cache server {reason}", fne.Message);
+            }
+            catch (Exception ex)
+            {
+                pluginLog.Error(ex, "Unhandled exception occured in background cache client listening task");
+            }
+            finally
+            {
+                //Dispose the client on exit
+                Client.Dispose();
+            }
+            pluginLog.Information("Cache client exited");
         }
 
 
         ///<inheritdoc/>
-        public bool IsConnected { get; private set; }
-        
-
-        ///<inheritdoc/>
-        public Task AddOrUpdateAsync<T>(string key, string? newKey, T value, CancellationToken cancellation)
+        public virtual Task AddOrUpdateAsync<T>(string key, string? newKey, T value, CancellationToken cancellation)
         {
             return !IsConnected
                ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
-               : _client!.AddOrUpdateObjectAsync(key, newKey, value, cancellation);
+               : Client!.AddOrUpdateObjectAsync(key, newKey, value, cancellation);
         }
 
         ///<inheritdoc/>
-        public Task DeleteAsync(string key, CancellationToken cancellation)
+        public virtual Task DeleteAsync(string key, CancellationToken cancellation)
         {
             return !IsConnected
               ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
-              : _client!.DeleteObjectAsync(key, cancellation);
+              : Client!.DeleteObjectAsync(key, cancellation);
         }
-       
-     
+
         ///<inheritdoc/>
-        public Task<T?> GetAsync<T>(string key, CancellationToken cancellation)
+        public virtual Task<T?> GetAsync<T>(string key, CancellationToken cancellation)
         {
             return !IsConnected
                ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
-               : _client!.GetObjectAsync<T>(key, cancellation);
+               : Client!.GetObjectAsync<T>(key, cancellation);
+        }
+
+        ///<inheritdoc/>
+        public virtual Task<T?> GetAsync<T>(string key, ICacheObjectDeserialzer deserializer, CancellationToken cancellation)
+        {
+            return !IsConnected
+               ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
+               : Client!.GetObjectAsync<T>(key, deserializer, cancellation);
+        }
+
+        ///<inheritdoc/>
+        public virtual Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerialzer serialzer, CancellationToken cancellation)
+        {
+            return !IsConnected
+             ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
+             : Client!.AddOrUpdateObjectAsync(key, newKey, value, serialzer, cancellation);
         }
     }
 }

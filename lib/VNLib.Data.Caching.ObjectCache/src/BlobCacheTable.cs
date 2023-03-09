@@ -1,0 +1,139 @@
+﻿/*
+* Copyright (c) 2023 Vaughn Nugent
+* 
+* Library: VNLib
+* Package: VNLib.Data.Caching.ObjectCache
+* File: BlobCacheTable.cs 
+*
+* BlobCacheTable.cs is part of VNLib.Data.Caching.ObjectCache which is part of the larger 
+* VNLib collection of libraries and utilities.
+*
+* VNLib.Data.Caching.ObjectCache is free software: you can redistribute it and/or modify 
+* it under the terms of the GNU Affero General Public License as 
+* published by the Free Software Foundation, either version 3 of the
+* License, or (at your option) any later version.
+*
+* VNLib.Data.Caching.ObjectCache is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Affero General Public License for more details.
+*
+* You should have received a copy of the GNU Affero General Public License
+* along with this program.  If not, see https://www.gnu.org/licenses/.
+*/
+
+using System;
+using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
+
+using VNLib.Utils;
+using VNLib.Utils.Memory;
+
+namespace VNLib.Data.Caching.ObjectCache
+{
+    /// <summary>
+    /// A concrete implementation of a <see cref="IBlobCacheTable"/>
+    /// </summary>
+    public sealed class BlobCacheTable : VnDisposeable, IBlobCacheTable
+    {
+        private readonly uint _tableSize;
+        private readonly IBlobCacheBucket[] _buckets;
+
+        /// <summary>
+        /// Initializes a new <see cref="BlobCacheTable"/>
+        /// </summary>
+        /// <param name="bucketSize">The number of elements in each bucket</param>
+        /// <param name="tableSize">The number of buckets within the table</param>
+        /// <param name="heap">The heap used to allocate cache entry buffers from</param>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentException"></exception>
+        public BlobCacheTable(uint tableSize, uint bucketSize, IUnmangedHeap heap)
+        {
+            _ = heap ?? throw new ArgumentNullException(nameof(heap));
+
+            if(tableSize == 0)
+            {
+                throw new ArgumentException("Cache table must have atleast 1 bucket");
+            }
+
+            //Init bucket table
+            _tableSize = tableSize;
+            _buckets = new IBlobCacheBucket[tableSize];
+
+            //Init buckets
+            InitBuckets(tableSize, bucketSize, _buckets, heap);
+        }
+
+
+        private static void InitBuckets(uint size, uint bucketSize, IBlobCacheBucket[] table, IUnmangedHeap heap)
+        {
+            for(int i = 0; i < size; i++)
+            {
+                table[i] = new BlobCacheBucket((int)bucketSize, heap);
+            }
+        }
+
+        /*
+         * A very simple algorithm that captures unique values
+         * from an object id and builds an unsigned 32bit integer
+         * used to determine the bucked index within the table.
+         * 
+         * This method will alawys result in the same index for 
+         * for a given object-id
+         */
+
+        private uint FastGetBucketIndexFromId(ReadOnlySpan<char> objectId)
+        {
+            if (objectId.Length < 4)
+            {
+                throw new ArgumentException("Object id must be larger than 3 characters");
+            }
+
+            Span<byte> buffer = stackalloc byte[4];
+
+            //cast the characters 
+            buffer[0] = (byte)objectId[0];
+            buffer[1] = (byte)objectId[objectId.Length / 2];
+            buffer[2] = (byte)objectId[1];
+            buffer[3] = (byte)objectId[^1];
+
+            //Read the buffer back to a uint and mod by the table size to get the bucket index
+            return BitConverter.ToUInt32(buffer) % _tableSize;
+        }
+     
+
+        ///<inheritdoc/>
+        ///<exception cref="ObjectDisposedException"></exception>
+        public IBlobCacheBucket GetBucket(ReadOnlySpan<char> objectId)
+        {
+            Check();
+
+            //If tablesize is 1, skip lookup, otherwise perform bucket index lookup
+            uint index = _tableSize == 1 ? 0 : FastGetBucketIndexFromId(objectId);
+
+            return _buckets[index];
+        }
+
+        ///<inheritdoc/>
+        protected sealed override void Free()
+        {
+            //Dispose buckets
+            Array.ForEach(_buckets, static b => b.Dispose());
+        }
+
+        ///<inheritdoc/>
+        public IEnumerator<IBlobCacheBucket> GetEnumerator()
+        {
+            Check();
+            return _buckets.AsEnumerable().GetEnumerator();
+        }
+
+        ///<inheritdoc/>
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            Check();
+            return _buckets.AsEnumerable().GetEnumerator();
+        }
+    }
+}

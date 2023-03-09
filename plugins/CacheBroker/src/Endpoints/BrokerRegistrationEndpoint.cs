@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2022 Vaughn Nugent
+* Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: CacheBroker
@@ -98,7 +98,7 @@ namespace VNLib.Plugins.Cache.Broker.Endpoints
             DisableVerifySessionCors = true,
         };
 
-        public BrokerRegistrationEndpoint(PluginBase plugin, IReadOnlyDictionary<string, JsonElement> config)
+        public BrokerRegistrationEndpoint(PluginBase plugin, IConfigScope config)
         {
             string? path = config["path"].GetString();
 
@@ -412,10 +412,12 @@ namespace VNLib.Plugins.Cache.Broker.Endpoints
         }
 
         
-        void IDisposable.Dispose()
+        ///<inheritdoc/>
+        public void Dispose()
         {
             //Cleanup client pool when exiting
             ClientPool.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

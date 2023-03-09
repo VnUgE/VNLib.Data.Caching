@@ -45,7 +45,6 @@ using VNLib.Plugins.Essentials;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Plugins.Essentials.Endpoints;
 using VNLib.Plugins.Essentials.Extensions;
-using System.Text.Json.Serialization;
 
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
@@ -56,7 +55,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         private static readonly TimeSpan AuthTokenExpiration = TimeSpan.FromSeconds(30);      
 
         private readonly string AudienceLocalServerId;
-        private readonly ObjectCacheStore Store;
+        private readonly BlobCacheLIstener Store;
         private readonly PluginBase Pbase;
 
         private readonly ConcurrentDictionary<string, AsyncQueue<ChangeEvent>> StatefulEventQueue;
@@ -81,7 +80,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             DisableCrossSiteDenied = true
         };
 
-        public ConnectEndpoint(PluginBase plugin, IReadOnlyDictionary<string, JsonElement> config)
+        public ConnectEndpoint(PluginBase plugin, IConfigScope config)
         {
             string? path = config["path"].GetString();
 
@@ -106,7 +105,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             StatefulEventQueue = new(StringComparer.OrdinalIgnoreCase);
 
             //Init the cache store
-            Store = InitializeCache((ObjectCacheServerEntry)plugin, CacheConfig.MaxCacheEntries);
+            Store = InitializeCache((ObjectCacheServerEntry)plugin, CacheConfig.BucketCount, CacheConfig.MaxCacheEntries);
 
             /*
             * Generate a random guid for the current server when created so we 
@@ -118,7 +117,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             _ = plugin.ObserveWork(this, 100);
         }
 
-        private static ObjectCacheStore InitializeCache(ObjectCacheServerEntry plugin, int maxCache)
+        private static BlobCacheLIstener InitializeCache(ObjectCacheServerEntry plugin, uint buckets, uint maxCache)
         {
             if(maxCache < 2)
             {
@@ -131,8 +130,10 @@ namespace VNLib.Data.Caching.ObjectCache.Server
                 plugin.Log.Information("Suggestion: You may want a larger cache size, you have less than 200 items in cache");
             }
 
+            plugin.Log.Verbose("Creating cache store with {bc} buckets, with {mc} items/bucket", buckets, maxCache);
+
             //Endpoint only allows for a single reader
-            return new (maxCache, plugin.Log, plugin.CacheHeap, true);
+            return new (buckets, maxCache, plugin.Log, plugin.CacheHeap, true);
         }
 
         /// <summary>
@@ -491,16 +492,16 @@ namespace VNLib.Data.Caching.ObjectCache.Server
 
         private sealed class CacheStore : ICacheStore
         {
-            private readonly ObjectCacheStore _cache;
+            private readonly BlobCacheLIstener _cache;
 
-            public CacheStore(ObjectCacheStore cache)
+            public CacheStore(BlobCacheLIstener cache)
             {
                 _cache = cache;
             }
 
             ValueTask ICacheStore.AddOrUpdateBlobAsync<T>(string objectId, string? alternateId, GetBodyDataCallback<T> bodyData, T state, CancellationToken token)
             {
-                return _cache.AddOrUpdateBlobAsync(objectId, alternateId, bodyData, state, token);
+                return _cache.Cache.AddOrUpdateObjectAsync(objectId, alternateId, bodyData, state, default, token);
             }
 
             void ICacheStore.Clear()
@@ -510,7 +511,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
 
             ValueTask<bool> ICacheStore.DeleteItemAsync(string id, CancellationToken token)
             {
-                return _cache.DeleteItemAsync(id, token);
+                return _cache.Cache.DeleteObjectAsync(id, token);
             }
         }
     }

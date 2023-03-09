@@ -32,7 +32,8 @@ using VNLib.Utils.Extensions;
 namespace VNLib.Data.Caching
 {
     /// <summary>
-    /// A structure that represents an item in cache
+    /// A structure that represents an item in cache. It contains the binary content
+    /// of a cache entry by its internal memory handle
     /// </summary>
     public readonly struct CacheEntry : IDisposable, IEquatable<CacheEntry>
     {
@@ -89,7 +90,7 @@ namespace VNLib.Data.Caching
 
 
         ///<inheritdoc/>
-        public readonly void Dispose() => _handle.Dispose();
+        public readonly void Dispose() => _handle?.Dispose();
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -116,7 +117,7 @@ namespace VNLib.Data.Caching
         /// </summary>
         /// <returns>The last date stored</returns>
         /// <exception cref="ObjectDisposedException"></exception>
-        public readonly DateTime GetCreatedTime()
+        public readonly DateTime GetTime()
         {
             //Get the time segment and write the value in big endian
             ReadOnlySpan<byte> segment = GetTimeSegment();

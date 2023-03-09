@@ -1,11 +1,11 @@
 ﻿/*
-* Copyright (c) 2022 Vaughn Nugent
+* Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
-* File: ConnectEndpoint.cs 
+* File: ICacheStore.cs 
 *
-* ConnectEndpoint.cs is part of ObjectCacheServer which is part of the larger 
+* ICacheStore.cs is part of ObjectCacheServer which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
 * ObjectCacheServer is free software: you can redistribute it and/or modify 
