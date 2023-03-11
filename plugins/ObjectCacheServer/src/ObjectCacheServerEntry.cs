@@ -138,10 +138,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server
                 
                 //Setup cluster worker
                 {
-                    TimeSpan timeout = TimeSpan.FromSeconds(10);
-
                     //Get pre-configured fbm client config for caching
-                    ClientConfig = FBMDataCacheExtensions.GetDefaultConfig(CacheHeap, endpoint.CacheConfig.MaxMessageSize / 2, timeout, this.IsDebug() ? Log : null);
+                    ClientConfig = FBMDataCacheExtensions.GetDefaultConfig(CacheHeap, endpoint.CacheConfig.MaxMessageSize / 2, default, this.IsDebug() ? Log : null);
 
                     //Start Client runner
                     _ = this.ObserveWork(() => RunClientAsync(store, brokerAddress), 300);
@@ -449,6 +447,9 @@ namespace VNLib.Data.Caching.ObjectCache.Server
 
         private async Task RunSyncTaskAsync(ActiveServer server, ICacheStore cacheStore, string nodeId)
         {
+            //Setup timeout for get operations to avoid deadlocks
+            TimeSpan getTimeout = TimeSpan.FromSeconds(30);
+
             //Setup client 
             FBMClient client = new(ClientConfig);
             try
@@ -465,7 +466,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
                         modRequest.WriteHeader(ObjectId, string.IsNullOrWhiteSpace(newId) ? objectId : newId);
 
                         //Make request
-                        using FBMResponse response =  await client.SendAsync(modRequest, UnloadToken);
+                        using FBMResponse response =  await client.SendAsync(modRequest, getTimeout, UnloadToken);
                        
                         response.ThrowIfNotSet();
 
