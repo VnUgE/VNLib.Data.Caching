@@ -39,6 +39,7 @@ namespace VNLib.Data.Caching.ObjectCache
     {
         private readonly uint _tableSize;
         private readonly IBlobCacheBucket[] _buckets;
+        private readonly IPersistantCacheStore? _persistant;
 
         /// <summary>
         /// Initializes a new <see cref="BlobCacheTable"/>
@@ -46,9 +47,10 @@ namespace VNLib.Data.Caching.ObjectCache
         /// <param name="bucketSize">The number of elements in each bucket</param>
         /// <param name="tableSize">The number of buckets within the table</param>
         /// <param name="heap">The heap used to allocate cache entry buffers from</param>
+        /// <param name="persistantCache">An optional <see cref="IPersistantCacheStore"/> for persistant cache implementations</param>
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="ArgumentException"></exception>
-        public BlobCacheTable(uint tableSize, uint bucketSize, IUnmangedHeap heap)
+        public BlobCacheTable(uint tableSize, uint bucketSize, IUnmangedHeap heap, IPersistantCacheStore? persistantCache)
         {
             _ = heap ?? throw new ArgumentNullException(nameof(heap));
 
@@ -61,16 +63,18 @@ namespace VNLib.Data.Caching.ObjectCache
             _tableSize = tableSize;
             _buckets = new IBlobCacheBucket[tableSize];
 
+            _persistant = persistantCache;
+
             //Init buckets
-            InitBuckets(tableSize, bucketSize, _buckets, heap);
+            InitBuckets(tableSize, bucketSize, _buckets, heap, persistantCache);
         }
 
 
-        private static void InitBuckets(uint size, uint bucketSize, IBlobCacheBucket[] table, IUnmangedHeap heap)
+        private static void InitBuckets(uint size, uint bucketSize, IBlobCacheBucket[] table, IUnmangedHeap heap, IPersistantCacheStore? persistantCache)
         {
-            for(int i = 0; i < size; i++)
+            for(uint i = 0; i < size; i++)
             {
-                table[i] = new BlobCacheBucket((int)bucketSize, heap);
+                table[i] = new BlobCacheBucket(i, (int)bucketSize, heap, persistantCache);
             }
         }
 
@@ -118,8 +122,12 @@ namespace VNLib.Data.Caching.ObjectCache
         ///<inheritdoc/>
         protected sealed override void Free()
         {
-            //Dispose buckets
-            Array.ForEach(_buckets, static b => b.Dispose());
+            //Dispose persistance store
+            using (_persistant)
+            {
+                //Dispose buckets
+                Array.ForEach(_buckets, static b => b.Dispose());
+            }
         }
 
         ///<inheritdoc/>

@@ -3,10 +3,10 @@
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
-* File: ObjectCacheStore.cs 
+* File: IBlobCacheBucket.cs 
 *
-* ObjectCacheStore.cs is part of VNLib.Data.Caching.ObjectCache which is part of the larger 
-* VNLib collection of libraries and utilities.
+* IBlobCacheBucket.cs is part of VNLib.Data.Caching.ObjectCache which 
+* is part of the larger VNLib collection of libraries and utilities.
 *
 * VNLib.Data.Caching.ObjectCache is free software: you can redistribute it and/or modify 
 * it under the terms of the GNU Affero General Public License as 
@@ -34,6 +34,11 @@ namespace VNLib.Data.Caching.ObjectCache
     /// </summary>
     public interface IBlobCacheBucket : IDisposable
     {
+        /// <summary>
+        /// The unique integer id of a bucket within an <see cref="IBlobCacheTable"/>
+        /// </summary>
+        uint Id { get; }
+
         /// <summary>
         /// Gets a <see cref="CacheBucketHandle"/> that holds an exclusive lock 
         /// for the current bucekt and holds a referrence to the stored

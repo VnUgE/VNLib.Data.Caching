@@ -23,8 +23,8 @@
 */
 
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
+using System.Collections.Generic;
 
 using VNLib.Utils.Memory;
 using VNLib.Utils.Memory.Caching;
@@ -35,9 +35,10 @@ namespace VNLib.Data.Caching.ObjectCache
     /// <summary>
     /// A general purpose binary data storage
     /// </summary>
-    public sealed class BlobCache : LRUCache<string, CacheEntry>, IBlobCache
+    public sealed class BlobCache : LRUCache<string, CacheEntry>, IBlobCache, IMemoryCacheEntryFactory
     {
         private bool disposedValue;
+        private IPersistantCacheStore? _persistance;
 
         ///<inheritdoc/>
         public override bool IsReadOnly { get; }
@@ -48,20 +49,28 @@ namespace VNLib.Data.Caching.ObjectCache
         ///<inheritdoc/>
         public IUnmangedHeap CacheHeap { get; }
 
+        ///<inheritdoc/>
+        public uint BucketId { get; }
 
         /// <summary>
         /// Initializes a new <see cref="BlobCache"/> store
         /// </summary>
+        /// <param name="bucketId">The id of the bucket that manages this instance</param>
         /// <param name="maxCapacity">The maximum number of items to keep in memory</param>
         /// <param name="heap">The unmanaged heap used to allocate cache entry buffers from</param>
+        /// <param name="store">The optional backing persistant cache storage</param>
         /// <exception cref="ArgumentException"></exception>
-        public BlobCache(int maxCapacity, IUnmangedHeap heap)
-            :base(StringComparer.Ordinal)
+        public BlobCache(uint bucketId, int maxCapacity, IUnmangedHeap heap, IPersistantCacheStore? store)
+            :base(maxCapacity, StringComparer.Ordinal)
         {
             if(maxCapacity < 1)
             {
                 throw new ArgumentException("The maxium capacity of the store must be a positive integer larger than 0", nameof(maxCapacity));   
             }
+
+            BucketId = bucketId;
+
+            _persistance = store;
 
             CacheHeap = heap;
 
@@ -74,19 +83,32 @@ namespace VNLib.Data.Caching.ObjectCache
         ///<inheritdoc/>
         protected override bool CacheMiss(string key, out CacheEntry value)
         {
-            value = default;
-            return false;
+            if(_persistance == null)
+            {
+                value = default;
+                return false;
+            }
+            //Use the persistant cache
+            return _persistance.OnCacheMiss(BucketId, key, this, out value);
         }
 
         ///<inheritdoc/>
         protected override void Evicted(ref KeyValuePair<string, CacheEntry> evicted)
         {
-            //Dispose the cache item
-            evicted.Value.Dispose();
+            try
+            {
+                //Call persistance store record eviction
+                _persistance?.OnEntryEvicted(BucketId, evicted.Key, evicted.Value);
+            }
+            finally
+            {
+                //Dispose the cache item
+                evicted.Value.Dispose();
+            }
         }
 
         ///<inheritdoc/>
-        public bool TryChangeKey(string objectId, string newId, out CacheEntry blob)
+        public bool TryChangeKey(string objectId, string newId, out CacheEntry entry)
         {
             //Try to get the node at the current key
             if (LookupTable.Remove(objectId, out LinkedListNode<KeyValuePair<string, CacheEntry>> ? node))
@@ -95,10 +117,10 @@ namespace VNLib.Data.Caching.ObjectCache
                 List.Remove(node);
 
                 //Get the stored blob
-                blob = node.ValueRef.Value;
+                entry = node.ValueRef.Value;
 
                 //Update the 
-                node.Value = new KeyValuePair<string, CacheEntry>(newId, blob);
+                node.Value = new KeyValuePair<string, CacheEntry>(newId, entry);
 
                 //Add to end of list
                 List.AddLast(node);
@@ -109,13 +131,16 @@ namespace VNLib.Data.Caching.ObjectCache
                 return true;
             }
 
-            blob = default;
+            entry = default;
             return false;
         }
 
         ///<inheritdoc/>
         public override bool Remove(string key)
         {
+            //Remove from persistant store also
+            _persistance?.OnEntryDeleted(BucketId, key);
+
             //Remove the item from the lookup table and if it exists, remove the node from the list
             if (!LookupTable.Remove(key, out LinkedListNode<KeyValuePair<string, CacheEntry>>? node))
             {
@@ -191,6 +216,14 @@ namespace VNLib.Data.Caching.ObjectCache
             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
+        }
+
+
+        ///<inheritdoc/>
+        CacheEntry IMemoryCacheEntryFactory.CreateEntry(ReadOnlySpan<byte> entryData)
+        {
+            //Create entry from the internal heap
+            return CacheEntry.Create(entryData, CacheHeap);
         }
     }
 }

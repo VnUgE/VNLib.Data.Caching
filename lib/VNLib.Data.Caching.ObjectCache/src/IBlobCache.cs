@@ -35,6 +35,11 @@ namespace VNLib.Data.Caching.ObjectCache
     public interface IBlobCache : IEnumerable<KeyValuePair<string, CacheEntry>>, IDisposable
     {
         /// <summary>
+        /// The id of the bucket this memory cache belongs to
+        /// </summary>
+        public uint BucketId { get; }
+
+        /// <summary>
         /// The internal heap used to allocate <see cref="CacheEntry"/> buffers
         /// </summary>
         IUnmangedHeap CacheHeap { get; }

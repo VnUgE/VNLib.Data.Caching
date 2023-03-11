@@ -3,9 +3,9 @@
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
-* File: BlobCacheLIstener.cs 
+* File: BlobCacheListener.cs 
 *
-* BlobCacheLIstener.cs is part of VNLib.Data.Caching.ObjectCache which is part of the larger 
+* BlobCacheListener.cs is part of VNLib.Data.Caching.ObjectCache which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
 * VNLib.Data.Caching.ObjectCache is free software: you can redistribute it and/or modify 
@@ -53,9 +53,9 @@ namespace VNLib.Data.Caching.ObjectCache
     public delegate ReadOnlySpan<byte> GetBodyDataCallback<T>(T state);
 
     /// <summary>
-    /// A <see cref="FBMListener"/> implementation of a <see cref="CacheListener"/>
+    /// An <see cref="FBMListener"/> for key-value object data caching servers.
     /// </summary>
-    public class BlobCacheLIstener : FBMListenerBase, IDisposable
+    public class BlobCacheListener : FBMListenerBase, IDisposable
     {
         private bool disposedValue;
 
@@ -74,21 +74,22 @@ namespace VNLib.Data.Caching.ObjectCache
 
 
         /// <summary>
-        /// Initialzies a new <see cref="BlobCacheLIstener"/>
+        /// Initialzies a new <see cref="BlobCacheListener"/>
         /// </summary>
-        /// <param name="cacheMax">The maxium number of items per bucket</param>
-        /// <param name="buckets">The number of cache store buckets</param>
-        /// <param name="log"></param>
+        /// <param name="cache">The cache table to work from</param>
+        /// <param name="log">Writes error and debug logging information</param>
         /// <param name="heap">The heap to alloc FBM buffers and <see cref="CacheEntry"/> cache buffers from</param>
         /// <param name="singleReader">A value that indicates if a single thread is processing events</param>
-        public BlobCacheLIstener(uint buckets, uint cacheMax, ILogProvider log, IUnmangedHeap heap, bool singleReader)
+        /// <exception cref="ArgumentNullException"></exception>
+        public BlobCacheListener(IBlobCacheTable cache, ILogProvider log, IUnmangedHeap heap, bool singleReader)
         {
             Log = log;
             
+            Cache = cache ?? throw new ArgumentNullException(nameof(cache));
+
             //Writes may happen from multple threads with bucket design and no lock
             EventQueue = new(false, singleReader);
-            
-            Cache = new BlobCacheTable(buckets, cacheMax, heap);
+
             InitListener(heap);
         }
 

@@ -80,7 +80,7 @@ namespace VNLib.Plugins.Extensions.VNCache
             }
 
             //Setup cache table
-            _memCache = new BlobCacheTable(memCacheConfig.TableSize, memCacheConfig.BucketSize, _bufferHeap);
+            _memCache = new BlobCacheTable(memCacheConfig.TableSize, memCacheConfig.BucketSize, _bufferHeap, null);
 
             /*
              * Default to json serialization by using the default

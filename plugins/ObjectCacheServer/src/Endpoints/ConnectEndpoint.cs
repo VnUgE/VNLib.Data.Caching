@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2022 Vaughn Nugent
+* Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -37,6 +37,7 @@ using VNLib.Net.Http;
 using VNLib.Utils.Async;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
+using VNLib.Data.Caching;
 using VNLib.Hashing.IdentityUtility;
 using VNLib.Net.Messaging.FBM;
 using VNLib.Net.Messaging.FBM.Client;
@@ -45,6 +46,7 @@ using VNLib.Plugins.Essentials;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Plugins.Essentials.Endpoints;
 using VNLib.Plugins.Essentials.Extensions;
+
 
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
@@ -55,7 +57,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         private static readonly TimeSpan AuthTokenExpiration = TimeSpan.FromSeconds(30);      
 
         private readonly string AudienceLocalServerId;
-        private readonly BlobCacheLIstener Store;
+        private readonly BlobCacheListener Store;
         private readonly PluginBase Pbase;
 
         private readonly ConcurrentDictionary<string, AsyncQueue<ChangeEvent>> StatefulEventQueue;
@@ -105,7 +107,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             StatefulEventQueue = new(StringComparer.OrdinalIgnoreCase);
 
             //Init the cache store
-            Store = InitializeCache((ObjectCacheServerEntry)plugin, CacheConfig.BucketCount, CacheConfig.MaxCacheEntries);
+            Store = InitializeCache((ObjectCacheServerEntry)plugin, CacheConfig, config);
 
             /*
             * Generate a random guid for the current server when created so we 
@@ -117,24 +119,29 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             _ = plugin.ObserveWork(this, 100);
         }
 
-        private static BlobCacheLIstener InitializeCache(ObjectCacheServerEntry plugin, uint buckets, uint maxCache)
+        
+        private static BlobCacheListener InitializeCache(ObjectCacheServerEntry plugin, CacheConfiguration cacheConf, IConfigScope config)
         {
-            if(maxCache < 2)
+            if(cacheConf.MaxCacheEntries < 2)
             {
                 throw new ArgumentException("You must configure a 'max_cache' size larger than 1 item");
             }
 
             //Suggestion
-            if(maxCache < 200)
+            if(cacheConf.MaxCacheEntries < 200)
             {
                 plugin.Log.Information("Suggestion: You may want a larger cache size, you have less than 200 items in cache");
             }
 
-            plugin.Log.Verbose("Creating cache store with {bc} buckets, with {mc} items/bucket", buckets, maxCache);
+            plugin.Log.Verbose("Creating cache store with {bc} buckets, with {mc} items/bucket", cacheConf.BucketCount, cacheConf.MaxCacheEntries);
+
+            //Load the blob cache table system
+            IBlobCacheTable bc = plugin.LoadMemoryCacheSystem(config, plugin.CacheHeap, cacheConf);
 
             //Endpoint only allows for a single reader
-            return new (buckets, maxCache, plugin.Log, plugin.CacheHeap, true);
+            return new (bc, plugin.Log, plugin.CacheHeap, true);
         }
+
 
         /// <summary>
         /// Gets the configured cache store
@@ -492,9 +499,9 @@ namespace VNLib.Data.Caching.ObjectCache.Server
 
         private sealed class CacheStore : ICacheStore
         {
-            private readonly BlobCacheLIstener _cache;
+            private readonly BlobCacheListener _cache;
 
-            public CacheStore(BlobCacheLIstener cache)
+            public CacheStore(BlobCacheListener cache)
             {
                 _cache = cache;
             }

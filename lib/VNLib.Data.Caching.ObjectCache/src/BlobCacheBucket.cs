@@ -29,10 +29,17 @@ using VNLib.Utils.Memory;
 
 namespace VNLib.Data.Caching.ObjectCache
 {
+
+    /// <summary>
+    /// A concrete implementation of an <see cref="IBlobCacheBucket"/>
+    /// </summary>
     public sealed class BlobCacheBucket : IBlobCacheBucket
     {
         private readonly IBlobCache _cacheTable;
         private readonly SemaphoreSlim _lock;
+
+        ///<inheritdoc/>
+        public uint Id { get; }
 
         /// <summary>
         /// Initialzies a new <see cref="BlobCacheBucket"/> and its underlying
@@ -42,11 +49,14 @@ namespace VNLib.Data.Caching.ObjectCache
         /// The maxium number of entries allowed in the LRU cache
         /// before LRU overflow happens.
         /// </param>
+        /// <param name="bucketId">The unique id of the new bucket</param>
         /// <param name="heap">The heap to allocate object cache buffers</param>
-        public BlobCacheBucket(int bucketCapacity, IUnmangedHeap heap)
+        /// <param name="persistantCache">An optional <see cref="IPersistantCacheStore"/> for cache persistance</param>
+        public BlobCacheBucket(uint bucketId, int bucketCapacity, IUnmangedHeap heap, IPersistantCacheStore? persistantCache)
         {
+            Id = bucketId;
             _lock = new(1, 1);
-            _cacheTable = new BlobCache(bucketCapacity, heap);
+            _cacheTable = new BlobCache(bucketId, bucketCapacity, heap, persistantCache);
         }
 
         ///<inheritdoc/>

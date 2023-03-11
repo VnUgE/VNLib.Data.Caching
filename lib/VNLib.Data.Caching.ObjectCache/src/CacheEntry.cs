@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2022 Vaughn Nugent
+* Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
@@ -23,11 +23,13 @@
 */
 
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 
 using VNLib.Utils.Memory;
 using VNLib.Utils.Extensions;
+
 
 namespace VNLib.Data.Caching
 {
@@ -35,7 +37,7 @@ namespace VNLib.Data.Caching
     /// A structure that represents an item in cache. It contains the binary content
     /// of a cache entry by its internal memory handle
     /// </summary>
-    public readonly struct CacheEntry : IDisposable, IEquatable<CacheEntry>
+    public readonly record struct CacheEntry : IDisposable
     {
         private const int TIME_SEGMENT_SIZE = sizeof(long);
 
@@ -53,7 +55,7 @@ namespace VNLib.Data.Caching
         /// </summary>
         /// <param name="data">The initial data to store</param>
         /// <param name="heap">The heap to allocate the buffer from</param>
-        /// <returns>The new <see cref="CacheEntry"/></returns>
+        /// <returns>The newly initialized and ready to use <see cref="CacheEntry"/></returns>
         public static CacheEntry Create(ReadOnlySpan<byte> data, IUnmangedHeap heap)
         {
             //Calc buffer size
@@ -73,6 +75,7 @@ namespace VNLib.Data.Caching
 
             return entry;
         }
+
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int GetRequiredHandleSize(int size)
@@ -202,27 +205,31 @@ namespace VNLib.Data.Caching
             Span<byte> segment = GetDataSegment();
 
 #if DEBUG
-            //Test segment length is equvalent to the requested data length
+            //Test segment length is equivalent to the requested data length
             System.Diagnostics.Debug.Assert(segment.Length == data.Length);
 #endif
             //Copy data segment
             data.CopyTo(segment);
         }
 
-
-        ///<inheritdoc/>
-        public override bool Equals(object? obj) => obj is CacheEntry entry && Equals(entry);
-
         ///<inheritdoc/>
         public override int GetHashCode() => _handle.GetHashCode();
 
-        ///<inheritdoc/>
-        public static bool operator ==(CacheEntry left, CacheEntry right) => left.Equals(right);
-
-        ///<inheritdoc/>
-        public static bool operator !=(CacheEntry left, CacheEntry right) => !(left == right);
-
-        ///<inheritdoc/>
-        public bool Equals(CacheEntry other) => other.GetHashCode() == GetHashCode();
+        /// <summary>
+        /// Gets a <see cref="MemoryHandle"/> offset to the start of the 
+        /// internal data segment, and avoids calling the fixed keyword.
+        /// The handle must be disposed/released to avoid memeory leaks.
+        /// </summary>
+        /// <remarks>
+        /// WARNING: You must respect the <see cref="GetLength"/> return value so 
+        /// as no to overrun the valid data segment.
+        /// </remarks>
+        /// <returns>A handle that points to the begining of the data segment</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly MemoryHandle UnsafeGetDataSegmentHandle()
+        {
+            //Get the handle offset to the data segment start, the caller must know when the data segment ends
+            return _handle.Pin(DATA_SEGMENT_START);
+        }
     }
 }
