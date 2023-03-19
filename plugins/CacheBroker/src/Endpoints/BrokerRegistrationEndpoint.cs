@@ -51,6 +51,8 @@ using VNLib.Plugins.Extensions.Loading.Events;
 using VNLib.Plugins.Extensions.Loading.Routing;
 using VNLib.Net.Rest.Client;
 
+using ContentType = VNLib.Net.Http.ContentType;
+
 #nullable enable
 
 namespace VNLib.Plugins.Cache.Broker.Endpoints

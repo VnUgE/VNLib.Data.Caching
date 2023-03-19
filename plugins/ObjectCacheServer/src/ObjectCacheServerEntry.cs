@@ -524,7 +524,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
                                 return;
                             case "deleted":
                                 //Delete the object from the store
-                                _ = cacheStore.DeleteItemAsync(changedObject.CurrentId).ConfigureAwait(false);
+                                await cacheStore.DeleteItemAsync(changedObject.CurrentId);
                                 break;
                             case "modified":
                                 //Reload the record from the store

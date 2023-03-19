@@ -46,6 +46,7 @@ using VNLib.Net.Rest.Client;
 using VNLib.Net.Messaging.FBM;
 using VNLib.Net.Messaging.FBM.Client;
 
+using ContentType = VNLib.Net.Http.ContentType;
 
 namespace VNLib.Data.Caching.Extensions
 {

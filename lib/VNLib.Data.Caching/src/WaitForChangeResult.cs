@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2022 Vaughn Nugent
+* Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -27,19 +27,14 @@ namespace VNLib.Data.Caching
     /// <summary>
     /// The result of a cache server change event
     /// </summary>
-    public readonly struct WaitForChangeResult
+    /// <param name="Status">The operation status code</param>
+    /// <param name="CurrentId">The current (or old) id of the element that changed</param>
+    /// <param name="NewId">The new id of the element that changed</param>
+    public readonly record struct WaitForChangeResult(
+        string Status,
+        string CurrentId,
+        string NewId)
     {
-        /// <summary>
-        /// The operation status code
-        /// </summary>
-        public readonly string Status { get; init; }
-        /// <summary>
-        /// The current (or old) id of the element that changed
-        /// </summary>
-        public readonly string CurrentId { get; init; }
-        /// <summary>
-        /// The new id of the element that changed
-        /// </summary>
-        public readonly string NewId { get; init; }
+       
     }
 }
