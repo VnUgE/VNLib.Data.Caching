@@ -75,11 +75,11 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         public CacheConfiguration CacheConfig { get; }
 
         //Loosen up protection settings
+        ///<inheritdoc/>
         protected override ProtectionSettings EndpointProtectionSettings { get; } = new()
         {
             DisableBrowsersOnly = true,
-            DisableSessionsRequired = true,
-            DisableCrossSiteDenied = true
+            DisableSessionsRequired = true
         };
 
         public ConnectEndpoint(PluginBase plugin, IConfigScope config)

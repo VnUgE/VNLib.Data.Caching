@@ -92,12 +92,11 @@ namespace VNLib.Plugins.Cache.Broker.Endpoints
         private readonly Dictionary<string, ActiveServer> ActiveServers;
 
         //Loosen up protection settings since this endpoint is not desinged for browsers or sessions
+        ///<inheritdoc/>
         protected override ProtectionSettings EndpointProtectionSettings { get; } = new()
         {
             DisableBrowsersOnly = true,
-            DisableCrossSiteDenied = true,
-            DisableSessionsRequired = true,
-            DisableVerifySessionCors = true,
+            DisableSessionsRequired = true
         };
 
         public BrokerRegistrationEndpoint(PluginBase plugin, IConfigScope config)

@@ -48,11 +48,11 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         private readonly Task<IPAddress[]> BrokerIpList;
         private readonly PluginBase Pbase;
 
+        ///<inheritdoc/>
         protected override ProtectionSettings EndpointProtectionSettings { get; } = new()
         {
             DisableBrowsersOnly = true,
-            DisableSessionsRequired = true,
-            DisableVerifySessionCors = true
+            DisableSessionsRequired = true
         };
 
         public BrokerHeartBeat(Func<string> token, ManualResetEvent keepaliveSet, Uri brokerUri, PluginBase pbase)
