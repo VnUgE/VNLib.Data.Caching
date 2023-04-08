@@ -48,7 +48,7 @@ namespace VNLib.Plugins.Extensions.VNCache
  |   Table Size:  {ts}
  |   Bucket Size: {bs}
  |   Max Objects: {obj}
- | Memory Estimations:
+ | Max Memory Estimations:
  |   4K blocks: {4k}Mb
  |   8K blocks: {8k}Mb
  |  16K blocks: {16K}Mb
@@ -61,17 +61,29 @@ namespace VNLib.Plugins.Extensions.VNCache
         private readonly IUnmangedHeap _bufferHeap;
 
         public MemoryCache(PluginBase pbase, IConfigScope config)
+            :this(
+                 config[VNCacheExtensions.MEMORY_CACHE_CONFIG_KEY].Deserialize<MemoryCacheConfig>()!,
+                 pbase.IsDebug(),
+                 pbase.Log
+            )
         {
-            //Get nested memory cache config
-            MemoryCacheConfig memCacheConfig = config[VNCacheExtensions.MEMORY_CACHE_CONFIG_KEY].Deserialize<MemoryCacheConfig>()!;
+        }
 
-            if (pbase.IsDebug())
+        public MemoryCache(MemoryCacheConfig config):this(config, false, null)
+        {}
+
+        private MemoryCache(MemoryCacheConfig config, bool isDebug, ILogProvider? log)
+        {
+            //Validate config
+            config.Validate();
+
+            if (isDebug)
             {
                 //Use the debug heap
                 IUnmangedHeap newHeap = MemoryUtil.InitializeNewHeapForProcess();
 
                 //Wrap in diag heap
-                 _bufferHeap = new TrackedHeapWrapper(newHeap);
+                _bufferHeap = new TrackedHeapWrapper(newHeap);
             }
             else
             {
@@ -80,7 +92,7 @@ namespace VNLib.Plugins.Extensions.VNCache
             }
 
             //Setup cache table
-            _memCache = new BlobCacheTable(memCacheConfig.TableSize, memCacheConfig.BucketSize, _bufferHeap, null);
+            _memCache = new BlobCacheTable(config.TableSize, config.BucketSize, _bufferHeap, null);
 
             /*
              * Default to json serialization by using the default
@@ -91,10 +103,10 @@ namespace VNLib.Plugins.Extensions.VNCache
             _serialzer = defaultSerializer;
             _deserialzer = defaultSerializer;
 
-            PrintDebug(pbase.Log, memCacheConfig);
+            PrintDebug(log, config);
         }
 
-        private static void PrintDebug(ILogProvider log, MemoryCacheConfig config)
+        private static void PrintDebug(ILogProvider? log, MemoryCacheConfig config)
         {
             long maxObjects = config.BucketSize * config.TableSize;
 
@@ -102,7 +114,7 @@ namespace VNLib.Plugins.Extensions.VNCache
             long size8kMb = (maxObjects * 8128)/MB_DIVISOR;
             long size16kMb = (maxObjects * 16384)/MB_DIVISOR;
 
-            log.Debug(DEBUG_TEMPLATE, config.TableSize, config.BucketSize, maxObjects, size4kMb, size8kMb, size16kMb);
+            log?.Debug(DEBUG_TEMPLATE, config.TableSize, config.BucketSize, maxObjects, size4kMb, size8kMb, size16kMb);
         }
 
         ///<inheritdoc/>

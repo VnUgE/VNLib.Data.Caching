@@ -33,14 +33,12 @@ using System.Security.Cryptography;
 
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
-using VNLib.Utils.Extensions;
 using VNLib.Hashing.IdentityUtility;
 using VNLib.Data.Caching;
 using VNLib.Data.Caching.Extensions;
 using VNLib.Data.Caching.ObjectCache;
 using VNLib.Net.Messaging.FBM.Client;
 using VNLib.Plugins.Extensions.Loading;
-
 
 namespace VNLib.Plugins.Extensions.VNCache
 {
@@ -57,7 +55,7 @@ namespace VNLib.Plugins.Extensions.VNCache
     [ConfigurationName(VNCacheExtensions.CACHE_CONFIG_KEY)]
     internal class VnCacheClient : IGlobalCacheProvider, IAsyncBackgroundWork, IAsyncConfigurable
     {
-        private readonly TimeSpan RetryInterval;
+        private readonly VnCacheClientConfig _config;
 
         /// <summary>
         /// The internal client
@@ -70,20 +68,23 @@ namespace VNLib.Plugins.Extensions.VNCache
         public bool IsConnected { get; private set; }
 
         public VnCacheClient(PluginBase pbase, IConfigScope config)
+            :this(
+                 config.Deserialze<VnCacheClientConfig>(), 
+                 pbase.IsDebug() ? pbase.Log : null
+                )
+        {}
+
+        public VnCacheClient(VnCacheClientConfig config, ILogProvider? debugLog)
         {
-            //Get required configuration variables
-            int maxMessageSize = config["max_message_size"].GetInt32();
-            string? brokerAddress = config["broker_address"].GetString() ?? throw new KeyNotFoundException("Missing required configuration variable broker_address");
-            RetryInterval = config["retry_interval_sec"].GetTimeSpan(TimeParseType.Seconds);
-            TimeSpan timeout = config["request_timeout_sec"].GetTimeSpan(TimeParseType.Seconds);
+            //Validate config
+            (config as IOnConfigValidation).Validate();
 
-            Uri brokerUri = new(brokerAddress);
+            _config = config;
 
-            //Setup debug log if the plugin is in debug mode
-            ILogProvider? debugLog = pbase.IsDebug() ? pbase.Log : null;
+            Uri brokerUri = new(config.BrokerAddress);
 
             //Init the client with default settings
-            FBMClientConfig conf = FBMDataCacheExtensions.GetDefaultConfig(MemoryUtil.Shared, maxMessageSize, timeout, debugLog);
+            FBMClientConfig conf = FBMDataCacheExtensions.GetDefaultConfig(MemoryUtil.Shared, config.MaxMessageSize!.Value, config.RequestTimeout, debugLog);
 
             Client = new(conf);
 
@@ -92,6 +93,7 @@ namespace VNLib.Plugins.Extensions.VNCache
                 .WithBroker(brokerUri)
                 .WithTls(brokerUri.Scheme == Uri.UriSchemeHttps);
         }
+       
 
         public virtual async Task ConfigureServiceAsync(PluginBase plugin)
         {
@@ -152,7 +154,7 @@ namespace VNLib.Plugins.Extensions.VNCache
                     if (servers?.Length == 0)
                     {
                         pluginLog.Warn("No cluster nodes found, retrying");
-                        await Task.Delay(RetryInterval, exitToken);
+                        await Task.Delay(_config.RetryInterval, exitToken);
                         continue;
                     }
 

@@ -3,10 +3,10 @@
 * 
 * Library: VNLib
 * Package: VNLib.Plugins.Extensions.VNCache
-* File: IExpirableCacheEntity.cs 
+* File: VnGlobalCache.cs 
 *
-* IExpirableCacheEntity.cs is part of VNLib.Plugins.Extensions.VNCache 
-* which is part of the larger VNLib collection of libraries and utilities.
+* VnGlobalCache.cs is part of VNLib.Plugins.Extensions.VNCache which is part of the larger 
+* VNLib collection of libraries and utilities.
 *
 * VNLib.Plugins.Extensions.VNCache is free software: you can redistribute it and/or modify 
 * it under the terms of the GNU Affero General Public License as 
@@ -22,18 +22,33 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
-namespace VNLib.Plugins.Extensions.VNCache.DataModel
+using VNLib.Data.Caching;
+using VNLib.Utils;
+
+namespace VNLib.Plugins.Extensions.VNCache
 {
     /// <summary>
-    /// A cache entity that has a controllable expiration
+    /// A disposable memory cache operator handle. When cache use is complete, you should 
+    /// dispose this handle. You may want to schedule it for cleanup on a <see cref="PluginBase"/>
     /// </summary>
-    public interface IExpirableCacheEntity : ICacheEntity
+    public sealed class MemoryCacheOperator : VnDisposeable
     {
+        private readonly MemoryCache _cache;
+
+        internal MemoryCacheOperator(MemoryCache cache)
+        {
+            _cache = cache;
+        }
+
         /// <summary>
-        /// A serializable value set by the cache subsystem to 
-        /// handle stale cache entires
+        /// The configured global cache instance
         /// </summary>
-        long Expires { get; set; }
+        public IGlobalCacheProvider Cache => _cache;
+
+        ///<inheritdoc/>
+        protected override void Free()
+        {
+            _cache.Dispose();
+        }
     }
-   
 }

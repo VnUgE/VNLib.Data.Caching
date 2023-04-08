@@ -22,15 +22,18 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
+using System;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
+using VNLib.Utils.Logging;
 using VNLib.Data.Caching;
 using VNLib.Plugins.Extensions.Loading;
 
 namespace VNLib.Plugins.Extensions.VNCache
 {
+
     /// <summary>
     /// A wrapper to simplify a shared global cache client
     /// </summary>
@@ -65,6 +68,77 @@ namespace VNLib.Plugins.Extensions.VNCache
                 _client = pbase.GetOrCreateSingleton<VnCacheClient>();
             }
         }
+
+
+        /// <summary>
+        /// Allows you to programatically create a remote-only VNCache instance
+        /// </summary>
+        /// <param name="config">The remote cache configuration, required for VNCache remote cache servers</param>
+        /// <param name="debugLog">An optional FBMClient debugging log provider, should be null unless debug logging is desired </param>
+        /// <returns>An opreator handle that can schedule the remote cache worker task</returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <remarks>
+        /// The returned <see cref="RemoteCacheOperator"/> implements the <see cref="IAsyncBackgroundWork"/>
+        /// interface and must be scheduled in order to maintain a connection with the remote cache store.
+        /// </remarks>
+        public static RemoteCacheOperator CreateRemoteCache(VnCacheClientConfig config, ILogProvider? debugLog = null)
+        {
+            _ = config ?? throw new ArgumentNullException(nameof(config));
+
+            //Init client
+            VnCacheClient client = new(config, debugLog);
+
+            //Return single handle
+            return new(client);
+        }
+
+        /// <summary>
+        /// Allows you to programtically create your own instance if a VNCache remote server backed
+        /// memory cache programatically. 
+        /// </summary>
+        /// <param name="remote">The remote cache configuration, required for VNCache remote cache servers</param>
+        /// <param name="memory">The local memory backed configuration</param>
+        /// <param name="debugLog">An optional FBMClient debugging log provider, should be null unless debug logging is desired </param>
+        /// <returns>An opreator handle that can schedule the remote cache worker task</returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <remarks>
+        /// The returned <see cref="RemoteCacheOperator"/> implements the <see cref="IAsyncBackgroundWork"/>
+        /// interface and must be scheduled in order to maintain a connection with the remote cache store. The memory cache 
+        /// resources are released when the worker task exits.
+        /// </remarks>
+        public static RemoteCacheOperator CreateRemoteBackedMemoryCache(VnCacheClientConfig remote, MemoryCacheConfig memory, ILogProvider? debugLog)
+        {
+            _ = remote ?? throw new ArgumentNullException(nameof(remote));
+            _ = memory ?? throw new ArgumentNullException(nameof(memory));
+
+            //Init client
+            RemoteBackedMemoryCache client = new(remote, memory, debugLog);
+
+            //Return single handle
+            return new(client);
+        }
+
+        /// <summary>
+        /// Allows you to programatically create a memory only <see cref="IGlobalCacheProvider"/>
+        /// cache instance.
+        /// </summary>
+        /// <param name="config">The memory cache configuration</param>
+        /// <returns>
+        /// A <see cref="MemoryCacheOperator"/> handle that holds a ready-to use cache instance. 
+        /// This operator must be disposed to release held resources.
+        /// </returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static MemoryCacheOperator CreateMemoryCache(MemoryCacheConfig config)
+        {
+            _ = config ?? throw new ArgumentNullException(nameof(config));
+
+            //Init client
+            MemoryCache cache = new(config);
+
+            //Return single handle
+            return new(cache);
+        }
+    
 
         ///<inheritdoc/>
         public bool IsConnected => _client.IsConnected;

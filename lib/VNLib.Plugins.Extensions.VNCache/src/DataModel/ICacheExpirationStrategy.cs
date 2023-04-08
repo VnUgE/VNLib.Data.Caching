@@ -42,7 +42,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="expired"></param>
-        void OnExpired<T>(T expired) where T : IExpirableCacheEntity;
+        void OnExpired<T>(T expired);
     }
    
 }

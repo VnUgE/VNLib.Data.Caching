@@ -294,7 +294,12 @@ namespace VNLib.Data.Caching.Extensions
         /// <param name="client"></param>
         /// <param name="cancellation">A token to cancel the operation</param>
         /// <returns>The server that the connection was made with</returns>
+        /// <exception cref="FBMException"></exception>
+        /// <exception cref="FBMServerNegiationException"></exception>
         /// <exception cref="ArgumentException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="SecurityException"></exception>
+        /// <exception cref="ObjectDisposedException"></exception>
         public static async Task<ActiveServer> ConnectToRandomCacheAsync(this FBMClient client, CancellationToken cancellation = default)
         {
             //Get stored config

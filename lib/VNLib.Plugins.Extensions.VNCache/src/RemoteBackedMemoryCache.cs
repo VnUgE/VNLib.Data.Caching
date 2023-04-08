@@ -42,6 +42,16 @@ using VNLib.Plugins.Extensions.Loading.Events;
 namespace VNLib.Plugins.Extensions.VNCache
 {
 
+    /*
+     * A combinaed cache object that uses the blob cache data structures
+     * from the ObjectCache server library to implement similar memory cache
+     * features. All update operations are write-through operations, and a timer
+     * may be scheduled to refresh memorycache against the server (eventually) 
+     * 
+     * Memory cache is destroyed when the connection to the cache server is
+     * lost or is exiting
+     */
+
     [ConfigurationName(VNCacheExtensions.CACHE_CONFIG_KEY)]
     internal sealed class RemoteBackedMemoryCache : VnCacheClient, IIntervalScheduleable
     {
@@ -53,10 +63,14 @@ namespace VNLib.Plugins.Extensions.VNCache
         public RemoteBackedMemoryCache(PluginBase plugin, IConfigScope config) : base(plugin, config)
         {
             //Get nested memory cache config
-            MemoryCacheConfig memCacheConfig = config[VNCacheExtensions.MEMORY_CACHE_CONFIG_KEY].Deserialize<MemoryCacheConfig>()!;
+            MemoryCacheConfig? memCacheConfig = config[VNCacheExtensions.MEMORY_CACHE_CONFIG_KEY].Deserialize<MemoryCacheConfig>();
+
+            _ = memCacheConfig ?? throw new ArgumentNullException(VNCacheExtensions.MEMORY_CACHE_CONFIG_KEY, "Missing required memory configuration variable");
+
+            memCacheConfig.Validate();
 
             //Setup cache table
-            _memCache = new BlobCacheTable(memCacheConfig.TableSize, memCacheConfig.BucketSize, Client.Config.BufferHeap ?? MemoryUtil.Shared, null);
+            _memCache = new BlobCacheTable(memCacheConfig.TableSize, memCacheConfig.BucketSize, Client.Config.BufferHeap, null);
 
             _cacheConfig = memCacheConfig;
 
@@ -74,6 +88,23 @@ namespace VNLib.Plugins.Extensions.VNCache
             {
                 plugin.ScheduleInterval(this, memCacheConfig.RefreshInterval);
             }
+        }
+
+        public RemoteBackedMemoryCache(VnCacheClientConfig client, MemoryCacheConfig memCache, ILogProvider? debugLog):base(client, debugLog)
+        {
+            //Setup mem cache table
+            _memCache = new BlobCacheTable(memCache.TableSize, memCache.BucketSize, Client.Config.BufferHeap, null);
+
+            _cacheConfig = memCache;
+
+            /*
+             * Default to json serialization by using the default
+             * serializer and JSON options
+             */
+
+            JsonCacheObjectSerializer defaultSerializer = new();
+            _serialzer = defaultSerializer;
+            _deserialzer = defaultSerializer;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
