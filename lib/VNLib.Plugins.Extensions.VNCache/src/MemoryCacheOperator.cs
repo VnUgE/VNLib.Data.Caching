@@ -3,10 +3,10 @@
 * 
 * Library: VNLib
 * Package: VNLib.Plugins.Extensions.VNCache
-* File: VnGlobalCache.cs 
+* File: MemoryCacheOperator.cs 
 *
-* VnGlobalCache.cs is part of VNLib.Plugins.Extensions.VNCache which is part of the larger 
-* VNLib collection of libraries and utilities.
+* MemoryCacheOperator.cs is part of VNLib.Plugins.Extensions.VNCache which is
+* part of the larger VNLib collection of libraries and utilities.
 *
 * VNLib.Plugins.Extensions.VNCache is free software: you can redistribute it and/or modify 
 * it under the terms of the GNU Affero General Public License as 

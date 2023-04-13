@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <Nullable>enable</Nullable>
     <TargetFramework>net6.0</TargetFramework>
     <RootNamespace>VNLib.Plugins.Cache.Broker</RootNamespace>
     <AssemblyName>CacheBroker</AssemblyName>
@@ -45,7 +46,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\..\core\lib\Net.Rest.Client\src\VNLib.Net.Rest.Client.csproj" />
-    <ProjectReference Include="..\..\..\..\..\core\lib\Plugins\src\VNLib.Plugins.csproj" />
     <ProjectReference Include="..\..\..\..\..\core\lib\Utils\src\VNLib.Utils.csproj" />
     <ProjectReference Include="..\..\..\..\Extensions\lib\VNLib.Plugins.Extensions.Loading\src\VNLib.Plugins.Extensions.Loading.csproj" />
   </ItemGroup>
