@@ -288,7 +288,6 @@ namespace VNLib.Data.Caching
         /// Updates the state of the object, and optionally updates the ID of the object. The data 
         /// parameter is serialized, buffered, and streamed to the remote server
         /// </summary>
-        /// <typeparam name="T"></typeparam>
         /// <param name="client"></param>
         /// <param name="objectId">The id of the object to update or replace</param>
         /// <param name="newId">An optional parameter to specify a new ID for the old object</param>

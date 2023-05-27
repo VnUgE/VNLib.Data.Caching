@@ -3,9 +3,9 @@
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
-* File: BlobCache.cs 
+* File: CacheEntry.cs 
 *
-* BlobCache.cs is part of VNLib.Data.Caching.ObjectCache which is part of the larger 
+* CacheEntry.cs is part of VNLib.Data.Caching.ObjectCache which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
 * VNLib.Data.Caching.ObjectCache is free software: you can redistribute it and/or modify 
