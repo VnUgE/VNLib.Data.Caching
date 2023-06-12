@@ -32,6 +32,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Security.Cryptography;
+using System.Text.Json.Serialization;
 using System.Runtime.CompilerServices;
 
 using RestSharp;
@@ -45,12 +46,12 @@ using VNLib.Utils.Extensions;
 using VNLib.Net.Rest.Client;
 using VNLib.Net.Messaging.FBM;
 using VNLib.Net.Messaging.FBM.Client;
-
 using ContentType = VNLib.Net.Http.ContentType;
+
 
 namespace VNLib.Data.Caching.Extensions
 {
-
+    
     /// <summary>
     /// Provides extension methods for FBM data caching using 
     /// cache servers and brokers
@@ -61,10 +62,21 @@ namespace VNLib.Data.Caching.Extensions
         /// The websocket sub-protocol to use when connecting to cache servers
         /// </summary>
         public const string CACHE_WS_SUB_PROCOL = "object-cache";
+        
         /// <summary>
         /// The default cache message header size
         /// </summary>
         public const int MAX_FBM_MESSAGE_HEADER_SIZE = 1024;
+
+        /// <summary>
+        /// The client nonce signature http header name
+        /// </summary>
+        public const string X_UPGRADE_SIG_HEADER = "X-Cache-Upgrade-Sig";
+
+        /// <summary>
+        /// The advertisment header for cache node discovery
+        /// </summary>
+        public const string X_NODE_DISCOVERY_HEADER = "X-Cache-Node-Discovery";
 
         private static readonly RestClientPool ClientPool = new(2,new RestClientOptions()
         {
@@ -75,7 +87,7 @@ namespace VNLib.Data.Caching.Extensions
             ThrowOnAnyError = true,
         });
 
-        private static readonly ConditionalWeakTable<FBMClient, ClientCacheConfiguration> ClientCacheConfig = new();
+        private static readonly ConditionalWeakTable<FBMClient, CacheClientConfiguration> ClientCacheConfig = new();
 
         /// <summary>
         /// Gets a <see cref="FBMClientConfig"/> preconfigured object caching
@@ -128,6 +140,59 @@ namespace VNLib.Data.Caching.Extensions
         }
 
         /// <summary>
+        /// Creats a new <see cref="CacheListServerRequest"/> from an existing <see cref="CacheClientConfiguration"/>
+        /// </summary>
+        /// <param name="conf">The prepared client configuration</param>
+        /// <returns>The new <see cref="CacheListServerRequest"/></returns>
+        public static CacheListServerRequest GetListMessage(this CacheClientConfiguration conf)
+        {
+            return new(conf, conf.DiscoveryEndpoint);
+        }
+
+        /// <summary>
+        /// Discovers peer nodes from a given initial peer and returns a list of discovered nodes. If the config 
+        /// is for a cache peer node, the current peer is removed from the list of discovered nodes.
+        /// </summary>
+        /// <param name="cacheConfig"></param>
+        /// <param name="initialPeer">The initial peer to discover nodes from</param>
+        /// <param name="cancellation">A token to cancel the discovery operation</param>
+        /// <returns>The collection of discovered nodes</returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static async Task<ICachePeerAdvertisment[]?> DiscoverClusterNodesAsync(
+             this CacheClientConfiguration cacheConfig,
+             ICachePeerAdvertisment initialPeer,
+             CancellationToken cancellation
+        )
+        {
+            _ = initialPeer?.DiscoveryEndpoint ?? throw new ArgumentException("Advertisment does not expose an advertisment endpoint");
+
+            //Create list request
+            CacheListServerRequest request = cacheConfig.GetListMessage();
+
+            //Override with the initial peer's discovery endpoint
+            request.WithDiscoveryEndpoint(initialPeer.DiscoveryEndpoint);
+
+            //Get the list of servers
+            ICachePeerAdvertisment[]? servers = await ListServersAsync(request, cancellation);
+
+            if (servers == null)
+            {
+                return null;
+            }
+
+            if(cacheConfig is CacheNodeConfiguration cnc)
+            {
+                //Filter out the current node
+                return servers.Where(s => !cnc.NodeId.Equals(s.NodeId, StringComparison.OrdinalIgnoreCase)).ToArray();
+            }
+            else
+            {
+                //Do not filter 
+                return servers;
+            }          
+        }
+
+        /// <summary>
         /// Contacts the cache broker to get a list of active servers to connect to
         /// </summary>
         /// <param name="request">The request message used to connecto the broker server</param>
@@ -135,27 +200,30 @@ namespace VNLib.Data.Caching.Extensions
         /// <returns>The list of active servers</returns>
         /// <exception cref="SecurityException"></exception>
         /// <exception cref="ArgumentNullException"></exception>
-        public static async Task<ActiveServer[]?> ListServersAsync(ListServerRequest request, CancellationToken cancellationToken = default)
+        public static async Task<ICachePeerAdvertisment[]?> ListServersAsync(ICacheListServerRequest request, CancellationToken cancellationToken = default)
         {
             _ = request ?? throw new ArgumentNullException(nameof(request));
 
             string jwtBody;
+
             //Build request jwt
             using (JsonWebToken requestJwt = new())
             {
-                requestJwt.WriteHeader(request.JwtHeader);
+                requestJwt.WriteHeader(request.GetJwtHeader());
                 requestJwt.InitPayloadClaim()
                     .AddClaim("iat", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
                     .AddClaim("nonce", RandomHash.GetRandomBase32(16))
                     .CommitClaims();
+
                 //sign the jwt
                 request.SignJwt(requestJwt);
+
                 //Compile the jwt
                 jwtBody = requestJwt.Compile();
             }
 
             //New list request
-            RestRequest listRequest = new(request.BrokerAddress, Method.Post);
+            RestRequest listRequest = new(request.DiscoveryEndpoint, Method.Post);
 
             //Add the jwt as a string to the request body
             listRequest.AddStringBody(jwtBody, DataFormat.None);
@@ -177,24 +245,49 @@ namespace VNLib.Data.Caching.Extensions
 
                 data = response.RawBytes ?? throw new InvalidOperationException("No data returned from broker");
             }
+
             //Response is jwt
             using JsonWebToken responseJwt = JsonWebToken.ParseRaw(data);
             
             //Verify the jwt
-            if (!request.VerifyJwt(responseJwt))
+            if (!request.VerifyBroker(responseJwt))
             {
                 throw new SecurityException("Failed to verify the broker's challenge, cannot continue");
             }
             
             using JsonDocument doc = responseJwt.GetPayload();
-            return doc.RootElement.GetProperty("servers").Deserialize<ActiveServer[]>();
+            return doc.RootElement.GetProperty("peers").Deserialize<Advertisment[]>();
+        }
+
+        /// <summary>
+        /// Registers the current node with the broker
+        /// </summary>
+        /// <returns>A task that completes when the regitration has been made successfully</returns>
+        /// <exception cref="ArgumentException"></exception>
+        public static async Task RegisterWithBrokerAsync(this CacheNodeConfiguration config, string authToken)
+        {
+            //Recover the certificate
+            ReadOnlyJsonWebKey cacheCert = config?.SigningKey ?? throw new ArgumentException(nameof(config.SigningKey));
+
+            //init broker request
+            using BrokerRegistrationRequest request = new();
+
+            request.WithBroker(config.DiscoveryEndpoint!)
+                .WithRegistrationAddress(config.ConnectEndpoint!.ToString())
+                .WithNodeId(config.NodeId!)
+                .WithSigningKey(cacheCert, true)
+                .WithHeartbeatToken(authToken);
+
+
+            //Send the request
+            await RegisterWithBrokerAsync(request);
         }
 
         /// <summary>
         /// Registers the current server as active with the specified broker
         /// </summary>
         /// <param name="registration">The registration request</param>
-        public static async Task ResgisterWithBrokerAsync(BrokerRegistrationRequest registration)
+        public static async Task RegisterWithBrokerAsync(BrokerRegistrationRequest registration)
         {
             _ = registration ?? throw new ArgumentNullException(nameof(registration));
             _ = registration.HeartbeatToken ?? throw new ArgumentException("Missing required heartbeat access token");
@@ -220,17 +313,20 @@ namespace VNLib.Data.Caching.Extensions
                 //Compile and save
                 requestData = jwt.Compile();
             }
+
             //Create reg request message
             RestRequest regRequest = new(registration.BrokerAddress);
             regRequest.AddStringBody(requestData, DataFormat.None);
             regRequest.AddHeader("Content-Type", "text/plain");
+
             //Rent client
             using ClientContract cc = ClientPool.Lease();
+
             //Exec the regitration request
             RestResponse response = await cc.Resource.ExecutePutAsync(regRequest);
             response.ThrowIfError();
-        }
-    
+        }    
+     
 
         /// <summary>
         /// Allows for configuration of an <see cref="FBMClient"/>
@@ -238,7 +334,31 @@ namespace VNLib.Data.Caching.Extensions
         /// </summary>
         /// <param name="client"></param>
         /// <returns>A fluent api configuration builder for the current client</returns>
-        public static ClientCacheConfiguration GetCacheConfiguration(this FBMClient client) => ClientCacheConfig.GetOrCreateValue(client);
+        public static CacheClientConfiguration GetCacheConfiguration(this FBMClient client) => ClientCacheConfig.GetOrCreateValue(client);
+
+        /// <summary>
+        /// Explicitly set the client cache configuration for the current client
+        /// </summary>
+        /// <param name="client"></param>
+        /// <param name="config">The cache node configuration</param>
+        /// <returns>The config instance</returns>
+        public static CacheClientConfiguration SetCacheConfiguration(this FBMClient client, CacheClientConfiguration config)
+        {
+            ClientCacheConfig.AddOrUpdate(client, config);
+            return config;
+        }
+
+        /// <summary>
+        /// Explicitly set the cache node configuration for the current client
+        /// </summary>
+        /// <param name="client"></param>
+        /// <param name="nodeConfig">The cache node configuration</param>
+        /// <returns>The config instance</returns>
+        public static CacheNodeConfiguration SetCacheConfiguration(this FBMClient client, CacheNodeConfiguration nodeConfig)
+        {
+            ClientCacheConfig.AddOrUpdate(client, nodeConfig);
+            return nodeConfig;
+        }
 
         /// <summary>
         /// Discovers cache nodes in the broker configured for the current client.
@@ -246,7 +366,10 @@ namespace VNLib.Data.Caching.Extensions
         /// <param name="client"></param>
         /// <param name="token">A token to cancel the discovery</param>
         /// <returns>A task the resolves the list of active servers on the broker server</returns>
-        public static Task<ActiveServer[]?> DiscoverCacheNodesAsync(this FBMClientWorkerBase client, CancellationToken token = default) => client.Client.DiscoverCacheNodesAsync(token);
+        public static Task<ICachePeerAdvertisment[]?> DiscoverCacheNodesAsync(this FBMClientWorkerBase client, CancellationToken token = default)
+        {
+            return client.Client.DiscoverCacheNodesAsync(token);
+        }
        
         /// <summary>
         /// Discovers cache nodes in the broker configured for the current client.
@@ -254,13 +377,13 @@ namespace VNLib.Data.Caching.Extensions
         /// <param name="client"></param>
         /// <param name="token">A token to cancel the discovery </param>
         /// <returns>A task the resolves the list of active servers on the broker server</returns>
-        public static async Task<ActiveServer[]?> DiscoverCacheNodesAsync(this FBMClient client, CancellationToken token = default)
+        public static async Task<ICachePeerAdvertisment[]?> DiscoverCacheNodesAsync(this FBMClient client, CancellationToken token = default)
         {
-            ClientCacheConfiguration conf = ClientCacheConfig.GetOrCreateValue(client);
-            //Request from config
-            using ListServerRequest req = ListServerRequest.FromConfig(conf);
+            //Get the stored client config
+            CacheClientConfiguration conf = ClientCacheConfig.GetOrCreateValue(client);
+
             //List servers async
-            return conf.CacheServers = await ListServersAsync(req, token);
+            return conf.CacheServers = await ListServersAsync(conf, token);
         }
 
         /// <summary>
@@ -274,16 +397,21 @@ namespace VNLib.Data.Caching.Extensions
         public static async Task WaitForExitAsync(this FBMClient client, CancellationToken token = default)
         {
             client.LogDebug("Waiting for cache client to exit");
+
             //Get task for cancellation
             Task cancellation = token.WaitHandle.WaitAsync();
+
             //Task for status handle
             Task run = client.ConnectionStatusHandle.WaitAsync();
+
             //Wait for cancellation or 
             _ = await Task.WhenAny(cancellation, run);
             
             client.LogDebug("Disconnecting the cache client");
+
             //Normal try to disconnect the socket
             await client.DisconnectAsync(CancellationToken.None);
+
             //Notify if cancelled
             token.ThrowIfCancellationRequested();
         }
@@ -300,14 +428,18 @@ namespace VNLib.Data.Caching.Extensions
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="SecurityException"></exception>
         /// <exception cref="ObjectDisposedException"></exception>
-        public static async Task<ActiveServer> ConnectToRandomCacheAsync(this FBMClient client, CancellationToken cancellation = default)
+        public static async Task<ICachePeerAdvertisment> ConnectToRandomCacheAsync(this FBMClient client, CancellationToken cancellation = default)
         {
             //Get stored config
-            ClientCacheConfiguration conf = ClientCacheConfig.GetOrCreateValue(client);
+            CacheClientConfiguration conf = ClientCacheConfig.GetOrCreateValue(client);
+
             //Select random
-            ActiveServer? randomServer = conf.CacheServers?.SelectRandom();
-            _ = randomServer ?? throw new ArgumentException("No servers detected, cannot connect");
+            ICachePeerAdvertisment? randomServer = conf.CacheServers?.SelectRandom() 
+                ?? throw new ArgumentException("No servers detected, cannot connect");
+
             await ConnectToCacheAsync(client, randomServer, cancellation);
+
+            //Return the random server we connected to
             return randomServer;
         }
 
@@ -324,59 +456,97 @@ namespace VNLib.Data.Caching.Extensions
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="SecurityException"></exception>
         /// <exception cref="ObjectDisposedException"></exception>
-        public static Task ConnectToCacheAsync(this FBMClient client, ActiveServer server, CancellationToken token = default)
+        public static Task ConnectToCacheAsync(this FBMClient client, ICachePeerAdvertisment server, CancellationToken token = default)
         {
             _ = client ?? throw new ArgumentNullException(nameof(client));
             _ = server ?? throw new ArgumentNullException(nameof(server));
             
             //Get stored config
-            ClientCacheConfiguration conf = ClientCacheConfig.GetOrCreateValue(client);
+            CacheClientConfiguration conf = ClientCacheConfig.GetOrCreateValue(client);
             //Connect to server (no server id because client not replication server)
             return ConnectToCacheAsync(client, conf, server, token);
         }
-     
 
-        private static async Task ConnectToCacheAsync(FBMClient client, ClientCacheConfiguration request, ActiveServer server, CancellationToken token = default)
+        /// <summary>
+        /// Connects to the specified server on the configured cache client
+        /// </summary>
+        /// <param name="client"></param>
+        /// <param name="server">The server to connect to</param>
+        /// <param name="token">A token to cancel the operation</param>
+        /// <param name="explicitConfig">Explicit cache configuration to use</param>
+        /// <returns>A task that resolves when the client is connected to the cache server</returns>
+        /// <exception cref="FBMException"></exception>
+        /// <exception cref="FBMServerNegiationException"></exception>
+        /// <exception cref="ArgumentException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="SecurityException"></exception>
+        /// <exception cref="ObjectDisposedException"></exception>
+        public static Task ConnectToCacheAsync(this FBMClient client, ICachePeerAdvertisment server, CacheClientConfiguration explicitConfig, CancellationToken token = default)
         {
-            //Construct server uri
-            Uri serverUri = new(server.HostName!);
-            
-            //build ws uri
-            UriBuilder uriBuilder = new(serverUri)
+            _ = client ?? throw new ArgumentNullException(nameof(client));
+            _ = server ?? throw new ArgumentNullException(nameof(server));
+           
+            //Connect to server (no server id because client not replication server)
+            return ConnectToCacheAsync(client, explicitConfig, server, token);
+        }
+
+
+        private static async Task ConnectToCacheAsync(
+            FBMClient client, 
+            CacheClientConfiguration config, 
+            ICachePeerAdvertisment server, 
+            CancellationToken token = default
+        )
+        {
+            //build ws uri from the connect endpoint
+            UriBuilder uriBuilder = new(server.ConnectEndpoint)
             {
-                Scheme = request.UseTls ? "wss://" : "ws://"
+                Scheme = config.UseTls ? "wss://" : "ws://"
             };
-            
+
+            string challenge = RandomHash.GetRandomBase32(24);
+
+            //See if the supplied config is for a cache node
+            CacheNodeConfiguration? cnc = config as CacheNodeConfiguration;
+
             string jwtMessage;
             //Init jwt for connecting to server
             using (JsonWebToken jwt = new())
             {
-                jwt.WriteHeader(request.JwtHeader);
+                jwt.WriteHeader(config.GetJwtHeader());
                 
                 //Init claim
                 JwtPayload claim = jwt.InitPayloadClaim();
                 
-                claim.AddClaim("chl", request.ServerChallenge);
+                claim.AddClaim("chl", challenge);
                 
-                if (!string.IsNullOrWhiteSpace(request.NodeId))
+                if (!string.IsNullOrWhiteSpace(cnc?.NodeId))
                 {
                     /*
                     * The unique node id so the other nodes know to load the 
                     * proper event queue for the current server
                     */
-                    claim.AddClaim("sub", request.NodeId);
+                    claim.AddClaim("sub", cnc.NodeId);
                 }
                 
                 claim.CommitClaims();
 
                 //Sign jwt
-                request.SignJwt(jwt);
+                config.SignJwt(jwt);
 
                 //Compile to string
                 jwtMessage = jwt.Compile();
             }
 
-            RestRequest negotation = new(serverUri, Method.Get);
+            /*
+             * During a server negiation, the client makes an intial get request to the cache endpoint
+             * and passes some client negiation terms as a signed message to the server. The server then
+             * validates these values and returns a signed jwt with the server negiation terms. 
+             * 
+             * The response from the server is essentailly the 'access token'  
+             */
+
+            RestRequest negotation = new(server.ConnectEndpoint, Method.Get);
             //Set the jwt auth header for negotiation
             negotation.AddHeader("Authorization", jwtMessage);
             negotation.AddHeader("Accept", HttpHelpers.GetContentTypeString(ContentType.Text));
@@ -406,19 +576,29 @@ namespace VNLib.Data.Caching.Extensions
             using (JsonWebToken jwt = JsonWebToken.Parse(authToken))
             {
                 //Verify the jwt
-                if (!request.VerifyCache(jwt))
+                if (!config.VerifyCache(jwt))
                 {
                     throw new SecurityException("Failed to verify the cache server's negotiation message, cannot continue");
                 }
 
                 //Confirm the server's buffer configuration
-                ValidateServerNegotation(client, request.ServerChallenge, jwt);
+                 ValidateServerNegotation(client, challenge, jwt);
             }
             
             client.LogDebug("Server negotiation validated, connecting to server");
 
             //The client authorization header is the exact response
             client.ClientSocket.Headers[HttpRequestHeader.Authorization] = authToken;
+
+            //Compute the signature of the upgrade token
+            client.ClientSocket.Headers[X_UPGRADE_SIG_HEADER] = GetBase64UpgradeSingature(authToken, config.SigningKey!);
+
+            //Check to see if adversize self is enabled
+            if (cnc?.BroadcastAdverisment == true)
+            {
+                //Set advertisment header
+                client.ClientSocket.Headers[X_NODE_DISCOVERY_HEADER] = GetAdvertismentHeader(cnc);
+            }
 
             //Connect async
             await client.ConnectAsync(uriBuilder.Uri, token);
@@ -475,16 +655,183 @@ namespace VNLib.Data.Caching.Extensions
             }
         }
 
+        /*
+         * Added layer to confirm that client that requested the negotation holds the private key
+         * compute a signature of the upgrade token and send it to the server to prove we hold the private key.
+         */
+
+        private static string GetBase64UpgradeSingature(string? token, ReadOnlyJsonWebKey key)
+        {
+            //try to get the ecdsa key first
+            using ECDsa? ec = key.GetECDsaPrivateKey();
+
+            if(ec != null)
+            {
+                //Compute hash of the token
+                byte[] hash = ManagedHash.ComputeHash(token, HashAlg.SHA256);
+
+                //Sign the hash
+                byte[] sig = ec.SignHash(hash, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+
+                //Return the base64 string
+                return Convert.ToBase64String(sig);
+            }
+
+            //Check rsa next
+            using RSA? rsa = key.GetRSAPrivateKey();
+            if(rsa != null)
+            {
+                //Compute hash of the token
+                byte[] hash = ManagedHash.ComputeHash(token, HashAlg.SHA256);
+
+                //Sign the hash
+                byte[] sig = rsa.SignHash(hash, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+
+                //Return the base64 string
+                return Convert.ToBase64String(sig);
+            }
+
+            throw new CryptographicException("Cache JKW does not export a supported private key for upgrade challenges");
+        }
+
+        /// <summary>
+        /// Verifies the signed auth token against the given verification key
+        /// </summary>
+        /// <param name="signature">The base64 signature of the token</param>
+        /// <param name="token">The raw token to compute the hash of</param>
+        /// <param name="nodeConfig">The node configuration</param>
+        /// <returns>True if the singature matches, false otherwise</returns>
+        /// <exception cref="CryptographicException"></exception>
+        public static bool VerifyUpgradeToken(this CacheClientConfiguration nodeConfig, string signature, string token)
+        {
+            return VerifyUpgradeToken(signature, token, nodeConfig.VerificationKey);
+        }
+
+        /// <summary>
+        /// Verifies the signed auth token against the given verification key
+        /// </summary>
+        /// <param name="signature">The base64 signature of the token</param>
+        /// <param name="token">The raw token to compute the hash of</param>
+        /// <param name="verifcationKey">The key used to verify the singature with</param>
+        /// <returns>True if the singature matches, false otherwise</returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="CryptographicException"></exception>
+        public static bool VerifyUpgradeToken(string signature, string token, ReadOnlyJsonWebKey verifcationKey)
+        {
+            _ = verifcationKey ?? throw new ArgumentNullException(nameof(verifcationKey));
+
+            //get the hash of the token
+            byte[] hash = ManagedHash.ComputeHash(token, HashAlg.SHA256);
+
+            //decode the signature
+            byte[] sig = Convert.FromBase64String(signature);
+
+            //try to get the ecdsa key first
+            using ECDsa? ec = verifcationKey.GetECDsaPublicKey();
+            if(ec != null)
+            {
+                //Verify the signature
+                return ec.VerifyHash(hash, sig, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+            }
+
+            //Check rsa next
+            using RSA? rsa = verifcationKey.GetRSAPublicKey();
+            if(rsa != null)
+            {
+                //Verify the signature
+                return rsa.VerifyHash(hash, sig, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+            }
+
+            throw new CryptographicException("Cache JKW does not export a supported public key for upgrade challenges");
+        }
+
+        private static string GetAdvertismentHeader(CacheNodeConfiguration nodeConfiguration)
+        {
+            /*
+             * Create node advertisment message to publish to peer nodes
+             * 
+             * these messages will allow other clients and peers to discover us
+             */
+
+            using JsonWebToken jwt = new();
+
+            //Get the jwt header
+            jwt.WriteHeader(nodeConfiguration.GetJwtHeader());
+
+            jwt.InitPayloadClaim()
+                .AddClaim("nonce", RandomHash.GetRandomBase32(16))
+                .AddClaim("iat", DateTimeOffset.UtcNow.ToUnixTimeSeconds())
+                .AddClaim("iss", nodeConfiguration.NodeId!)
+                .AddClaim("url", nodeConfiguration.ConnectEndpoint!.ToString())
+                //Optional discovery endpoint
+                .AddClaim("dis", nodeConfiguration.DiscoveryEndpoint?.ToString() ?? string.Empty)
+                .CommitClaims();
+
+            //Sign message
+            nodeConfiguration.SignJwt(jwt);
+
+            return jwt.Compile();
+        }
+
+        /// <summary>
+        /// Verifies the peer advertisment message
+        /// </summary>
+        /// <param name="config"></param>
+        /// <param name="message">The advertisment message to verify</param>
+        /// <returns>The advertisment message if successfully verified, or null otherwise</returns>
+        /// <exception cref="FormatException"></exception>
+        public static ICachePeerAdvertisment? VerifyPeerAdvertisment(this ICacheJwtManager config, string message)
+        {
+            using JsonWebToken jwt = JsonWebToken.Parse(message);
+
+            //Verify the signature
+            if (!config.VerifyCache(jwt))
+            {
+                return null;
+            }
+
+            //Get the payload
+            return jwt.GetPayload<Advertisment>();
+        }
+        
+
         /// <summary>
         /// Selects a random server from a collection of active servers
         /// </summary>
         /// <param name="servers"></param>
         /// <returns>A server selected at random</returns>
-        public static ActiveServer SelectRandom(this ICollection<ActiveServer> servers)
+        public static ICachePeerAdvertisment SelectRandom(this ICollection<ICachePeerAdvertisment> servers)
         {
             //select random server
             int randServer = RandomNumberGenerator.GetInt32(0, servers.Count);
             return servers.ElementAt(randServer);
+        }
+
+
+        private class Advertisment : ICachePeerAdvertisment
+        {
+            [JsonIgnore]
+            public Uri? ConnectEndpoint { get; set; }
+
+            [JsonIgnore]
+            public Uri? DiscoveryEndpoint { get; set; }
+
+            [JsonPropertyName("iss")]
+            public string NodeId { get; set; }
+
+            [JsonPropertyName("url")]
+            public string? url
+            {
+                get => ConnectEndpoint?.ToString();
+                set => ConnectEndpoint = value == null ? null : new Uri(value);
+            }
+
+            [JsonPropertyName("dis")]
+            public string? dis
+            {
+                get => DiscoveryEndpoint?.ToString();
+                set => DiscoveryEndpoint = value == null ? null : new Uri(value);
+            }
         }
     }
 }

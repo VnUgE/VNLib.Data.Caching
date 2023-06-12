@@ -109,18 +109,18 @@ namespace VNLib.Plugins.Cache.Broker.Endpoints
 
         private async Task<ReadOnlyJsonWebKey> GetClientPublic()
         {
-            return await this.GetPlugin().TryGetSecretAsync("client_public_key").ToJsonWebKey() ?? throw new InvalidOperationException("Client public key not found in vault");
+            return await this.GetPlugin().GetSecretAsync("client_public_key").ToJsonWebKey();
         }
 
         private async Task<ReadOnlyJsonWebKey> GetCachePublic()
         {
-            using SecretResult secret = await this.GetPlugin().TryGetSecretAsync("cache_public_key") ?? throw new InvalidOperationException("Cache public key not found in vault");
+            using ISecretResult secret = await this.GetPlugin().GetSecretAsync("cache_public_key");
             return secret.GetJsonWebKey();
         }
 
         private async Task<ReadOnlyJsonWebKey> GetBrokerCertificate()
         {
-            using SecretResult secret = await this.GetPlugin().TryGetSecretAsync("broker_private_key") ?? throw new InvalidOperationException("Broker private key not found in vault");
+            using ISecretResult secret = await this.GetPlugin().TryGetSecretAsync("broker_private_key");
             return secret.GetJsonWebKey();
         }
 

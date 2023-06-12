@@ -1,11 +1,11 @@
 ﻿/*
-* Copyright (c) 2022 Vaughn Nugent
+* Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
-* File: BrokerHeartBeat.cs 
+* File: BrokerHeartBeatEndpoint.cs 
 *
-* BrokerHeartBeat.cs is part of ObjectCacheServer which is part of the larger 
+* BrokerHeartBeatEndpoint.cs is part of ObjectCacheServer which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
 * ObjectCacheServer is free software: you can redistribute it and/or modify 
@@ -26,11 +26,11 @@ using System;
 using System.Net;
 using System.Linq;
 using System.Text.Json;
-using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Generic;
+
 
 using VNLib.Plugins;
+using VNLib.Utils.Logging;
 using VNLib.Plugins.Essentials;
 using VNLib.Hashing.IdentityUtility;
 using VNLib.Plugins.Essentials.Endpoints;
@@ -39,14 +39,11 @@ using VNLib.Plugins.Extensions.Loading;
 
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
-    internal sealed class BrokerHeartBeat : ResourceEndpointBase
+    internal sealed class BrokerHeartBeatEndpoint : ResourceEndpointBase
     {
-        public override string Path => "/heartbeat";
-
-        private readonly Func<string> Token;
-        private readonly ManualResetEvent KeepaliveSet;
+        private readonly IBrokerHeartbeatNotifier _heartBeat;
         private readonly Task<IPAddress[]> BrokerIpList;
-        private readonly PluginBase Pbase;
+        private readonly bool DebugMode;
 
         ///<inheritdoc/>
         protected override ProtectionSettings EndpointProtectionSettings { get; } = new()
@@ -55,19 +52,24 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             DisableSessionsRequired = true
         };
 
-        public BrokerHeartBeat(Func<string> token, ManualResetEvent keepaliveSet, Uri brokerUri, PluginBase pbase)
+        public BrokerHeartBeatEndpoint(PluginBase plugin)
         {
-            Token = token;
-            KeepaliveSet = keepaliveSet;
-            BrokerIpList = Dns.GetHostAddressesAsync(brokerUri.DnsSafeHost);
-            
-            this.Pbase = pbase;
-        }
+            //Get debug flag
+            DebugMode = plugin.IsDebug();
 
-        private async Task<ReadOnlyJsonWebKey> GetBrokerPubAsync()
-        {
-            return await Pbase.TryGetSecretAsync("broker_public_key").ToJsonWebKey() ?? throw new KeyNotFoundException("Missing required secret : broker_public_key");
+            //Get or create the current node config
+            _heartBeat = plugin.GetOrCreateSingleton<NodeConfig>();
+
+            /*
+             * Resolve the ip address of the broker and store it to verify connections
+             * later
+             */
+            BrokerIpList = Dns.GetHostAddressesAsync(_heartBeat.GetBrokerAddress().DnsSafeHost);
+
+            //Setup endpoint
+            InitPathAndLog("/heartbeat", plugin.Log);
         }
+      
 
         protected override async ValueTask<VfReturnType> GetAsync(HttpEntity entity)
         {
@@ -76,13 +78,20 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             {
                 //Load and verify the broker's ip address matches with an address we have stored
                 IPAddress[] addresses = await BrokerIpList;
+
                 if (!addresses.Contains(entity.TrustedRemoteIp))
                 {
+                    if (DebugMode)
+                    {
+                        Log.Debug("Received connection {ip} that was not a DNS safe address for the broker server, access denied");
+                    }
+
                     //Token invalid
                     entity.CloseResponse(HttpStatusCode.Forbidden);
                     return VfReturnType.VirtualSkip;
                 }
             }
+
             //Get the authorization jwt
             string? jwtAuth = entity.Server.Headers[HttpRequestHeader.Authorization];
             
@@ -97,7 +106,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             using JsonWebToken jwt = JsonWebToken.Parse(jwtAuth);
 
             //Verify the jwt using the broker's public key certificate
-            using (ReadOnlyJsonWebKey cert = await GetBrokerPubAsync())
+            using (ReadOnlyJsonWebKey cert = _heartBeat.GetBrokerPublicKey())
             {
                 //Verify the jwt
                 if (!jwt.VerifyFromJwk(cert))
@@ -114,16 +123,24 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             {
                 auth = doc.RootElement.GetProperty("token").GetString();
             }
-            
+
+            //Get our stored token used for registration
+            string? selfToken = _heartBeat.GetAuthToken();
+
             //Verify token
-            if(Token().Equals(auth, StringComparison.Ordinal))
+            if (selfToken != null && selfToken.Equals(auth, StringComparison.Ordinal))
             {
                 //Signal keepalive
-                KeepaliveSet.Set();
+                _heartBeat.HearbeatReceived();
                 entity.CloseResponse(HttpStatusCode.OK);
                 return VfReturnType.VirtualSkip;
             }
-            
+
+            if (DebugMode)
+            {
+                Log.Debug("Invalid auth token recieved from broker sever, access denied");
+            }
+
             //Token invalid
             entity.CloseResponse(HttpStatusCode.Forbidden);
             return VfReturnType.VirtualSkip;

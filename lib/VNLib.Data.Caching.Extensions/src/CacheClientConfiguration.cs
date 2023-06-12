@@ -31,23 +31,30 @@ using VNLib.Hashing.IdentityUtility;
 
 namespace VNLib.Data.Caching.Extensions
 {
+    public interface ICacheJwtManager
+    {
+        IReadOnlyDictionary<string, string?> GetJwtHeader();
+
+        void SignJwt(JsonWebToken jwt);
+
+        bool VerifyCache(JsonWebToken jwt);
+
+        bool VerifyBroker(JsonWebToken jwt);
+    }
+
     /// <summary>
     /// A fluent api configuration object for configuring a <see cref="FBMClient"/>
     /// to connect to cache servers.
     /// </summary>
-    public sealed class ClientCacheConfiguration
+    public class CacheClientConfiguration : ICacheJwtManager, ICacheListServerRequest
     {
-        internal ReadOnlyJsonWebKey? SigningKey { get; private set; }
-        internal ReadOnlyJsonWebKey? VerificationKey { get; private set; }
-        internal ReadOnlyJsonWebKey? BrokerVerificationKey { get; private set; }
+        public ReadOnlyJsonWebKey? SigningKey { get; private set; }
+        public ReadOnlyJsonWebKey? VerificationKey { get; private set; }
+        public ReadOnlyJsonWebKey? BrokerVerificationKey { get; private set; }
         
-        internal string ServerChallenge { get; } = RandomHash.GetRandomBase32(24);
-        internal string? NodeId { get; set; }
-        internal Uri? BrokerAddress { get; set; }
-        internal bool UseTls { get; set; }
-        internal ActiveServer[]? CacheServers { get; set; }
-
-        internal IReadOnlyDictionary<string, string?> JwtHeader => SigningKey!.JwtHeader;
+        public Uri? DiscoveryEndpoint { get; private set; }
+        public bool UseTls { get; private set; }
+        internal ICachePeerAdvertisment[]? CacheServers { get; set; }
 
         /// <summary>
         /// Imports the private key used to sign messages
@@ -56,7 +63,7 @@ namespace VNLib.Data.Caching.Extensions
         /// <returns>Chainable fluent object</returns>
         /// <exception cref="ArgumentException"></exception>
         /// <exception cref="CryptographicException"></exception>
-        public ClientCacheConfiguration WithSigningCertificate(ReadOnlyJsonWebKey jwk)
+        public CacheClientConfiguration WithSigningKey(ReadOnlyJsonWebKey jwk)
         {
             SigningKey = jwk ?? throw new ArgumentNullException(nameof(jwk));
             return this;
@@ -69,13 +76,13 @@ namespace VNLib.Data.Caching.Extensions
         /// <returns>Chainable fluent object</returns>
         /// <exception cref="ArgumentException"></exception>
         /// <exception cref="CryptographicException"></exception>
-        public ClientCacheConfiguration WithVerificationKey(ReadOnlyJsonWebKey jwk)
+        public CacheClientConfiguration WithVerificationKey(ReadOnlyJsonWebKey jwk)
         {
             VerificationKey = jwk ?? throw new ArgumentNullException(nameof(jwk));
             return this;
         }
 
-        public ClientCacheConfiguration WithBrokerVerificationKey(ReadOnlyJsonWebKey jwk)
+        public CacheClientConfiguration WithBrokerVerificationKey(ReadOnlyJsonWebKey jwk)
         {
             BrokerVerificationKey = jwk ?? throw new ArgumentNullException(nameof(jwk));
             return this;
@@ -86,50 +93,35 @@ namespace VNLib.Data.Caching.Extensions
         /// </summary>
         /// <param name="useTls">A value that indicates if connections should use TLS</param>
         /// <returns>Chainable fluent object</returns>
-        public ClientCacheConfiguration WithTls(bool useTls)
+        public CacheClientConfiguration WithTls(bool useTls)
         {
             UseTls = useTls;
             return this;   
         }
+
         /// <summary>
         /// Specifies the broker address to discover cache nodes from
         /// </summary>
         /// <param name="brokerAddress">The address of the server broker</param>
         /// <returns>Chainable fluent object</returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public ClientCacheConfiguration WithBroker(Uri brokerAddress)
+        public CacheClientConfiguration WithBroker(Uri brokerAddress)
         {
-            this.BrokerAddress = brokerAddress ?? throw new ArgumentNullException(nameof(brokerAddress));
+            DiscoveryEndpoint = brokerAddress ?? throw new ArgumentNullException(nameof(brokerAddress));
             return this;
         }
+      
+        ///<inheritdoc/>
+        public void SignJwt(JsonWebToken jwt) => jwt.SignFromJwk(SigningKey!);
 
-        /// <summary>
-        /// Specifies the current server's cluster node id. If this 
-        /// is a server connection attempting to listen for changes on the
-        /// remote server, this id must be set and unique
-        /// </summary>
-        /// <param name="nodeId">The cluster node id of the current server</param>
-        /// <returns>Chainable fluent object</returns>
-        /// <exception cref="ArgumentNullException"></exception>
-        public ClientCacheConfiguration WithNodeId(string nodeId)
-        {
-            this.NodeId = nodeId ?? throw new ArgumentNullException(nameof(nodeId));
-            return this;
-        }
+        ///<inheritdoc/>
+        public bool VerifyCache(JsonWebToken jwt) => jwt.VerifyFromJwk(VerificationKey!);
 
-        internal void SignJwt(JsonWebToken jwt)
-        {
-            jwt.SignFromJwk(SigningKey);
-        }
+        ///<inheritdoc/>
+        public bool VerifyBroker(JsonWebToken jwt) => jwt.VerifyFromJwk(BrokerVerificationKey!);
 
-        internal bool VerifyCache(JsonWebToken jwt)
-        {
-            return jwt.VerifyFromJwk(VerificationKey);
-        }
+        ///<inheritdoc/>
+        public IReadOnlyDictionary<string, string?> GetJwtHeader() => SigningKey!.JwtHeader;
 
-        internal bool VerifyBroker(JsonWebToken jwt)
-        {
-            return jwt.VerifyFromJwk(BrokerVerificationKey);
-        }
     }
 }

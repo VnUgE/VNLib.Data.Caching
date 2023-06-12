@@ -28,7 +28,6 @@ using System.Buffers;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 using VNLib.Utils.Logging;
@@ -417,7 +416,7 @@ namespace VNLib.Data.Caching
         /// </summary>
         /// <param name="client"></param>
         /// <param name="cancellationToken">A token to cancel the deuque operation</param>
-        /// <returns>A <see cref="KeyValuePair{TKey, TValue}"/> that contains the modified object id and optionally its new id</returns>
+        /// <returns>A <see cref="WaitForChangeResult"/> that contains information about the modified element</returns>
         public static async Task<WaitForChangeResult> WaitForChangeAsync(this FBMClient client, CancellationToken cancellationToken = default)
         {
             //Rent a new request

@@ -112,7 +112,7 @@ namespace VNLib.Plugins.Extensions.VNCache
             //Connection authentication methods
             Client.GetCacheConfiguration()
                 .WithVerificationKey(cachePub)
-                .WithSigningCertificate(clientPriv)
+                .WithSigningKey(clientPriv)
                 .WithBrokerVerificationKey(brokerPub);
         }
 
@@ -127,7 +127,7 @@ namespace VNLib.Plugins.Extensions.VNCache
                 while (true)
                 {
                     //Load the server list
-                    ActiveServer[]? servers;
+                    ICachePeerAdvertisment[]? servers;
                     while (true)
                     {
                         try
@@ -163,8 +163,8 @@ namespace VNLib.Plugins.Extensions.VNCache
                         pluginLog.Debug("Connecting to random cache server");
 
                         //Connect to a random server
-                        ActiveServer selected = await Client.ConnectToRandomCacheAsync(exitToken);
-                        pluginLog.Debug("Connected to cache server {s}", selected.ServerId);
+                        ICachePeerAdvertisment selected = await Client.ConnectToRandomCacheAsync(exitToken);
+                        pluginLog.Debug("Connected to cache server {s}", selected.NodeId);
 
                         //Set connection status flag
                         IsConnected = true;
