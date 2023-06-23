@@ -39,6 +39,7 @@ using VNLib.Plugins.Extensions.Loading.Events;
 
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
+
     [ConfigurationName("event_manager")]
     internal sealed class CacheEventQueueManager : ICacheEventQueueManager, IDisposable, IIntervalScheduleable
     {
@@ -70,7 +71,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         }
 
         ///<inheritdoc/>
-        public AsyncQueue<ChangeEvent> Subscribe(ICachePeer peer)
+        public IPeerEventQueue Subscribe(ICachePeer peer)
         {
             NodeQueue? nq;
 
@@ -198,7 +199,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
          * attached to the queue
          */
 
-        private sealed class NodeQueue
+        private sealed class NodeQueue : IPeerEventQueue
         {
             public int Listeners;
 
@@ -242,6 +243,18 @@ namespace VNLib.Data.Caching.ObjectCache.Server
                 {
                     Queue.TryEnque(changes[i]);
                 }
+            }
+
+            ///<inheritdoc/>
+            public ValueTask<ChangeEvent> DequeueAsync(CancellationToken cancellation)
+            {
+                return Queue.DequeueAsync(cancellation);
+            }
+
+            ///<inheritdoc/>
+            public bool TryDequeue(out ChangeEvent change)
+            {
+                return Queue.TryDequeue(out change);
             }
         }
     }

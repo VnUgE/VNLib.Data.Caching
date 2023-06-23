@@ -45,9 +45,9 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Distribution
         void OnPeerDisconnected(ICachePeer peer);
 
         /// <summary>
-        /// Gets an enumerable of all peers currently active in the current peer
+        /// Gets an enumerable of all peers currently connected to this node
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The collection of all connected peers</returns>
         IEnumerable<ICachePeer> GetAllPeers();
     }
 }

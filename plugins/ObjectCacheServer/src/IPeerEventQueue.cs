@@ -3,10 +3,10 @@
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
-* File: ICachePeer.cs 
+* File: CacheEventQueueManager.cs 
 *
-* ICachePeer.cs is part of ObjectCacheServer which is part of the larger 
-* VNLib collection of libraries and utilities.
+* CacheEventQueueManager.cs is part of ObjectCacheServer which is 
+* part of the larger VNLib collection of libraries and utilities.
 *
 * ObjectCacheServer is free software: you can redistribute it and/or modify 
 * it under the terms of the GNU Affero General Public License as 
@@ -22,23 +22,29 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
-using VNLib.Data.Caching.Extensions;
+using System.Threading;
+using System.Threading.Tasks;
+
 
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
     /// <summary>
-    /// Represents a fellow cache peer in the cluster
+    /// Represents a queue of events for a specific peer node
     /// </summary>
-    internal interface ICachePeer
+    internal interface IPeerEventQueue
     {
         /// <summary>
-        /// The unique identifier of the node
+        /// Dequeues an event from the queue asynchronously
         /// </summary>
-        string NodeId { get; }
-
+        /// <param name="cancellation">A token to cancel the operation</param>
+        /// <returns>The value task that represents the wait</returns>
+        ValueTask<ChangeEvent> DequeueAsync(CancellationToken cancellation);
+        
         /// <summary>
-        /// An optional signed advertisment message for other peers
+        /// Attemts to dequeue an event from the queue
         /// </summary>
-        ICacheNodeAdvertisment? Advertisment { get; }
+        /// <param name="change">The change event that was dequeued if possible</param>
+        /// <returns>True if the event was dequeued</returns>
+        bool TryDequeue(out ChangeEvent change);
     }
 }

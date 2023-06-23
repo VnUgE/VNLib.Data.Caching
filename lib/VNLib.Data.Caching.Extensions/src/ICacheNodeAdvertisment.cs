@@ -3,9 +3,9 @@
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Extensions
-* File: ActiveServer.cs 
+* File: ICacheNodeAdvertisment.cs 
 *
-* ActiveServer.cs is part of VNLib.Data.Caching.Extensions which is part of the larger 
+* ICacheNodeAdvertisment.cs is part of VNLib.Data.Caching.Extensions which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
 * VNLib.Data.Caching.Extensions is free software: you can redistribute it and/or modify 
@@ -23,29 +23,28 @@
 */
 
 using System;
-using System.Text.Json.Serialization;
+
 
 namespace VNLib.Data.Caching.Extensions
 {
-    public class ActiveServer : ICacheNodeAdvertisment
+    /// <summary>
+    /// Represents a node that can be advertised to clients
+    /// </summary>
+    public interface ICacheNodeAdvertisment
     {
-        [JsonPropertyName("address")]
-        public string? HostName { get; set; }
-      
-        public string? ServerId { get; set; }
-        [JsonPropertyName("ip_address")]
-        public string? Ip { get; set; }
+        /// <summary>
+        /// The endpoint for clients to connect to to access the cache
+        /// </summary>
+        Uri ConnectEndpoint { get; }
 
-        public Uri ConnectEndpoint { get; }
+        /// <summary>
+        /// Gets the address for clients to connect to to discover other discovertable nodes
+        /// </summary>
+        Uri? DiscoveryEndpoint { get; }
 
-        public Uri? DiscoveryEndpoint { get; }
-
-        [JsonPropertyName("server_id")]
-        public string NodeId { get; }
-
-        ///<inheritdoc/>
-        public override int GetHashCode() => ServerId!.GetHashCode(StringComparison.OrdinalIgnoreCase);
-        ///<inheritdoc/>
-        public override bool Equals(object? obj) => obj is ActiveServer s && GetHashCode() == s.GetHashCode();
+        /// <summary>
+        /// Gets the unique identifier for this node
+        /// </summary>
+        string NodeId { get; }
     }
 }

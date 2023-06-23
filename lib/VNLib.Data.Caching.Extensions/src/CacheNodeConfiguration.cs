@@ -24,11 +24,13 @@
 
 using System;
 
-
 namespace VNLib.Data.Caching.Extensions
 {
 
-    public class CacheNodeConfiguration: CacheClientConfiguration, ICachePeerAdvertisment
+    /// <summary>
+    /// A cache configuration for cache servers (nodes)
+    /// </summary>
+    public class CacheNodeConfiguration: CacheClientConfiguration, ICacheNodeAdvertisment
     {
         /// <summary>
         /// The address for clients to connect to
@@ -56,9 +58,13 @@ namespace VNLib.Data.Caching.Extensions
             return this;
         }
 
-        public CacheNodeConfiguration EnableAdvertisment(bool enable, Uri? discoveryEndpoint)
+        /// <summary>
+        /// Enables or disables the advertisement of this node to other nodes
+        /// </summary>
+        /// <param name="discoveryEndpoint">The absolute endpoint clients will use to connect to</param>
+        public CacheNodeConfiguration EnableAdvertisment(Uri? discoveryEndpoint)
         {
-            BroadcastAdverisment = enable;
+            BroadcastAdverisment = discoveryEndpoint != null;
             DiscoveryEndpoint = discoveryEndpoint;
             return this;
         }

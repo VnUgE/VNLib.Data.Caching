@@ -24,9 +24,6 @@
 
 using System;
 
-using VNLib.Utils.Async;
-
-
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
     /// <summary>
@@ -49,14 +46,14 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         /// <summary>
         /// Attatches a subscriber that will receive all published changes
         /// </summary>
-        /// <param name="nodeId">The id of the node to get the queue for</param>
+        /// <param name="peer">The peer node that wishes to subscribe for events</param>
         /// <returns>The initilaizes event queue for the single subscriber</returns>
-        AsyncQueue<ChangeEvent> Subscribe(ICachePeer peer);
+        IPeerEventQueue Subscribe(ICachePeer peer);
 
         /// <summary>
         /// Detatches a subscriber from the event queue
         /// </summary>
-        /// <param name="nodeId">The id of the nede to detach</param>
+        /// <param name="peer">The peer to unsubscribe from events</param>
         void Unsubscribe(ICachePeer peer);
 
         /// <summary>

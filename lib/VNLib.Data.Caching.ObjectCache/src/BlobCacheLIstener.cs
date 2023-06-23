@@ -42,7 +42,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-using VNLib.Utils.Async;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
 using VNLib.Net.Messaging.FBM.Server;
@@ -65,7 +64,7 @@ namespace VNLib.Data.Caching.ObjectCache
         /// <summary>
         /// A queue that stores update and delete events
         /// </summary>
-        public AsyncQueue<ChangeEvent> EventQueue { get; }
+        public ICacheListenerEventQueue EventQueue { get; }
 
         /// <summary>
         /// The Cache store to access data blobs
@@ -77,18 +76,17 @@ namespace VNLib.Data.Caching.ObjectCache
         /// Initialzies a new <see cref="BlobCacheListener"/>
         /// </summary>
         /// <param name="cache">The cache table to work from</param>
+        /// <param name="queue">The event queue to publish changes to</param>
         /// <param name="log">Writes error and debug logging information</param>
         /// <param name="heap">The heap to alloc FBM buffers and <see cref="CacheEntry"/> cache buffers from</param>
-        /// <param name="singleReader">A value that indicates if a single thread is processing events</param>
         /// <exception cref="ArgumentNullException"></exception>
-        public BlobCacheListener(IBlobCacheTable cache, ILogProvider log, IUnmangedHeap heap, bool singleReader)
+        public BlobCacheListener(IBlobCacheTable cache, ICacheListenerEventQueue queue, ILogProvider log, IUnmangedHeap heap)
         {
             Log = log;
             
             Cache = cache ?? throw new ArgumentNullException(nameof(cache));
 
-            //Writes may happen from multple threads with bucket design and no lock
-            EventQueue = new(false, singleReader);
+            EventQueue = queue ?? throw new ArgumentNullException(nameof(queue));
 
             InitListener(heap);
         }
@@ -161,32 +159,25 @@ namespace VNLib.Data.Caching.ObjectCache
                                 }
                             }
 
-                            static async Task DequeAsync(AsyncQueue<ChangeEvent> queue, FBMContext context, CancellationToken exitToken)
-                            {
-                                //Wait for a new message to process
-                                ChangeEvent ev = await queue.DequeueAsync(exitToken);
-
-                                //Set the response
-                                SetResponse(ev, context);
-                            }
-
-                            //If no event bus is registered, then this is not a legal command
-                            if (userState is not AsyncQueue<ChangeEvent> eventBus)
+                            //Determine if the queue is enabled for the user
+                            if(!EventQueue.IsEnabled(userState!))
                             {
                                 context.CloseResponse(ResponseCodes.NotFound);
-
                                 return;
                             }
 
                             //try to deq without awaiting
-                            if (eventBus.TryDequeue(out ChangeEvent? change))
+                            if (EventQueue.TryDequeue(userState!, out ChangeEvent? change))
                             {
                                 SetResponse(change, context);
                             }
                             else
                             {
-                                //Process async
-                                await DequeAsync(eventBus, context, exitToken);
+                                //Wait for a new message to process
+                                ChangeEvent ev = await EventQueue.DequeueAsync(userState!, exitToken);
+
+                                //Set the response
+                                SetResponse(ev, context);
                             }
 
                             return;
@@ -257,10 +248,7 @@ namespace VNLib.Data.Caching.ObjectCache
 
         private void EnqueEvent(ChangeEvent change)
         {
-            if (!EventQueue.TryEnque(change))
-            {
-                Log.Warn("Change event {ev} was not enqued because the event queue is overflowing!", change.CurrentId);
-            }
+            EventQueue.PublishEvent(change);
         }
 
 

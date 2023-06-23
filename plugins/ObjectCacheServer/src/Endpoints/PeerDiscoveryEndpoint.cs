@@ -23,8 +23,8 @@
 */
 
 using System;
-using System.Linq;
 using System.Net;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -76,14 +76,12 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             using(JsonWebToken jwt = JsonWebToken.Parse(authToken))
             {
                 //try to verify against cache node first
-                if (!Config.Config.VerifyCache(jwt))
+                if (!Config.KeyStore.VerifyCachePeer(jwt))
                 {
                     //failed...
 
                     //try to verify against client key
-                    using ReadOnlyJsonWebKey clientPub = await Config.KeyStore.GetClientPublicKeyAsync();
-
-                    if (!jwt.VerifyFromJwk(clientPub))
+                    if (!Config.KeyStore.VerifyJwt(jwt))
                     {
                         //invalid token
                         entity.CloseResponse(HttpStatusCode.Unauthorized);
@@ -97,7 +95,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             }
 
             //Valid key, get peer list to send to client
-            ICachePeerAdvertisment[] peers = PeerMonitor.GetAllPeers()
+            ICacheNodeAdvertisment[] peers = PeerMonitor.GetAllPeers()
                                         .Where(static p => p.Advertisment != null)
                                         .Select(static p => p.Advertisment!)
                                         .ToArray();
@@ -106,7 +104,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             using JsonWebToken response = new();
             
             //set header from cache config
-            response.WriteHeader(Config.Config.GetJwtHeader());
+            response.WriteHeader(Config.KeyStore.GetJwtHeader());
 
             response.InitPayloadClaim()
                 .AddClaim("iss", Config.Config.NodeId)
@@ -119,7 +117,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
                 .CommitClaims();
 
             //Sign the response
-            Config.Config.SignJwt(response);
+            Config.KeyStore.SignJwt(response);
             
             //Send response to client
             entity.CloseResponse(HttpStatusCode.OK, Net.Http.ContentType.Text, response.DataBuffer);

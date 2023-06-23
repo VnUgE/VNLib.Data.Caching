@@ -3,9 +3,9 @@
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
-* File: ObjectCacheServerEntry.cs 
+* File: ICachePeerAdapter.cs 
 *
-* ObjectCacheServerEntry.cs is part of ObjectCacheServer which is part of the larger 
+* ICachePeerAdapter.cs is part of ObjectCacheServer which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
 * ObjectCacheServer is free software: you can redistribute it and/or modify 
@@ -32,18 +32,18 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Distribution
         /// Gets the peers that have been discovered but not yet connected to
         /// </summary>
         /// <returns>A collection of peers that have not been connected to yet</returns>
-        ICachePeerAdvertisment[] GetNewPeers();
+        ICacheNodeAdvertisment[] GetNewPeers();
 
         /// <summary>
         /// Called when a peer has been connected to
         /// </summary>
         /// <param name="peer">The peer that has been connected</param>
-        void OnPeerListenerAttached(ICachePeerAdvertisment peer);
+        void OnPeerListenerAttached(ICacheNodeAdvertisment peer);
 
         /// <summary>
         /// Called when a peer has been disconnected from
         /// </summary>
         /// <param name="peer">The disconnected peer</param>
-        void OnPeerListenerDetatched(ICachePeerAdvertisment peer);
+        void OnPeerListenerDetatched(ICacheNodeAdvertisment peer);
     }
 }

@@ -31,14 +31,16 @@ using System.Net.WebSockets;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 
+using VNLib.Hashing;
+using VNLib.Hashing.IdentityUtility;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
-using VNLib.Hashing.IdentityUtility;
 using VNLib.Data.Caching;
 using VNLib.Data.Caching.Extensions;
 using VNLib.Data.Caching.ObjectCache;
 using VNLib.Net.Messaging.FBM.Client;
 using VNLib.Plugins.Extensions.Loading;
+
 
 namespace VNLib.Plugins.Extensions.VNCache
 {
@@ -48,6 +50,7 @@ namespace VNLib.Plugins.Extensions.VNCache
 
         TimeSpan RefreshInterval { get; }
     }
+
 
     /// <summary>
     /// A base class that manages 
@@ -81,8 +84,6 @@ namespace VNLib.Plugins.Extensions.VNCache
 
             _config = config;
 
-            Uri brokerUri = new(config.BrokerAddress!);
-
             //Init the client with default settings
             FBMClientConfig conf = FBMDataCacheExtensions.GetDefaultConfig(MemoryUtil.Shared, config.MaxMessageSize!.Value, config.RequestTimeout, debugLog);
 
@@ -90,30 +91,18 @@ namespace VNLib.Plugins.Extensions.VNCache
 
             //Add the configuration to the client
             Client.GetCacheConfiguration()
-                .WithBroker(brokerUri)
-                .WithTls(brokerUri.Scheme == Uri.UriSchemeHttps);
+                .WithTls(config.UseTls)
+                .WithInitialPeers(config.InitialNodes!);
         }
-       
 
-        public virtual async Task ConfigureServiceAsync(PluginBase plugin)
+        public Task ConfigureServiceAsync(PluginBase plugin)
         {
-            //Get keys async
-            Task<ReadOnlyJsonWebKey?> clientPrivTask = plugin.TryGetSecretAsync("client_private_key").ToJsonWebKey();
-            Task<ReadOnlyJsonWebKey?> brokerPubTask = plugin.TryGetSecretAsync("broker_public_key").ToJsonWebKey();
-            Task<ReadOnlyJsonWebKey?> cachePubTask = plugin.TryGetSecretAsync("cache_public_key").ToJsonWebKey();
-
-            //Wait for all tasks to complete
-            _ = await Task.WhenAll(clientPrivTask, brokerPubTask, cachePubTask);
-
-            ReadOnlyJsonWebKey clientPriv = await clientPrivTask ?? throw new KeyNotFoundException("Missing required secret client_private_key");
-            ReadOnlyJsonWebKey brokerPub = await brokerPubTask ?? throw new KeyNotFoundException("Missing required secret broker_public_key");
-            ReadOnlyJsonWebKey cachePub = await cachePubTask ?? throw new KeyNotFoundException("Missing required secret cache_public_key");
-
-            //Connection authentication methods
+            //Set authenticator
             Client.GetCacheConfiguration()
-                .WithVerificationKey(cachePub)
-                .WithSigningKey(clientPriv)
-                .WithBrokerVerificationKey(brokerPub);
+                .WithAuthenticator(new AuthManager(plugin))
+                .WithErrorHandler(new DiscoveryErrHAndler(plugin.Log));
+
+            return Task.CompletedTask;
         }
 
         /*
@@ -127,7 +116,7 @@ namespace VNLib.Plugins.Extensions.VNCache
                 while (true)
                 {
                     //Load the server list
-                    ICachePeerAdvertisment[]? servers;
+                    ICacheNodeAdvertisment[]? servers;
                     while (true)
                     {
                         try
@@ -163,7 +152,7 @@ namespace VNLib.Plugins.Extensions.VNCache
                         pluginLog.Debug("Connecting to random cache server");
 
                         //Connect to a random server
-                        ICachePeerAdvertisment selected = await Client.ConnectToRandomCacheAsync(exitToken);
+                        ICacheNodeAdvertisment selected = await Client.ConnectToRandomCacheAsync(exitToken);
                         pluginLog.Debug("Connected to cache server {s}", selected.NodeId);
 
                         //Set connection status flag
@@ -254,6 +243,99 @@ namespace VNLib.Plugins.Extensions.VNCache
             return !IsConnected
              ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
              : Client!.AddOrUpdateObjectAsync(key, newKey, value, serialzer, cancellation);
+        }
+              
+
+        private sealed class AuthManager : ICacheAuthManager
+        {
+
+            private IAsyncLazy<ReadOnlyJsonWebKey> _sigKey;
+            private IAsyncLazy<ReadOnlyJsonWebKey> _verKey;
+
+            public AuthManager(PluginBase plugin)
+            {
+                //Lazy load keys
+
+                //Get the signing key
+                _sigKey = plugin.GetSecretAsync("client_private_key").ToLazy(static r => r.GetJsonWebKey());
+
+                //Lazy load cache public key
+                _verKey = plugin.GetSecretAsync("cache_public_key").ToLazy(static r => r.GetJsonWebKey());
+            }
+
+            public async Task AwaitLazyKeyLoad()
+            {
+                await _sigKey;
+                await _verKey;
+            }         
+
+            ///<inheritdoc/>
+            public IReadOnlyDictionary<string, string?> GetJwtHeader()
+            {
+                //Get the signing key jwt header
+                return _sigKey.Value.JwtHeader;
+            }
+
+            ///<inheritdoc/>
+            public void SignJwt(JsonWebToken jwt)
+            {
+                //Sign the jwt with signing key
+                jwt.SignFromJwk(_sigKey.Value);
+            }
+
+            ///<inheritdoc/>
+            public byte[] SignMessageHash(byte[] hash, HashAlg alg)
+            {
+                //try to get the rsa alg for the signing key
+                using RSA? rsa = _sigKey.Value.GetRSAPublicKey();
+                if(rsa != null)
+                {
+                    return rsa.SignHash(hash, alg.GetAlgName(), RSASignaturePadding.Pkcs1);
+                }
+
+                //try to get the ecdsa alg for the signing key
+                using ECDsa? ecdsa = _sigKey.Value.GetECDsaPublicKey();
+                if(ecdsa != null)
+                {
+                    return ecdsa.SignHash(hash);
+                }
+
+                throw new NotSupportedException("The signing key is not a valid RSA or ECDSA key");
+            }
+
+            ///<inheritdoc/>
+            public bool VerifyJwt(JsonWebToken jwt)
+            {
+                return jwt.VerifyFromJwk(_verKey.Value);
+            }
+
+            ///<inheritdoc/>
+            public bool VerifyMessageHash(ReadOnlySpan<byte> hash, HashAlg alg, ReadOnlySpan<byte> signature)
+            {
+                //try to get the rsa alg for the signing key
+                using RSA? rsa = _verKey.Value.GetRSAPublicKey();
+                if (rsa != null)
+                {
+                    return rsa.VerifyHash(hash, signature, alg.GetAlgName(), RSASignaturePadding.Pkcs1);
+                }
+
+                //try to get the ecdsa alg for the signing key
+                using ECDsa? ecdsa = _verKey.Value.GetECDsaPublicKey();
+                if (ecdsa != null)
+                {
+                    return ecdsa.VerifyHash(hash, signature);
+                }
+                
+                throw new NotSupportedException("The current key is not an RSA or ECDSA key and is not supported");
+            }
+        }
+
+        private sealed record class DiscoveryErrHAndler(ILogProvider Logger) : ICacheDiscoveryErrorHandler
+        {
+            public void OnDiscoveryError(ICacheNodeAdvertisment errorNode, Exception ex)
+            {
+                Logger.Error("Failed to discover nodes from server {s} cause:\n{err}", errorNode.NodeId, ex);
+            }
         }
     }
 }

@@ -22,7 +22,7 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
-using System;
+using System.Linq;
 using System.Collections.Generic;
 
 using VNLib.Plugins;
@@ -32,24 +32,39 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Distribution
 
     internal sealed class CachePeerMonitor : IPeerMonitor
     {
+
+        private readonly LinkedList<ICachePeer> peers = new();
+
         public CachePeerMonitor(PluginBase plugin)
-        {
+        { }
 
-        }
-
+        ///<inheritdoc/>
         public IEnumerable<ICachePeer> GetAllPeers()
         {
-            throw new NotImplementedException();
+            lock(peers)
+            {
+                return peers.ToArray();
+            }
         }
 
+        ///<inheritdoc/>
         public void OnPeerConnected(ICachePeer peer)
         {
-            throw new NotImplementedException();
+            //When a peer is connected we can add it to the list so the replication manager can see it
+            lock(peers)
+            {
+                peers.AddLast(peer);
+            }
         }
 
+        ///<inheritdoc/>
         public void OnPeerDisconnected(ICachePeer peer)
         {
-            throw new NotImplementedException();
+            //When a peer is disconnected we can remove it from the list
+            lock(peers)
+            {
+                peers.Remove(peer);
+            }
         }
     }
 }

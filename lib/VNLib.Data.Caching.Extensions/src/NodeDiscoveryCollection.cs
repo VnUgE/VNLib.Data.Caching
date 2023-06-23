@@ -2,18 +2,18 @@
 * Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
-* Package: ObjectCacheServer
-* File: PeerDiscoveryManager.cs 
+* Package: VNLib.Data.Caching.Extensions
+* File: INodeDiscoveryCollection.cs 
 *
-* PeerDiscoveryManager.cs is part of ObjectCacheServer which is part of the larger 
+* INodeDiscoveryCollection.cs is part of VNLib.Data.Caching.Extensions which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
-* ObjectCacheServer is free software: you can redistribute it and/or modify 
+* VNLib.Data.Caching.Extensions is free software: you can redistribute it and/or modify 
 * it under the terms of the GNU Affero General Public License as 
 * published by the Free Software Foundation, either version 3 of the
 * License, or (at your option) any later version.
 *
-* ObjectCacheServer is distributed in the hope that it will be useful,
+* VNLib.Data.Caching.Extensions is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 * GNU Affero General Public License for more details.
@@ -25,21 +25,24 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.Collections;
 
-using VNLib.Plugins;
-using VNLib.Data.Caching.Extensions;
-
-namespace VNLib.Data.Caching.ObjectCache.Server.Distribution
+namespace VNLib.Data.Caching.Extensions
 {
-    sealed class NodeDiscoveryCollection : INodeDiscoveryCollection
+    /// <summary>
+    /// Represents a collection of available cache nodes from a discovery process
+    /// </summary>
+    public sealed class NodeDiscoveryCollection : INodeDiscoveryCollection
     {
-        private LinkedList<ICachePeerAdvertisment> _peers;
+        private LinkedList<ICacheNodeAdvertisment> _peers;
 
-
-        public NodeDiscoveryCollection(PluginBase plugin)
+        /// <summary>
+        /// Initializes a new empty <see cref="NodeDiscoveryCollection"/>
+        /// </summary>
+        public NodeDiscoveryCollection()
         {
-            _peers = new();   
-        }       
+            _peers = new();
+        }
 
         ///<inheritdoc/>
         public INodeDiscoveryEnumerator BeginDiscovery()
@@ -48,7 +51,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Distribution
         }
 
         ///<inheritdoc/>
-        public INodeDiscoveryEnumerator BeginDiscovery(IEnumerable<ICachePeerAdvertisment> initialPeers)
+        public INodeDiscoveryEnumerator BeginDiscovery(IEnumerable<ICacheNodeAdvertisment> initialPeers)
         {
             //Init new enumerator with the initial peers
             return new NodeEnumerator(new(initialPeers));
@@ -64,36 +67,51 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Distribution
         }
 
         ///<inheritdoc/>
-        public ICachePeerAdvertisment[] GetAllNodes()
+        public ICacheNodeAdvertisment[] GetAllNodes()
         {
             //Capture all current peers
             return _peers.ToArray();
         }
 
-        private sealed record class NodeEnumerator(LinkedList<ICachePeerAdvertisment> Peers) : INodeDiscoveryEnumerator
+        private sealed record class NodeEnumerator(LinkedList<ICacheNodeAdvertisment> Peers) : INodeDiscoveryEnumerator
         {
             //Keep track of the current node in the collection so we can move down the list
-            private LinkedListNode<ICachePeerAdvertisment>? _currentNode = Peers.First;
+            private LinkedListNode<ICacheNodeAdvertisment>? _currentNode = Peers.First;
 
-            public ICachePeerAdvertisment? GetNextPeer()
+            public ICacheNodeAdvertisment Current => _currentNode?.Value;
+            object IEnumerator.Current => _currentNode?.Value;
+
+
+            ///<inheritdoc/>
+            public bool MoveNext()
             {
                 //Move to the next peer in the collection
                 _currentNode = _currentNode?.Next;
 
-                return _currentNode?.Value;
+                return _currentNode?.Value != null;
             }
 
-            public void OnPeerDiscoveryComplete(IEnumerable<ICachePeerAdvertisment> discoveredPeers)
+            ///<inheritdoc/>
+            public void OnPeerDiscoveryComplete(IEnumerable<ICacheNodeAdvertisment> discoveredPeers)
             {
                 //Get only the peers from the discovery that are not already in the collection
-                IEnumerable<ICachePeerAdvertisment> newPeers = discoveredPeers.Except(Peers);
-                
+                IEnumerable<ICacheNodeAdvertisment> newPeers = discoveredPeers.Except(Peers);
+
                 //Add them to the end of the collection 
-                foreach(ICachePeerAdvertisment ad in newPeers)
+                foreach (ICacheNodeAdvertisment ad in newPeers)
                 {
                     Peers.AddLast(ad);
                 }
             }
+
+            public void Reset()
+            {
+                //Go to the first node
+                _currentNode = Peers.First;
+            }
+
+            public void Dispose()
+            { }
         }
     }
 }

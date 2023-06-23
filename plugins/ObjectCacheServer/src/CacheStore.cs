@@ -3,9 +3,9 @@
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
-* File: ConnectEndpoint.cs 
+* File: CacheStore.cs 
 *
-* ConnectEndpoint.cs is part of ObjectCacheServer which is part of the larger 
+* CacheStore.cs is part of ObjectCacheServer which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
 * ObjectCacheServer is free software: you can redistribute it and/or modify 
@@ -25,14 +25,16 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+
 using VNLib.Utils.Logging;
 using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
 
+
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
     [ConfigurationName("cache")]
-    sealed class CacheStore : ICacheStore, IDisposable
+    internal sealed class CacheStore : ICacheStore, IDisposable
     {
         public BlobCacheListener Listener { get; }
 
@@ -76,11 +78,20 @@ namespace VNLib.Data.Caching.ObjectCache.Server
 
             plugin.Log.Verbose("Creating cache store with {bc} buckets, with {mc} items/bucket", cacheConf.BucketCount, cacheConf.MaxCacheEntries);
 
+            //calculate the max memory usage
+            ulong maxByteSize = ((ulong)cacheConf.MaxCacheEntries * (ulong)cacheConf.BucketCount * (ulong)cacheConf.MaxMessageSize);
+
+            //Log max memory usage
+            plugin.Log.Debug("Maxium memory consumption {mx}Mb", maxByteSize / (ulong)(1024 * 1000));
+
             //Load the blob cache table system
             IBlobCacheTable bc = plugin.LoadMemoryCacheSystem(config, plugin.CacheHeap, cacheConf);
 
+            //Get the event listener
+            ICacheListenerEventQueue queue = plugin.GetOrCreateSingleton<CacheListenerPubQueue>();
+
             //Endpoint only allows for a single reader
-            return new(bc, plugin.Log, plugin.CacheHeap, true);
+            return new(bc, queue, plugin.Log, plugin.CacheHeap);
         }
 
         public void Dispose()

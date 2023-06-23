@@ -23,80 +23,20 @@
 */
 
 using System;
-using System.IO;
-using System.Net;
-using System.Linq;
-using System.Net.Http;
 using System.Threading;
-using System.Net.Sockets;
-using System.Threading.Tasks;
 using System.Collections.Generic;
-using System.Security.Cryptography;
 
 using VNLib.Plugins;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
 using VNLib.Utils.Memory.Diagnostics;
-using VNLib.Hashing.IdentityUtility;
-using VNLib.Data.Caching.Extensions;
-using static VNLib.Data.Caching.Constants;
-using VNLib.Net.Messaging.FBM;
-using VNLib.Net.Messaging.FBM.Client;
-using VNLib.Plugins.Cache.Broker.Endpoints;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Plugins.Extensions.Loading.Routing;
 using VNLib.Data.Caching.ObjectCache.Server.Endpoints;
 
+
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
-    sealed record class CacheAuthKeyStore(PluginBase Plugin)
-    {
-        public Task<ReadOnlyJsonWebKey> GetCachePublicAsync()
-        {
-            return Plugin.TryGetSecretAsync("cache_private_key").ToJsonWebKey(true);
-        }
-
-        public Task<ReadOnlyJsonWebKey> GetCachePrivateAsync()
-        {
-            return Plugin.TryGetSecretAsync("cache_private_key").ToJsonWebKey(true);
-        }
-
-        public Task<ReadOnlyJsonWebKey> GetBrokerPublicAsync()
-        {
-            return Plugin.TryGetSecretAsync("broker_public_key").ToJsonWebKey(true);
-        }
-
-        public Task<ReadOnlyJsonWebKey> GetClientPublicKeyAsync()
-        {
-            return Plugin.TryGetSecretAsync("client_public_key").ToJsonWebKey(true);
-        }
-    }
-
-    internal interface IBrokerHeartbeatNotifier
-    {
-        /// <summary>
-        /// Called when the heartbeat endpoint receives a heartbeat from the broker
-        /// </summary>
-        void HearbeatReceived();
-
-        /// <summary>
-        /// Gets the current auth token sent to the broker, which is expected to be sent back in the heartbeat
-        /// </summary>
-        /// <returns>The heartbeat auth token if set</returns>
-        string? GetAuthToken();
-
-        /// <summary>
-        /// Gets the address of the broker server
-        /// </summary>
-        /// <returns>The full address of the broker server to connect to</returns>
-        Uri GetBrokerAddress();
-
-        /// <summary>
-        /// Gets the public key of the broker server
-        /// </summary>
-        /// <returns>The broker's public key</returns>
-        ReadOnlyJsonWebKey GetBrokerPublicKey();
-    }
 
     public sealed class ObjectCacheServerEntry : PluginBase
     {
@@ -136,26 +76,14 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         {
             try
             {
-                //Setup Node config 
-                NodeConfig nodeConf = this.GetOrCreateSingleton<NodeConfig>();
-
                 //Init connect endpoint
-                ConnectEndpoint endpoint = this.Route<ConnectEndpoint>();
-
-                //Route the broker endpoint
-                this.Route<BrokerHeartBeatEndpoint>();
+                this.Route<ConnectEndpoint>();
 
                 //Setup discovery endpoint
                 if(this.HasConfigForType<PeerDiscoveryEndpoint>())
                 {
                     this.Route<PeerDiscoveryEndpoint>();
-                }
-
-                ulong maxByteSize = ((ulong)endpoint.CacheConfig.MaxCacheEntries * (ulong)endpoint.CacheConfig.BucketCount * (ulong)endpoint.CacheConfig.MaxMessageSize);
-
-                //Log max memory usage
-                Log.Debug("Maxium memory consumption {mx}Mb", maxByteSize / (ulong)(1024 * 1000));
-               
+                }               
 
                 Log.Information("Plugin loaded");
             }

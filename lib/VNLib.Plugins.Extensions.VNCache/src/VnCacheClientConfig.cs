@@ -25,6 +25,7 @@
 using System;
 using System.Text.Json.Serialization;
 
+using VNLib.Data.Caching.Extensions;
 using VNLib.Plugins.Extensions.Loading;
 
 namespace VNLib.Plugins.Extensions.VNCache
@@ -45,8 +46,8 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// <summary>
         /// The broker server address
         /// </summary>
-        [JsonPropertyName("broker_address")]
-        public string? BrokerAddress { get; set; }
+        [JsonPropertyName("use_tls")]
+        public bool UseTls { get; set; } = true;
 
         /// <summary>
         /// The time (in seconds) to randomly delay polling the broker server
@@ -77,6 +78,12 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// </summary>
         internal TimeSpan RequestTimeout => TimeSpan.FromSeconds(RequestTimeoutSeconds!.Value);
 
+        /// <summary>
+        /// The initial peers to connect to
+        /// </summary>
+        [JsonPropertyName("initial_nodes")]
+        public InitialNode[]? InitialNodes { get; set; }
+
         void IOnConfigValidation.Validate()
         {
             if (!MaxMessageSize.HasValue || MaxMessageSize.Value < 1)
@@ -95,9 +102,42 @@ namespace VNLib.Plugins.Extensions.VNCache
                 throw new ArgumentException("You must specify a positive integer FBM message timoeut", "request_timeout_sec");
             }
 
-            if(!Uri.TryCreate(BrokerAddress, UriKind.RelativeOrAbsolute, out _))
+            //Validate initial nodes
+            if (InitialNodes == null || InitialNodes.Length == 0)
             {
-                throw new ArgumentException("You must specify a valid HTTP uri broker address", "broker_address");
+                throw new ArgumentException("You must specify at least one initial peer", "initial_peers");
+            }
+
+            foreach (InitialNode peer in InitialNodes)
+            {
+                _ = peer.ConnectEndpoint ?? throw new ArgumentException("You must specify a connect endpoint for each initial node", "initial_nodes");
+                _ = peer.NodeId ??  throw new ArgumentException("You must specify a node id for each initial node", "initial_nodes");
+            }
+        }
+
+        public sealed record class InitialNode : ICacheNodeAdvertisment
+        {
+            [JsonIgnore]
+            public Uri ConnectEndpoint { get; private set; }
+
+            [JsonIgnore]
+            public Uri? DiscoveryEndpoint { get; private set; }
+
+            [JsonPropertyName("node_id")]
+            public string? NodeId { get; set; }
+
+            [JsonPropertyName("connect_endpoint")]
+            public string? ConnectEndpointString
+            {
+                get => ConnectEndpoint.ToString();
+                set => ConnectEndpoint = new Uri(value!);
+            }
+
+            [JsonPropertyName("discovery_endpoint")]
+            public string? DiscoveryEndpointString
+            {
+                get => DiscoveryEndpoint?.ToString();
+                set => DiscoveryEndpoint = value == null ? null : new Uri(value);
             }
         }
     }

@@ -3,9 +3,9 @@
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Extensions
-* File: ICachePeerAdvertisment.cs 
+* File: ClientCacheConfiguration.cs 
 *
-* ICachePeerAdvertisment.cs is part of VNLib.Data.Caching.Extensions which is part of the larger 
+* ClientCacheConfiguration.cs is part of VNLib.Data.Caching.Extensions which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
 * VNLib.Data.Caching.Extensions is free software: you can redistribute it and/or modify 
@@ -24,27 +24,18 @@
 
 using System;
 
-
 namespace VNLib.Data.Caching.Extensions
 {
     /// <summary>
-    /// Represents a node that can be advertised to clients
+    /// Represents an type that will handle errors that occur during the discovery process
     /// </summary>
-    public interface ICachePeerAdvertisment
+    public interface ICacheDiscoveryErrorHandler
     {
         /// <summary>
-        /// The endpoint for clients to connect to to access the cache
+        /// Invoked when an error occurs during the discovery process
         /// </summary>
-        Uri ConnectEndpoint { get; }
-
-        /// <summary>
-        /// Gets the address for clients to connect to to discover other discovertable nodes
-        /// </summary>
-        Uri? DiscoveryEndpoint { get; }
-
-        /// <summary>
-        /// Gets the unique identifier for this node
-        /// </summary>
-        string NodeId { get; }
+        /// <param name="errorNode">The node that the error occured on</param>
+        /// <param name="ex">The exception that caused the invocation</param>
+        void OnDiscoveryError(ICacheNodeAdvertisment errorNode, Exception ex);
     }
 }
