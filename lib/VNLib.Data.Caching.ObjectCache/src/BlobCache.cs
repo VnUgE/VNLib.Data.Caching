@@ -187,9 +187,9 @@ namespace VNLib.Data.Caching.ObjectCache
             {
                 //remove the entry and bypass the disposal
                 bool result = base.Remove(objectId);
-#if DEBUG
+
                 Debug.Assert(result == true);
-#endif
+
                 return true;
             }
             

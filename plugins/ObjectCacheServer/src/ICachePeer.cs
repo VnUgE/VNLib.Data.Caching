@@ -22,7 +22,7 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
-using VNLib.Data.Caching.Extensions;
+using VNLib.Data.Caching.Extensions.Clustering;
 
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
@@ -39,6 +39,6 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         /// <summary>
         /// An optional signed advertisment message for other peers
         /// </summary>
-        ICacheNodeAdvertisment? Advertisment { get; }
+        CacheNodeAdvertisment? Advertisment { get; }
     }
 }

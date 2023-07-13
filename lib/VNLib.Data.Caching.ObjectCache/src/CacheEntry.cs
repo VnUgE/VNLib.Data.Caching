@@ -24,6 +24,7 @@
 
 using System;
 using System.Buffers;
+using System.Diagnostics;
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 
@@ -204,10 +205,9 @@ namespace VNLib.Data.Caching
             //Get the data segment
             Span<byte> segment = GetDataSegment();
 
-#if DEBUG
             //Test segment length is equivalent to the requested data length
-            System.Diagnostics.Debug.Assert(segment.Length == data.Length);
-#endif
+            Debug.Assert(segment.Length == data.Length);
+
             //Copy data segment
             data.CopyTo(segment);
         }

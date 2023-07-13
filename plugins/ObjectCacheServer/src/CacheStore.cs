@@ -30,7 +30,6 @@ using VNLib.Utils.Logging;
 using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
 
-
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
     [ConfigurationName("cache")]
@@ -62,6 +61,14 @@ namespace VNLib.Data.Caching.ObjectCache.Server
 
         private static BlobCacheListener InitializeCache(ObjectCacheServerEntry plugin, IConfigScope config)
         {
+            const string CacheConfigTemplate =
+@"
+Cache Configuration:
+    Max memory: {max} Mb
+    Buckets: {bc}
+    Entries per-bucket: {mc}
+";
+
             //Deserialize the cache config
             CacheConfiguration cacheConf = config.Deserialze<CacheConfiguration>();
 
@@ -74,21 +81,23 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             if (cacheConf.MaxCacheEntries < 200)
             {
                 plugin.Log.Information("Suggestion: You may want a larger cache size, you have less than 200 items in cache");
-            }
-
-            plugin.Log.Verbose("Creating cache store with {bc} buckets, with {mc} items/bucket", cacheConf.BucketCount, cacheConf.MaxCacheEntries);
+            } 
 
             //calculate the max memory usage
             ulong maxByteSize = ((ulong)cacheConf.MaxCacheEntries * (ulong)cacheConf.BucketCount * (ulong)cacheConf.MaxMessageSize);
 
-            //Log max memory usage
-            plugin.Log.Debug("Maxium memory consumption {mx}Mb", maxByteSize / (ulong)(1024 * 1000));
-
-            //Load the blob cache table system
-            IBlobCacheTable bc = plugin.LoadMemoryCacheSystem(config, plugin.CacheHeap, cacheConf);
+            //Log the cache config
+            plugin.Log.Information(CacheConfigTemplate, 
+                maxByteSize / (ulong)(1024 * 1000),
+                cacheConf.BucketCount,
+                cacheConf.MaxCacheEntries
+            );
 
             //Get the event listener
             ICacheListenerEventQueue queue = plugin.GetOrCreateSingleton<CacheListenerPubQueue>();
+
+            //Load the blob cache table system
+            IBlobCacheTable bc = plugin.LoadMemoryCacheSystem(config, plugin.CacheHeap, cacheConf);
 
             //Endpoint only allows for a single reader
             return new(bc, queue, plugin.Log, plugin.CacheHeap);

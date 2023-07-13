@@ -26,9 +26,9 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
+using VNLib.Utils.Logging;
 using VNLib.Data.Caching;
 using VNLib.Plugins.Extensions.Loading;
-using VNLib.Utils.Logging;
 
 namespace VNLib.Plugins.Extensions.VNCache
 {
@@ -41,7 +41,7 @@ namespace VNLib.Plugins.Extensions.VNCache
     /// The background work method must be sheduled for the cache client to be 
     /// connected to the backing store
     /// </remarks>
-    public sealed class RemoteCacheOperator : IAsyncBackgroundWork, IAsyncConfigurable
+    public sealed class RemoteCacheOperator : IAsyncBackgroundWork
     {
         private readonly VnCacheClient _client;
         private CancellationTokenSource? _tokenSource;
@@ -78,11 +78,6 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// Cancels the background cache client listener
         /// </summary>
         public void CancelListener() => _tokenSource?.Cancel();
-
-        ///<inheritdoc/>
-        public Task ConfigureServiceAsync(PluginBase plugin)
-        {
-            return _client.ConfigureServiceAsync(plugin);
-        }
+        
     }
 }

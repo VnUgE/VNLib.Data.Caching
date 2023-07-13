@@ -25,7 +25,7 @@
 
 using System.Collections.Generic;
 
-namespace VNLib.Data.Caching.Extensions
+namespace VNLib.Data.Caching.Extensions.Clustering
 {
     /// <summary>
     /// Represents a collection of discovered nodes
@@ -45,13 +45,13 @@ namespace VNLib.Data.Caching.Extensions
         /// </summary>
         /// <param name="initialPeers">An initial collection of peers to add to the enumeration</param>
         /// <returns>An enumerator that simplifies discovery of unique nodes</returns>
-        INodeDiscoveryEnumerator BeginDiscovery(IEnumerable<ICacheNodeAdvertisment> initialPeers);
+        INodeDiscoveryEnumerator BeginDiscovery(IEnumerable<CacheNodeAdvertisment> initialPeers);
 
         /// <summary>
         /// Gets a snapshot of all discovered nodes in the current collection.
         /// </summary>
         /// <returns>The current collection of notes</returns>
-        ICacheNodeAdvertisment[] GetAllNodes();
+        CacheNodeAdvertisment[] GetAllNodes();
 
         /// <summary>
         /// Completes a discovery process and updates the collection with the results

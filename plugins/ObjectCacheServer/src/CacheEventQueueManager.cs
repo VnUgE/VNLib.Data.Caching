@@ -104,7 +104,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             }
 
             //Return the node's queue
-            return nq.Queue;
+            return nq;
         }
 
         ///<inheritdoc/>
@@ -183,8 +183,10 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         //Interval to purge stale subscribers
         Task IIntervalScheduleable.OnIntervalAsync(ILogProvider log, CancellationToken cancellationToken)
         {
-            //Purge
+            log.Debug("Purging stale peer event queues");
+
             PurgeStaleSubscribers();
+            
             return Task.CompletedTask;
         }
 

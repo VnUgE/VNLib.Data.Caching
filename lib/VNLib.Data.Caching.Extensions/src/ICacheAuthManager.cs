@@ -53,8 +53,9 @@ namespace VNLib.Data.Caching.Extensions
         /// Verifies the given JWT
         /// </summary>
         /// <param name="jwt">The message to verify authenticity</param>
+        /// <param name="isPeer">A value indicating if the message is from a known node</param>
         /// <returns>True of the JWT could be verified, false otherwise</returns>
-        bool VerifyJwt(JsonWebToken jwt);
+        bool VerifyJwt(JsonWebToken jwt, bool isPeer);
 
         /// <summary>
         /// Signs the given message hash
@@ -70,7 +71,8 @@ namespace VNLib.Data.Caching.Extensions
         /// <param name="hash">The message hash to compare</param>
         /// <param name="alg">The algorithm used to produce the message hash</param>
         /// <param name="signature">The message signature to verify the message against</param>
+        /// <param name="isPeer">A value indicating if the message is from a known node</param>
         /// <returns>True of the signature could be verified</returns>
-        bool VerifyMessageHash(ReadOnlySpan<byte> hash, HashAlg alg, ReadOnlySpan<byte> signature);
+        bool VerifyMessageHash(ReadOnlySpan<byte> hash, HashAlg alg, ReadOnlySpan<byte> signature, bool isPeer);
     }
 }

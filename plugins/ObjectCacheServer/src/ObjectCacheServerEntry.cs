@@ -33,7 +33,7 @@ using VNLib.Utils.Memory.Diagnostics;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Plugins.Extensions.Loading.Routing;
 using VNLib.Data.Caching.ObjectCache.Server.Endpoints;
-
+using VNLib.Data.Caching.ObjectCache.Server.Distribution;
 
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
@@ -76,8 +76,14 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         {
             try
             {
+                //Route well-known endpoint
+                this.Route<WellKnownEndpoint>();
+
                 //Init connect endpoint
                 this.Route<ConnectEndpoint>();
+
+                //We must initialize the replication manager
+                _ = this.GetOrCreateSingleton<CacheNodeReplicationMaanger>();
 
                 //Setup discovery endpoint
                 if(this.HasConfigForType<PeerDiscoveryEndpoint>())

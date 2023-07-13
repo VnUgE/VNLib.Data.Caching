@@ -3,9 +3,9 @@
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Extensions
-* File: ClientCacheConfiguration.cs 
+* File: GetConfigRequest.cs 
 *
-* ClientCacheConfiguration.cs is part of VNLib.Data.Caching.Extensions which is part of the larger 
+* GetConfigRequest.cs is part of VNLib.Data.Caching.Extensions which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
 * VNLib.Data.Caching.Extensions is free software: you can redistribute it and/or modify 
@@ -23,19 +23,20 @@
 */
 
 using System;
+using VNLib.Data.Caching.Extensions.Clustering;
 
-namespace VNLib.Data.Caching.Extensions
+namespace VNLib.Data.Caching.Extensions.ApiModel
 {
     /// <summary>
-    /// Represents an type that will handle errors that occur during the discovery process
+    /// A request to get the cache configuration from a cache server's 
+    /// well-known configuration endpoint
     /// </summary>
-    public interface ICacheDiscoveryErrorHandler
+    /// <param name="WellKnownEp">The well-known configuration endpoint url</param>
+    /// <param name="Config">The client cache configuration</param>
+    internal record class GetConfigRequest(Uri WellKnownEp, CacheClientConfiguration Config)
+        : ICacheConnectionRequest
     {
-        /// <summary>
-        /// Invoked when an error occurs during the discovery process
-        /// </summary>
-        /// <param name="errorNode">The node that the error occured on</param>
-        /// <param name="ex">The exception that caused the invocation</param>
-        void OnDiscoveryError(ICacheNodeAdvertisment errorNode, Exception ex);
+        ///<inheritdoc/>
+        public string? Challenge { get; set; }
     }
 }

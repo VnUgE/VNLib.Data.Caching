@@ -3,9 +3,9 @@
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Extensions
-* File: ActiveServer.cs 
+* File: DiscoveryRequest.cs 
 *
-* ActiveServer.cs is part of VNLib.Data.Caching.Extensions which is part of the larger 
+* DiscoveryRequest.cs is part of VNLib.Data.Caching.Extensions which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
 * VNLib.Data.Caching.Extensions is free software: you can redistribute it and/or modify 
@@ -23,29 +23,19 @@
 */
 
 using System;
-using System.Text.Json.Serialization;
+using VNLib.Data.Caching.Extensions.Clustering;
 
-namespace VNLib.Data.Caching.Extensions
+namespace VNLib.Data.Caching.Extensions.ApiModel
 {
-    public class ActiveServer : ICacheNodeAdvertisment
+    /// <summary>
+    /// A request message for a discovery request
+    /// </summary>
+    /// <param name="DiscoveryUrl">The discovery endpoint to connec to</param>
+    /// <param name="Config">The local client configuration</param>
+    internal record class DiscoveryRequest(Uri DiscoveryUrl, CacheClientConfiguration Config)
+        : ICacheConnectionRequest
     {
-        [JsonPropertyName("address")]
-        public string? HostName { get; set; }
-      
-        public string? ServerId { get; set; }
-        [JsonPropertyName("ip_address")]
-        public string? Ip { get; set; }
-
-        public Uri ConnectEndpoint { get; }
-
-        public Uri? DiscoveryEndpoint { get; }
-
-        [JsonPropertyName("server_id")]
-        public string NodeId { get; }
-
         ///<inheritdoc/>
-        public override int GetHashCode() => ServerId!.GetHashCode(StringComparison.OrdinalIgnoreCase);
-        ///<inheritdoc/>
-        public override bool Equals(object? obj) => obj is ActiveServer s && GetHashCode() == s.GetHashCode();
+        public string? Challenge { get; set; }
     }
 }

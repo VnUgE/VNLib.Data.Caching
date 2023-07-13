@@ -23,20 +23,37 @@
 */
 
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 
+using VNLib.Utils;
+using VNLib.Utils.Extensions;
 using VNLib.Plugins;
 
-namespace VNLib.Data.Caching.ObjectCache.Server.Distribution
+namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
 {
 
-    internal sealed class CachePeerMonitor : IPeerMonitor
+    internal sealed class CachePeerMonitor : VnDisposeable, IPeerMonitor
     {
 
         private readonly LinkedList<ICachePeer> peers = new();
+        private readonly ManualResetEvent newPeerTrigger = new (false);
 
         public CachePeerMonitor(PluginBase plugin)
         { }
+
+        /// <summary>
+        /// Waits for new peers to connect to the server
+        /// </summary>
+        /// <returns>A task that complets when a new peer has connected</returns>
+        public async Task WaitForChangeAsync()
+        {
+            await newPeerTrigger.WaitAsync();
+
+            //Reset the trigger for next call
+            newPeerTrigger.Reset();
+        }
 
         ///<inheritdoc/>
         public IEnumerable<ICachePeer> GetAllPeers()
@@ -55,6 +72,12 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Distribution
             {
                 peers.AddLast(peer);
             }
+
+            //Trigger monitor when change occurs
+            if(peer.Advertisment != null)
+            {
+                newPeerTrigger.Set();
+            }
         }
 
         ///<inheritdoc/>
@@ -65,6 +88,11 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Distribution
             {
                 peers.Remove(peer);
             }
+        }
+
+        protected override void Free()
+        {
+            newPeerTrigger.Dispose();
         }
     }
 }

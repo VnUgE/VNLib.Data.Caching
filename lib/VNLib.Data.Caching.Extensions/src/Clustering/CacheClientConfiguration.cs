@@ -22,11 +22,14 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
+using System;
 using System.Linq;
 using System.Collections.Generic;
 
-namespace VNLib.Data.Caching.Extensions
+
+namespace VNLib.Data.Caching.Extensions.Clustering
 {
+
     /// <summary>
     /// A fluent api configuration object for configuring a <see cref="FBMClient"/>
     /// to connect to cache servers.
@@ -53,7 +56,7 @@ namespace VNLib.Data.Caching.Extensions
         /// </summary>
         public bool UseTls { get; private set; }
 
-        internal ICacheNodeAdvertisment[]? InitialPeers { get; set; }
+        internal Uri[]? WellKnownNodes { get; set; }
 
         /// <summary>
         /// Specifies the JWT authentication manager to use for signing and verifying JWTs
@@ -73,7 +76,7 @@ namespace VNLib.Data.Caching.Extensions
         public CacheClientConfiguration WithTls(bool useTls)
         {
             UseTls = useTls;
-            return this;   
+            return this;
         }
 
         /// <summary>
@@ -81,9 +84,20 @@ namespace VNLib.Data.Caching.Extensions
         /// </summary>
         /// <param name="peers">The collection of servers to discover peers from and connect to</param>
         /// <returns>Chainable fluent object</returns>
-        public CacheClientConfiguration WithInitialPeers(IEnumerable<ICacheNodeAdvertisment> peers)
+        public CacheClientConfiguration WithInitialPeers(IEnumerable<Uri> peers)
         {
-            InitialPeers = peers.ToArray();
+            //Check null
+            _ = peers ?? throw new ArgumentNullException(nameof(peers));
+
+            //Store peer array
+            WellKnownNodes = peers.ToArray();
+
+            if (WellKnownNodes.Any(p => !p.IsAbsoluteUri))
+            {
+                WellKnownNodes = null;
+                throw new ArgumentException("All discoverable node uris must be in absolute form");
+            }
+
             return this;
         }
 

@@ -41,4 +41,9 @@
     <ProjectReference Include="..\..\..\lib\VNLib.Data.Caching.Extensions\src\VNLib.Data.Caching.Extensions.csproj" />
     <ProjectReference Include="..\..\..\lib\VNLib.Data.Caching.ObjectCache\src\VNLib.Data.Caching.ObjectCache.csproj" />
   </ItemGroup>
+
+  <Target Condition="'$(BuildingInsideVisualStudio)' == true" Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="start xcopy &quot;$(TargetDir)&quot; &quot;F:\downloads\cache-test\plugins\$(TargetName)&quot; /E /Y /R" />
+  </Target>
+  
 </Project>

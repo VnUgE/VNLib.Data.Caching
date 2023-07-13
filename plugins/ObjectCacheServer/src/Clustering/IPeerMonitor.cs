@@ -24,7 +24,7 @@
 
 using System.Collections.Generic;
 
-namespace VNLib.Data.Caching.ObjectCache.Server.Distribution
+namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
 {
     /// <summary>
     /// Represents a monitor for peer cache servers to advertise their presence
@@ -33,7 +33,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Distribution
     internal interface IPeerMonitor
     {
         /// <summary>
-        /// Notifies the monitor that a peer has connected to the cluster
+        /// Notifies the monitor that a remote peer has connected to the current node for 
+        /// replication
         /// </summary>
         /// <param name="peer">The peer that connected</param>
         void OnPeerConnected(ICachePeer peer);

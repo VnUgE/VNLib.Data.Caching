@@ -3,9 +3,9 @@
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Extensions
-* File: ICacheNodeAdvertisment.cs 
+* File: ICacheConnectionRequest.cs 
 *
-* ICacheNodeAdvertisment.cs is part of VNLib.Data.Caching.Extensions which is part of the larger 
+* ICacheConnectionRequest.cs is part of VNLib.Data.Caching.Extensions which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
 * VNLib.Data.Caching.Extensions is free software: you can redistribute it and/or modify 
@@ -22,29 +22,26 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
-using System;
+using VNLib.Data.Caching.Extensions.Clustering;
 
-
-namespace VNLib.Data.Caching.Extensions
+namespace VNLib.Data.Caching.Extensions.ApiModel
 {
     /// <summary>
-    /// Represents a node that can be advertised to clients
+    /// Represents a request to connect to a cache server.
     /// </summary>
-    public interface ICacheNodeAdvertisment
+    internal interface ICacheConnectionRequest
     {
         /// <summary>
-        /// The endpoint for clients to connect to to access the cache
+        /// The <see cref="CacheClientConfiguration"/> used to configure, authenticate, and 
+        /// verify messages sent to and received from cache servers.
         /// </summary>
-        Uri ConnectEndpoint { get; }
+        CacheClientConfiguration Config { get; }
 
         /// <summary>
-        /// Gets the address for clients to connect to to discover other discovertable nodes
+        /// An optional challenge string to be used during the authentication 
+        /// process. When set, is sent in the request JWT, and is expected to 
+        /// be returned in the response JWT.
         /// </summary>
-        Uri? DiscoveryEndpoint { get; }
-
-        /// <summary>
-        /// Gets the unique identifier for this node
-        /// </summary>
-        string NodeId { get; }
+        string? Challenge { get; set; }
     }
 }

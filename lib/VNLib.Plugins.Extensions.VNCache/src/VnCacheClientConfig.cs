@@ -23,9 +23,9 @@
 */
 
 using System;
+using System.Linq;
 using System.Text.Json.Serialization;
 
-using VNLib.Data.Caching.Extensions;
 using VNLib.Plugins.Extensions.Loading;
 
 namespace VNLib.Plugins.Extensions.VNCache
@@ -40,7 +40,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// cache server. This value will be negotiated with the server
         /// during a connection upgrade
         /// </summary>
-        [JsonPropertyName("max_message_size")]
+        [JsonPropertyName("max_object_size")]
         public int? MaxMessageSize { get; set; }
 
         /// <summary>
@@ -82,7 +82,18 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// The initial peers to connect to
         /// </summary>
         [JsonPropertyName("initial_nodes")]
-        public InitialNode[]? InitialNodes { get; set; }
+        public string[]? InitialNodes { get; set; }
+
+        /// <summary>
+        /// Gets the initial nodes as a collection of URIs
+        /// </summary>
+        /// <returns>The nodes as a collection of URIs</returns>
+        /// <exception cref="InvalidOperationException"></exception>
+        public Uri[] GetInitialNodeUris()
+        {
+            _ = InitialNodes ?? throw new InvalidOperationException("Initial nodes have not been set");
+            return InitialNodes.Select(x => new Uri(x)).ToArray();
+        }
 
         void IOnConfigValidation.Validate()
         {
@@ -108,37 +119,21 @@ namespace VNLib.Plugins.Extensions.VNCache
                 throw new ArgumentException("You must specify at least one initial peer", "initial_peers");
             }
 
-            foreach (InitialNode peer in InitialNodes)
+            //Validate initial nodes
+            foreach (Uri peer in GetInitialNodeUris())
             {
-                _ = peer.ConnectEndpoint ?? throw new ArgumentException("You must specify a connect endpoint for each initial node", "initial_nodes");
-                _ = peer.NodeId ??  throw new ArgumentException("You must specify a node id for each initial node", "initial_nodes");
+                if (!peer.IsAbsoluteUri)
+                {
+                    throw new ArgumentException("You must specify an absolute URI for each initial node", "initial_nodes");
+                }
+
+                //Verify http connection
+                if(peer.Scheme != Uri.UriSchemeHttp || peer.Scheme != Uri.UriSchemeHttps)
+                {
+                    throw new ArgumentException("You must specify an HTTP or HTTPS URI for each initial node", "initial_nodes");
+                }
             }
         }
-
-        public sealed record class InitialNode : ICacheNodeAdvertisment
-        {
-            [JsonIgnore]
-            public Uri ConnectEndpoint { get; private set; }
-
-            [JsonIgnore]
-            public Uri? DiscoveryEndpoint { get; private set; }
-
-            [JsonPropertyName("node_id")]
-            public string? NodeId { get; set; }
-
-            [JsonPropertyName("connect_endpoint")]
-            public string? ConnectEndpointString
-            {
-                get => ConnectEndpoint.ToString();
-                set => ConnectEndpoint = new Uri(value!);
-            }
-
-            [JsonPropertyName("discovery_endpoint")]
-            public string? DiscoveryEndpointString
-            {
-                get => DiscoveryEndpoint?.ToString();
-                set => DiscoveryEndpoint = value == null ? null : new Uri(value);
-            }
-        }
+       
     }
 }

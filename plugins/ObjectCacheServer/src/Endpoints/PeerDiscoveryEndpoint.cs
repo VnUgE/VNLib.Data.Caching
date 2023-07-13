@@ -26,7 +26,6 @@ using System;
 using System.Net;
 using System.Linq;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 using VNLib.Hashing;
 using VNLib.Hashing.IdentityUtility;
@@ -35,16 +34,24 @@ using VNLib.Plugins.Essentials;
 using VNLib.Plugins.Essentials.Endpoints;
 using VNLib.Plugins.Essentials.Extensions;
 using VNLib.Plugins.Extensions.Loading;
-using VNLib.Data.Caching.Extensions;
 using VNLib.Data.Caching.ObjectCache.Server.Distribution;
+using VNLib.Data.Caching.Extensions.Clustering;
 
 namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
 {
     [ConfigurationName("discovery_endpoint")]
-    internal sealed class PeerDiscoveryEndpoint : UnprotectedWebEndpoint
+    internal sealed class PeerDiscoveryEndpoint : ResourceEndpointBase
     {
         private readonly IPeerMonitor PeerMonitor;
         private readonly NodeConfig Config;
+
+        //Loosen up protection settings
+        ///<inheritdoc/>
+        protected override ProtectionSettings EndpointProtectionSettings { get; } = new()
+        {
+            DisableBrowsersOnly = true,
+            DisableSessionsRequired = true
+        };
 
         public PeerDiscoveryEndpoint(PluginBase plugin, IConfigScope config)
         {
@@ -59,7 +66,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             Config = plugin.GetOrCreateSingleton<NodeConfig>();
         }
 
-        protected override async ValueTask<VfReturnType> GetAsync(HttpEntity entity)
+        protected override VfReturnType Get(HttpEntity entity)
         {
             //Get auth token
             string? authToken = entity.Server.Headers[HttpRequestHeader.Authorization];
@@ -71,17 +78,18 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             }
           
             string subject = string.Empty;
+            string challenge = string.Empty;
 
             //Parse auth token
             using(JsonWebToken jwt = JsonWebToken.Parse(authToken))
             {
                 //try to verify against cache node first
-                if (!Config.KeyStore.VerifyCachePeer(jwt))
+                if (!Config.KeyStore.VerifyJwt(jwt, true))
                 {
                     //failed...
 
                     //try to verify against client key
-                    if (!Config.KeyStore.VerifyJwt(jwt))
+                    if (!Config.KeyStore.VerifyJwt(jwt, false))
                     {
                         //invalid token
                         entity.CloseResponse(HttpStatusCode.Unauthorized);
@@ -90,12 +98,14 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
                 }
 
                 using JsonDocument payload = jwt.GetPayload();
-                
+
+                //Get client info to pass back
                 subject = payload.RootElement.GetProperty("sub").GetString() ?? string.Empty;                
+                challenge = payload.RootElement.GetProperty("chl").GetString() ?? string.Empty;
             }
 
             //Valid key, get peer list to send to client
-            ICacheNodeAdvertisment[] peers = PeerMonitor.GetAllPeers()
+            CacheNodeAdvertisment[] peers = PeerMonitor.GetAllPeers()
                                         .Where(static p => p.Advertisment != null)
                                         .Select(static p => p.Advertisment!)
                                         .ToArray();
@@ -113,7 +123,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
                 .AddClaim("iat", entity.RequestedTimeUtc.ToUnixTimeSeconds())
                 //Send all peers as a json array
                 .AddClaim("peers", peers)
-                .AddClaim("nonce", RandomHash.GetRandomBase32(24))
+                //Send the challenge back
+                .AddClaim("chl", challenge)
                 .CommitClaims();
 
             //Sign the response

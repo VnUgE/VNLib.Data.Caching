@@ -25,12 +25,12 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Threading.Channels;
 
 using VNLib.Utils.Async;
 using VNLib.Utils.Logging;
 using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
-
 
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
@@ -44,10 +44,13 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         {
             _queueManager = plugin.GetOrCreateSingleton<CacheEventQueueManager>();
             _logProvider = plugin.Log;
-            _listenerQueue = new AsyncQueue<ChangeEvent>(false, true);
-
-            //Register processing worker
-            _ = plugin.ObserveWork(this, 500);
+            _listenerQueue = new AsyncQueue<ChangeEvent>(new BoundedChannelOptions(10000)
+            {
+                AllowSynchronousContinuations = true,
+                FullMode = BoundedChannelFullMode.DropOldest,
+                SingleReader = true,
+                SingleWriter = false,
+            });
         }
 
         ///<inheritdoc/>
@@ -59,25 +62,25 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             {
                 //Accumulator for events
                 ChangeEvent[] accumulator = new ChangeEvent[accumulatorSize];
-                int ptr = 0;
+                int index = 0;
 
                 //Listen for changes
                 while (true)
                 {
                     //Wait for next event
-                    accumulator[ptr++] = await _listenerQueue.DequeueAsync(exitToken);
+                    accumulator[index++] = await _listenerQueue.DequeueAsync(exitToken);
 
                     //try to accumulate more events until we can't anymore
-                    while (_listenerQueue.TryDequeue(out ChangeEvent? ev) && ptr < accumulatorSize)
+                    while (_listenerQueue.TryDequeue(out ChangeEvent? ev) && index < accumulatorSize)
                     {
-                        accumulator[ptr++] = ev;
+                        accumulator[index++] = ev;
                     }
 
                     //Publish all events to subscribers
-                    _queueManager.PublishMultiple(accumulator.AsSpan(0, ptr));
+                    _queueManager.PublishMultiple(accumulator.AsSpan(0, index));
 
                     //Reset pointer
-                    ptr = 0;
+                    index = 0;
                 }
             }
             catch (OperationCanceledException)

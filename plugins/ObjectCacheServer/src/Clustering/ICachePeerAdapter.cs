@@ -22,9 +22,9 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
-using VNLib.Data.Caching.Extensions;
+using VNLib.Data.Caching.Extensions.Clustering;
 
-namespace VNLib.Data.Caching.ObjectCache.Server.Distribution
+namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
 {
     internal interface ICachePeerAdapter
     {
@@ -32,18 +32,18 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Distribution
         /// Gets the peers that have been discovered but not yet connected to
         /// </summary>
         /// <returns>A collection of peers that have not been connected to yet</returns>
-        ICacheNodeAdvertisment[] GetNewPeers();
+        CacheNodeAdvertisment[] GetNewPeers();
 
         /// <summary>
         /// Called when a peer has been connected to
         /// </summary>
         /// <param name="peer">The peer that has been connected</param>
-        void OnPeerListenerAttached(ICacheNodeAdvertisment peer);
+        void OnPeerListenerAttached(CacheNodeAdvertisment peer);
 
         /// <summary>
         /// Called when a peer has been disconnected from
         /// </summary>
         /// <param name="peer">The disconnected peer</param>
-        void OnPeerListenerDetatched(ICacheNodeAdvertisment peer);
+        void OnPeerListenerDetatched(CacheNodeAdvertisment peer);
     }
 }

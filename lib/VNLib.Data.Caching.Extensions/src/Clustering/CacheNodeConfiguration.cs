@@ -24,13 +24,13 @@
 
 using System;
 
-namespace VNLib.Data.Caching.Extensions
+namespace VNLib.Data.Caching.Extensions.Clustering
 {
 
     /// <summary>
     /// A cache configuration for cache servers (nodes)
     /// </summary>
-    public class CacheNodeConfiguration: CacheClientConfiguration, ICacheNodeAdvertisment
+    public class CacheNodeConfiguration : CacheClientConfiguration
     {
         /// <summary>
         /// The address for clients to connect to
@@ -47,6 +47,22 @@ namespace VNLib.Data.Caching.Extensions
         /// other discovertable nodes
         /// </summary>
         public Uri? DiscoveryEndpoint { get; private set; }
+
+        /// <summary>
+        /// Gets the configuration for this node as an advertisment
+        /// </summary>
+        public CacheNodeAdvertisment Advertisment
+        {
+            get
+            {
+                return new CacheNodeAdvertisment()
+                {
+                    DiscoveryEndpoint = DiscoveryEndpoint,
+                    ConnectEndpoint = ConnectEndpoint,
+                    NodeId = NodeId
+                };
+            }
+        }
 
         /// <summary>
         /// Sets the full address of our cache endpoint for clients to connect to
@@ -80,9 +96,13 @@ namespace VNLib.Data.Caching.Extensions
         /// <param name="nodeId">The cluster node id of the current server</param>
         /// <returns>Chainable fluent object</returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public CacheClientConfiguration WithNodeId(string nodeId)
+        public CacheNodeConfiguration WithNodeId(string nodeId)
         {
             NodeId = nodeId ?? throw new ArgumentNullException(nameof(nodeId));
+
+            //Update the node id in the node collection
+            (NodeCollection as NodeDiscoveryCollection)!.SetSelfId(nodeId);
+
             return this;
         }
 

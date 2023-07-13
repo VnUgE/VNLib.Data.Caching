@@ -32,7 +32,6 @@ using VNLib.Hashing.IdentityUtility;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Data.Caching.Extensions;
 
-
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
     sealed record class CacheAuthKeyStore : ICacheAuthManager
@@ -59,9 +58,10 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         }
 
         ///<inheritdoc/>
-        public bool VerifyJwt(JsonWebToken jwt)
+        public bool VerifyJwt(JsonWebToken jwt, bool isPeer)
         {
-            return jwt.VerifyFromJwk(_clientPub.Value);
+            //Verify from peer server or client
+            return isPeer ? jwt.VerifyFromJwk(_cachePriv.Value) : jwt.VerifyFromJwk(_clientPub.Value);
         }
 
         /// <summary>
@@ -85,7 +85,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             }
 
             //try to get the ecdsa alg for the signing key
-            using ECDsa? ecdsa = _cachePriv.Value.GetECDsaPublicKey();
+            using ECDsa? ecdsa = _cachePriv.Value.GetECDsaPrivateKey();
             if (ecdsa != null)
             {
                 return ecdsa.SignHash(hash);
@@ -95,17 +95,20 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         }
       
         ///<inheritdoc/>
-        public bool VerifyMessageHash(ReadOnlySpan<byte> hash, HashAlg alg, ReadOnlySpan<byte> signature)
+        public bool VerifyMessageHash(ReadOnlySpan<byte> hash, HashAlg alg, ReadOnlySpan<byte> signature, bool isPeer)
         {
+            //Determine the key to verify against
+            ReadOnlyJsonWebKey jwk = isPeer ? _cachePriv.Value : _clientPub.Value;
+
             //try to get the rsa alg for the signing key
-            using RSA? rsa = _clientPub.Value.GetRSAPublicKey();
+            using RSA? rsa = jwk.GetRSAPublicKey();
             if (rsa != null)
             {
                 return rsa.VerifyHash(hash, signature, alg.GetAlgName(), RSASignaturePadding.Pkcs1);
             }
 
             //try to get the ecdsa alg for the signing key
-            using ECDsa? ecdsa = _clientPub.Value.GetECDsaPublicKey();
+            using ECDsa? ecdsa = jwk.GetECDsaPublicKey();
             if (ecdsa != null)
             {
                 return ecdsa.VerifyHash(hash, signature);

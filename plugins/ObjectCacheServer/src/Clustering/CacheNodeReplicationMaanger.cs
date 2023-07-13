@@ -3,10 +3,10 @@
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
-* File: ObjectCacheServerEntry.cs 
+* File: CacheNodeReplicationMaanger.cs 
 *
-* ObjectCacheServerEntry.cs is part of ObjectCacheServer which is part of the larger 
-* VNLib collection of libraries and utilities.
+* CacheNodeReplicationMaanger.cs is part of ObjectCacheServer which is part 
+* of the larger VNLib collection of libraries and utilities.
 *
 * ObjectCacheServer is free software: you can redistribute it and/or modify 
 * it under the terms of the GNU Affero General Public License as 
@@ -35,52 +35,91 @@ using static VNLib.Data.Caching.Constants;
 using VNLib.Net.Messaging.FBM;
 using VNLib.Net.Messaging.FBM.Client;
 using VNLib.Plugins.Extensions.Loading;
+using VNLib.Data.Caching.Extensions.Clustering;
 
-namespace VNLib.Data.Caching.ObjectCache.Server.Distribution
+namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
 {
+
+    /*
+     * This class is responsible for replicating the cache with other nodes.
+     * 
+     * It does this by connecting to other nodes and listening for change events. 
+     * When a change event occurs, it takes action against the local cache store, 
+     * to keep it consistent with the other nodes.
+     * 
+     * Change events are only handled first-hand, meaning that events do not 
+     * propagate to other nodes, they must be connected individually to each node
+     * and listen for changes.
+     */
+
     internal sealed class CacheNodeReplicationMaanger : IAsyncBackgroundWork
     {
+        private const string LOG_SCOPE_NAME = "REPL";
+
         private static readonly TimeSpan GetItemTimeout = TimeSpan.FromSeconds(10);
+        private const int MAX_MESSAGE_SIZE = 12 * 1024;
 
-        private readonly NodeConfig NodeConfig;
-        private readonly ICachePeerAdapter PeerAdapter;
-        private readonly ICacheStore CacheStore;
-        private readonly FBMClientConfig ClientConfig;
-        private readonly PluginBase Plugin;
+        private readonly PluginBase _plugin;
+        private readonly ILogProvider _log;
+        private readonly NodeConfig _nodeConfig;
+        private readonly ICacheStore _cacheStore;
+        private readonly ICachePeerAdapter _peerAdapter;
+        private readonly FBMClientConfig _replicationClientConfig;
+       
+        private readonly bool _isDebug;
 
-        private CacheNodeConfiguration CacheConfig => NodeConfig.Config;
+        private int _openConnections;
 
         public CacheNodeReplicationMaanger(PluginBase plugin)
         {
             //Load the node config
-            NodeConfig = plugin.GetOrCreateSingleton<NodeConfig>();
+            _nodeConfig = plugin.GetOrCreateSingleton<NodeConfig>();
+            _cacheStore = plugin.GetOrCreateSingleton<CacheStore>();
+            _peerAdapter = plugin.GetOrCreateSingleton<PeerDiscoveryManager>();            
 
-            //Get peer adapter
-            PeerAdapter = plugin.GetOrCreateSingleton<PeerDiscoveryManager>();
+            //Init fbm config with fixed message size
+            _replicationClientConfig = FBMDataCacheExtensions.GetDefaultConfig(
+                (plugin as ObjectCacheServerEntry)!.CacheHeap,
+                MAX_MESSAGE_SIZE,
+                debugLog: plugin.IsDebug() ? plugin.Log : null
+            );
 
-            CacheStore = plugin.GetOrCreateSingleton<CacheStore>();
+            _plugin = plugin;
+            _isDebug = plugin.IsDebug();
+            _log = plugin.Log.CreateScope(LOG_SCOPE_NAME);
         }
 
         public async Task DoWorkAsync(ILogProvider pluginLog, CancellationToken exitToken)
         {
-            pluginLog.Information("[REPL] Initializing node replication worker");
+            _log.Information("Initializing node replication worker");
 
             try
             {
                 while (true)
                 {
                     //Get all new peers
-                    ICacheNodeAdvertisment[] peers = PeerAdapter.GetNewPeers();
+                    CacheNodeAdvertisment[] peers = _peerAdapter.GetNewPeers();
 
-                    if (peers.Length == 0)
+                    if (peers.Length == 0 && _isDebug)
                     {
-                        pluginLog.Verbose("[REPL] No new peers to connect to");
+                        _log.Verbose("No new peers to connect to");
                     }
 
-                    //Connect to each peer as a background task
-                    foreach (ICacheNodeAdvertisment peer in peers)
+                    //Make sure we don't exceed the max connections
+                    if(_openConnections >= _nodeConfig.MaxPeerConnections)
                     {
-                        _ = Plugin.ObserveWork(() => OnNewPeerDoWorkAsync(peer, pluginLog, exitToken));
+                        if (_isDebug)
+                        {
+                            _log.Verbose("Max peer connections reached, waiting for a connection to close");
+                        }
+                    }
+                    else
+                    {
+                        //Connect to each peer as a background task
+                        foreach (CacheNodeAdvertisment peer in peers)
+                        {
+                            _ = _plugin.ObserveWork(() => OnNewPeerDoWorkAsync(peer, _log, exitToken));
+                        }
                     }
 
                     //Wait for a new peers
@@ -93,7 +132,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Distribution
             }
             catch
             {
-                pluginLog.Error("[REPL] Node replication worker exited with an error");
+                _log.Error("Node replication worker exited with an error");
                 throw;
             }
             finally
@@ -101,25 +140,27 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Distribution
 
             }
 
-            pluginLog.Information("[REPL] Node replication worker exited");
+            _log.Information("Node replication worker exited");
         }
 
-        private async Task OnNewPeerDoWorkAsync(ICacheNodeAdvertisment newPeer, ILogProvider log, CancellationToken exitToken)
+        private async Task OnNewPeerDoWorkAsync(CacheNodeAdvertisment newPeer, ILogProvider log, CancellationToken exitToken)
         {
             _ = newPeer ?? throw new ArgumentNullException(nameof(newPeer));
 
             //Setup client 
-            FBMClient client = new(ClientConfig);
+            FBMClient client = new(_replicationClientConfig);
 
             //Add peer to monitor
-            PeerAdapter.OnPeerListenerAttached(newPeer);
+            _peerAdapter.OnPeerListenerAttached(newPeer);
+
+            Interlocked.Increment(ref _openConnections);
 
             try
             {
                 log.Information("Establishing replication connection to peer {server}...", newPeer.NodeId);
 
                 //Connect to the server
-                await client.ConnectToCacheAsync(newPeer, CacheConfig, exitToken);
+                await client.ConnectToCacheAsync(newPeer, _nodeConfig.Config, exitToken);
 
                 log.Information("Connected to {server}, starting queue listeners", newPeer.NodeId);
 
@@ -176,16 +217,21 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Distribution
             }
             finally
             {
+                Interlocked.Decrement(ref _openConnections);
+
                 client.Dispose();
 
                 //Notify monitor of disconnect
-                PeerAdapter.OnPeerListenerDetatched(newPeer);
+                _peerAdapter.OnPeerListenerDetatched(newPeer);
             }
         }
 
         //Wroker task callback method
         private async Task ReplicationWorkerDoWorkAsync(FBMClient client, ILogProvider log, CancellationToken exitToken)
         {
+            //Reusable request message
+            using FBMRequest request = new(client.Config);
+
             //Listen for changes
             while (true)
             {
@@ -197,53 +243,47 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Distribution
                 switch (changedObject.Status)
                 {
                     case ResponseCodes.NotFound:
-                        log.Warn("Server cache not properly configured, worker exiting");
+                        log.Error("Server cache not properly configured, worker exiting");
                         return;
                     case "deleted":
                         //Delete the object from the store
-                        await CacheStore.DeleteItemAsync(changedObject.CurrentId, CancellationToken.None);
+                        await _cacheStore.DeleteItemAsync(changedObject.CurrentId, CancellationToken.None);
                         break;
                     case "modified":
                         //Reload the record from the store
-                        await UpdateRecordAsync(client, log, changedObject.CurrentId, changedObject.NewId, exitToken);
+                        await UpdateRecordAsync(client, request, log, changedObject.CurrentId, changedObject.NewId, exitToken);
                         break;
                 }
+
+                //Reset request message
+                request.Reset();
             }
         }
 
-        private async Task UpdateRecordAsync(FBMClient client, ILogProvider log, string objectId, string newId, CancellationToken cancellation)
+        private async Task UpdateRecordAsync(FBMClient client, FBMRequest modRequest, ILogProvider log, string objectId, string newId, CancellationToken cancellation)
         {
-            //Get request message
-            FBMRequest modRequest = client.RentRequest();
-            try
+            //Set action as get/create
+            modRequest.WriteHeader(HeaderCommand.Action, Actions.Get);
+            //Set session-id header
+            modRequest.WriteHeader(ObjectId, string.IsNullOrWhiteSpace(newId) ? objectId : newId);
+
+            //Make request
+            using FBMResponse response = await client.SendAsync(modRequest, GetItemTimeout, cancellation);
+
+            response.ThrowIfNotSet();
+
+            //Check response code
+            string status = response.Headers.First(static s => s.Header == HeaderCommand.Status).Value.ToString();
+
+            if (ResponseCodes.Okay.Equals(status, StringComparison.Ordinal))
             {
-                //Set action as get/create
-                modRequest.WriteHeader(HeaderCommand.Action, Actions.Get);
-                //Set session-id header
-                modRequest.WriteHeader(ObjectId, string.IsNullOrWhiteSpace(newId) ? objectId : newId);
-
-                //Make request
-                using FBMResponse response = await client.SendAsync(modRequest, GetItemTimeout, cancellation);
-
-                response.ThrowIfNotSet();
-
-                //Check response code
-                string status = response.Headers.First(static s => s.Header == HeaderCommand.Status).Value.ToString();
-
-                if (ResponseCodes.Okay.Equals(status, StringComparison.Ordinal))
-                {
-                    //Update the record
-                    await CacheStore.AddOrUpdateBlobAsync(objectId, newId, static (t) => t.ResponseBody, response, cancellation);
-                    log.Debug("Updated object {id}", objectId);
-                }
-                else
-                {
-                    log.Warn("Object {id} was missing on the remote server", objectId);
-                }
+                //Update the record
+                await _cacheStore.AddOrUpdateBlobAsync(objectId, newId, static (t) => t.ResponseBody, response, cancellation);
+                log.Debug("Updated object {id}", objectId);
             }
-            finally
+            else
             {
-                client.ReturnRequest(modRequest);
+                log.Warn("Object {id} was missing on the remote server", objectId);
             }
         }
     }

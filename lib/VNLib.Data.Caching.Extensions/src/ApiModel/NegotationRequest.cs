@@ -3,9 +3,9 @@
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Extensions
-* File: INodeDiscoveryEnumerator.cs 
+* File: NegotationRequest.cs 
 *
-* INodeDiscoveryEnumerator.cs is part of VNLib.Data.Caching.Extensions which is part of the larger 
+* NegotationRequest.cs is part of VNLib.Data.Caching.Extensions which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
 * VNLib.Data.Caching.Extensions is free software: you can redistribute it and/or modify 
@@ -22,21 +22,20 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
+using System;
+using VNLib.Data.Caching.Extensions.Clustering;
 
-using System.Collections.Generic;
-
-
-namespace VNLib.Data.Caching.Extensions
+namespace VNLib.Data.Caching.Extensions.ApiModel
 {
     /// <summary>
-    /// A custom enumerator for the node discovery process
+    /// A request to negotiate a new connection with a cache server
     /// </summary>
-    public interface INodeDiscoveryEnumerator : IEnumerator<ICacheNodeAdvertisment>
+    /// <param name="ConnectUrl">The cache endpoint uri to connec to</param>
+    /// <param name="Config">The client cache configuration</param>
+    internal record class NegotationRequest(Uri ConnectUrl, CacheClientConfiguration Config)
+        : ICacheConnectionRequest
     {
-        /// <summary>
-        /// Adds the specified peer to the collection of discovered peers
-        /// </summary>
-        /// <param name="discoveredPeers">The peer collection</param>
-        void OnPeerDiscoveryComplete(IEnumerable<ICacheNodeAdvertisment> discoveredPeers);
+        ///<inheritdoc/>
+        public string? Challenge { get; set; }
     }
 }

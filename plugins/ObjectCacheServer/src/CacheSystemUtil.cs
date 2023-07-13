@@ -70,7 +70,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             else
             {
                 //Default type
-                table =  GetInternalBlobCache(heap, cacheConf, pCManager);
+                table = GetInternalBlobCache(heap, cacheConf, pCManager);
             }
 
             //Initialize the subsystem from the cache table

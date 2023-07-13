@@ -26,36 +26,43 @@ using System;
 using System.Net;
 using System.Linq;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 using VNLib.Plugins;
-using VNLib.Utils;
 using VNLib.Utils.Logging;
-using VNLib.Data.Caching.Extensions;
+using VNLib.Utils.Extensions;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Data.Caching.ObjectCache.Server.Endpoints;
+using VNLib.Data.Caching.Extensions.Clustering;
 
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
     [ConfigurationName("cluster")]
-    internal sealed class NodeConfig : VnDisposeable
+    internal sealed class NodeConfig 
     {
         const string CacheConfigTemplate = 
 @"
-    Cluster Configuration:
-        Node Id: {id}
-        TlsEndabled: {tls},
-        Cache Endpoint: {ep}
+Cluster Configuration:
+    Node Id: {id}
+    TlsEndabled: {tls}
+    Cache Endpoint: {ep}
+    Discovery Endpoint: {dep}
+    Discovery Interval: {di}
+    Max Peers: {mpc}
 ";
 
         public CacheNodeConfiguration Config { get; }
 
         public CacheAuthKeyStore KeyStore { get; }
 
+        public TimeSpan DiscoveryInterval { get; }
+
+        /// <summary>
+        /// The maximum number of peer connections to allow
+        /// </summary>
+        public uint MaxPeerConnections { get; } = 10;
+
         public NodeConfig(PluginBase plugin, IConfigScope config)
-        {
-            //Server id is just dns name for now
-            string nodeId = Dns.GetHostName();
+        {           
 
             Config = new();
 
@@ -75,9 +82,13 @@ namespace VNLib.Data.Caching.ObjectCache.Server
                 //If the ssl element is present, ssl is enabled for the server
                 usingTls = firstHost.TryGetProperty("ssl", out _);
             }
+            string hostname = Dns.GetHostName();
+
+            //Server id is just dns name for now
+            string nodeId = $"{hostname}:{port}";
 
             //The endpoint to advertise to cache clients that allows cache connections
-            Uri cacheEndpoint = GetEndpointUri<ConnectEndpoint>(plugin, usingTls, port, nodeId);
+            Uri cacheEndpoint = GetEndpointUri<ConnectEndpoint>(plugin, usingTls, port, hostname);
 
             //Init key store
             KeyStore = new(plugin);
@@ -89,21 +100,32 @@ namespace VNLib.Data.Caching.ObjectCache.Server
                     .WithTls(usingTls);
 
             //Check if advertising is enabled
-            if(config.TryGetValue("advertise", out JsonElement adEl) && adEl.GetBoolean())
+            if(plugin.HasConfigForType<PeerDiscoveryEndpoint>())
             {
                 //Get the the broadcast endpoint
-                Uri discoveryEndpoint = GetEndpointUri<PeerDiscoveryEndpoint>(plugin, usingTls, port, nodeId);
+                Uri discoveryEndpoint = GetEndpointUri<PeerDiscoveryEndpoint>(plugin, usingTls, port, hostname);
 
                 //Enable advertising
                 Config.EnableAdvertisment(discoveryEndpoint);
             }
-           
-          
+
+
+            DiscoveryInterval = config["discovery_interval_sec"].GetTimeSpan(TimeParseType.Seconds);
+
+            //Get the max peer connections
+            if(config.TryGetValue("max_peers", out JsonElement maxPeerEl))
+            {
+                MaxPeerConnections = maxPeerEl.GetUInt32();
+            }
+
             //log the config
             plugin.Log.Information(CacheConfigTemplate,
                 nodeId,
                 usingTls,
-                cacheEndpoint
+                cacheEndpoint,
+                Config.DiscoveryEndpoint,
+                DiscoveryInterval,
+                MaxPeerConnections
             );
         }
 
@@ -114,13 +136,6 @@ namespace VNLib.Data.Caching.ObjectCache.Server
 
             //The endpoint to advertise to cache clients that allows cache connections
             return new UriBuilder(usingTls ? Uri.UriSchemeHttps : Uri.UriSchemeHttp, hostName, port, cacheEpConfig["path"].GetString()).Uri;
-        }
-        
-
-        protected override void Free()
-        {
-            //cleanup keys
-           
         }
     }
 }
