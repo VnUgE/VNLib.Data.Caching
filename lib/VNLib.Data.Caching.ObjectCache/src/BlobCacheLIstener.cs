@@ -160,21 +160,21 @@ namespace VNLib.Data.Caching.ObjectCache
                             }
 
                             //Determine if the queue is enabled for the user
-                            if(!EventQueue.IsEnabled(userState!))
+                            if(!EventQueue.IsEnabled(userState))
                             {
                                 context.CloseResponse(ResponseCodes.NotFound);
                                 return;
                             }
 
                             //try to deq without awaiting
-                            if (EventQueue.TryDequeue(userState!, out ChangeEvent? change))
+                            if (EventQueue.TryDequeue(userState, out ChangeEvent? change))
                             {
                                 SetResponse(change, context);
                             }
                             else
                             {
                                 //Wait for a new message to process
-                                ChangeEvent ev = await EventQueue.DequeueAsync(userState!, exitToken);
+                                ChangeEvent ev = await EventQueue.DequeueAsync(userState, exitToken);
 
                                 //Set the response
                                 SetResponse(ev, context);

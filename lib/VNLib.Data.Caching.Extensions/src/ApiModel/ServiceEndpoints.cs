@@ -89,6 +89,15 @@ namespace VNLib.Data.Caching.Extensions.ApiModel
             }
         }
 
+        /*
+         * These methods define consitend endpoint definitions that must match the server 
+         * endpoints. 
+         * 
+         * Most requests will send an authorization header with a signed JWT that includes
+         * a random challenge that the server will return in the response. 
+         * 
+         * All responses will be signed JWTs that must be verified before continuing
+         */
 
         private static string BuildDiscoveryAuthToken(ICacheConnectionRequest request)
         {

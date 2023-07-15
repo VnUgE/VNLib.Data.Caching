@@ -26,29 +26,22 @@ using System;
 using System.Net;
 using System.Linq;
 using System.Text.Json;
+using System.Collections.Generic;
 
 using VNLib.Plugins;
 using VNLib.Utils.Logging;
 using VNLib.Utils.Extensions;
 using VNLib.Plugins.Extensions.Loading;
-using VNLib.Data.Caching.ObjectCache.Server.Endpoints;
 using VNLib.Data.Caching.Extensions.Clustering;
+
 
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
     [ConfigurationName("cluster")]
     internal sealed class NodeConfig 
     {
-        const string CacheConfigTemplate = 
-@"
-Cluster Configuration:
-    Node Id: {id}
-    TlsEndabled: {tls}
-    Cache Endpoint: {ep}
-    Discovery Endpoint: {dep}
-    Discovery Interval: {di}
-    Max Peers: {mpc}
-";
+        //Default path for the well known endpoint
+        const string DefaultPath = "/.well-known/vncache";
 
         public CacheNodeConfiguration Config { get; }
 
@@ -56,16 +49,25 @@ Cluster Configuration:
 
         public TimeSpan DiscoveryInterval { get; }
 
+        public TimeSpan EventQueuePurgeInterval { get; }
+
+        public int MaxQueueDepth { get; }
+
+        public string? DiscoveryPath { get; }
+
+        public string ConnectPath { get; }
+
+        public string WellKnownPath { get; }
+
+        public bool VerifyIp { get; }
+
         /// <summary>
         /// The maximum number of peer connections to allow
         /// </summary>
         public uint MaxPeerConnections { get; } = 10;
 
         public NodeConfig(PluginBase plugin, IConfigScope config)
-        {           
-
-            Config = new();
-
+        { 
             //Get the port of the primary webserver
             int port;
             bool usingTls;
@@ -86,56 +88,104 @@ Cluster Configuration:
 
             //Server id is just dns name for now
             string nodeId = $"{hostname}:{port}";
-
-            //The endpoint to advertise to cache clients that allows cache connections
-            Uri cacheEndpoint = GetEndpointUri<ConnectEndpoint>(plugin, usingTls, port, hostname);
-
+           
             //Init key store
             KeyStore = new(plugin);
-
-            //Setup cache node config
-            Config.WithCacheEndpoint(cacheEndpoint)
-                    .WithNodeId(nodeId)
-                    .WithAuthenticator(KeyStore)
-                    .WithTls(usingTls);
-
-            //Check if advertising is enabled
-            if(plugin.HasConfigForType<PeerDiscoveryEndpoint>())
-            {
-                //Get the the broadcast endpoint
-                Uri discoveryEndpoint = GetEndpointUri<PeerDiscoveryEndpoint>(plugin, usingTls, port, hostname);
-
-                //Enable advertising
-                Config.EnableAdvertisment(discoveryEndpoint);
-            }
 
 
             DiscoveryInterval = config["discovery_interval_sec"].GetTimeSpan(TimeParseType.Seconds);
 
+            //Get the event queue purge interval
+            EventQueuePurgeInterval = config["queue_purge_interval_sec"].GetTimeSpan(TimeParseType.Seconds);
+
+            //Get the max queue depth
+            MaxQueueDepth = (int)config["max_queue_depth"].GetUInt32();
+
+
+            //Get the connect path
+            ConnectPath = config["connect_path"].GetString() ?? throw new KeyNotFoundException("Missing required key 'connect_path' in cluster config");
+
+            //Get the verify ip setting
+            VerifyIp = config["verify_ip"].GetBoolean();
+
+            Uri connectEp = BuildUri(usingTls, hostname, port, ConnectPath);
+            Uri? discoveryEp = null;
+
+            Config = new();
+
+            //Setup cache node config
+            Config.WithCacheEndpoint(connectEp)
+                    .WithNodeId(nodeId)
+                    .WithAuthenticator(KeyStore)
+                    .WithTls(usingTls);
+
+            //Get the discovery path (optional)
+            if (config.TryGetValue("discovery_path", out JsonElement discoveryPathEl))
+            {
+                DiscoveryPath = discoveryPathEl.GetString();
+
+                //Enable advertisment if a discovery path is present
+                if (!string.IsNullOrEmpty(DiscoveryPath))
+                {
+                    //Build the discovery endpoint, it must be an absolute uri
+                    discoveryEp = BuildUri(usingTls, hostname, port, DiscoveryPath);
+                    Config.EnableAdvertisment(discoveryEp);
+                }
+            }
+
+            //Allow custom well-known path
+            if(config.TryGetValue("well_known_path", out JsonElement wkEl))
+            {
+                WellKnownPath = wkEl.GetString() ?? DefaultPath;
+            }
+            //Default if not set
+            WellKnownPath ??= DefaultPath;
+
             //Get the max peer connections
-            if(config.TryGetValue("max_peers", out JsonElement maxPeerEl))
+            if (config.TryGetValue("max_peers", out JsonElement maxPeerEl))
             {
                 MaxPeerConnections = maxPeerEl.GetUInt32();
             }
+
+            const string CacheConfigTemplate =
+@"
+Cluster Configuration:
+    Node Id: {id}
+    TlsEndabled: {tls}
+    Verify Ip: {vi}
+    Well-Known: {wk}
+    Cache Endpoint: {ep}
+    Discovery Endpoint: {dep}
+    Discovery Interval: {di}
+    Max Peer Connections: {mpc}    
+    Max Queue Depth: {mqd}
+    Event Queue Purge Interval: {eqpi}
+";
 
             //log the config
             plugin.Log.Information(CacheConfigTemplate,
                 nodeId,
                 usingTls,
-                cacheEndpoint,
-                Config.DiscoveryEndpoint,
+                VerifyIp,
+                WellKnownPath,
+                connectEp,
+                discoveryEp,
                 DiscoveryInterval,
-                MaxPeerConnections
+                MaxPeerConnections,
+                MaxQueueDepth,
+                EventQueuePurgeInterval
             );
         }
 
-        private static Uri GetEndpointUri<T>(PluginBase plugin, bool usingTls, int port, string hostName) where T: IEndpoint
+        private static Uri BuildUri(bool tls, string host, int port, string path)
         {
-            //Get the cache endpoint config
-            IConfigScope cacheEpConfig = plugin.GetConfigForType<T>();
-
-            //The endpoint to advertise to cache clients that allows cache connections
-            return new UriBuilder(usingTls ? Uri.UriSchemeHttps : Uri.UriSchemeHttp, hostName, port, cacheEpConfig["path"].GetString()).Uri;
+            return new UriBuilder
+            {
+                Scheme = tls ? "https" : "http",
+                Host = host,
+                Port = port,
+                Path = path
+            }.Uri;
         }
     }
 }

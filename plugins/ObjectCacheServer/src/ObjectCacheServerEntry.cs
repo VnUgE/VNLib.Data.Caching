@@ -33,7 +33,7 @@ using VNLib.Utils.Memory.Diagnostics;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Plugins.Extensions.Loading.Routing;
 using VNLib.Data.Caching.ObjectCache.Server.Endpoints;
-using VNLib.Data.Caching.ObjectCache.Server.Distribution;
+using VNLib.Data.Caching.ObjectCache.Server.Clustering;
 
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
@@ -71,11 +71,13 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             }
         }
 
-
         protected override void OnLoad()
         {
             try
             {
+                //Get the node configuration first
+                NodeConfig config = this.GetOrCreateSingleton<NodeConfig>();
+
                 //Route well-known endpoint
                 this.Route<WellKnownEndpoint>();
 
@@ -86,7 +88,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
                 _ = this.GetOrCreateSingleton<CacheNodeReplicationMaanger>();
 
                 //Setup discovery endpoint
-                if(this.HasConfigForType<PeerDiscoveryEndpoint>())
+                if(!string.IsNullOrWhiteSpace(config.DiscoveryPath))
                 {
                     this.Route<PeerDiscoveryEndpoint>();
                 }               

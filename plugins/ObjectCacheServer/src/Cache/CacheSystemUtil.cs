@@ -33,7 +33,7 @@ using VNLib.Plugins;
 using VNLib.Utils.Memory;
 using VNLib.Plugins.Extensions.Loading;
 
-namespace VNLib.Data.Caching.ObjectCache.Server
+namespace VNLib.Data.Caching.ObjectCache.Server.Cache
 {
     internal static class CacheSystemUtil
     {
@@ -136,9 +136,9 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             //Return the 
             return new(loader);
         }
-      
 
-        private sealed class RuntimeBlobCacheTable : IBlobCacheTable 
+
+        private sealed class RuntimeBlobCacheTable : IBlobCacheTable
         {
 
             private readonly IBlobCacheTable _table;
@@ -173,7 +173,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         internal sealed class PersistantCacheManager : IPersistantCacheStore
         {
             const string INITIALIZE_METHOD_NAME = "OnInitializeForBucket";
-           
+
 
             /*
              * Our referrence can be technically unloaded, but so will 

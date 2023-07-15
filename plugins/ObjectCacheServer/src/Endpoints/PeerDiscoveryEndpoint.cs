@@ -27,19 +27,17 @@ using System.Net;
 using System.Linq;
 using System.Text.Json;
 
-using VNLib.Hashing;
 using VNLib.Hashing.IdentityUtility;
 using VNLib.Plugins;
 using VNLib.Plugins.Essentials;
 using VNLib.Plugins.Essentials.Endpoints;
 using VNLib.Plugins.Essentials.Extensions;
 using VNLib.Plugins.Extensions.Loading;
-using VNLib.Data.Caching.ObjectCache.Server.Distribution;
 using VNLib.Data.Caching.Extensions.Clustering;
+using VNLib.Data.Caching.ObjectCache.Server.Clustering;
 
 namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
 {
-    [ConfigurationName("discovery_endpoint")]
     internal sealed class PeerDiscoveryEndpoint : ResourceEndpointBase
     {
         private readonly IPeerMonitor PeerMonitor;
@@ -53,17 +51,15 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             DisableSessionsRequired = true
         };
 
-        public PeerDiscoveryEndpoint(PluginBase plugin, IConfigScope config)
+        public PeerDiscoveryEndpoint(PluginBase plugin)
         {
-            string? path = config["path"].GetString();
-
-            InitPathAndLog(path, plugin.Log);
-
             //Get the peer monitor
             PeerMonitor = plugin.GetOrCreateSingleton<CachePeerMonitor>();
 
             //Get the node config
             Config = plugin.GetOrCreateSingleton<NodeConfig>();
+
+            InitPathAndLog(Config.DiscoveryPath, plugin.Log);
         }
 
         protected override VfReturnType Get(HttpEntity entity)
@@ -100,7 +96,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
                 using JsonDocument payload = jwt.GetPayload();
 
                 //Get client info to pass back
-                subject = payload.RootElement.GetProperty("sub").GetString() ?? string.Empty;                
+                subject = payload.RootElement.TryGetProperty("sub", out JsonElement subEl) ? subEl.GetString() ?? string.Empty : string.Empty;                
                 challenge = payload.RootElement.GetProperty("chl").GetString() ?? string.Empty;
             }
 

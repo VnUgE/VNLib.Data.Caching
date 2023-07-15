@@ -37,31 +37,31 @@ using VNLib.Plugins.Extensions.Loading;
 using VNLib.Plugins.Extensions.Loading.Events;
 
 
-namespace VNLib.Data.Caching.ObjectCache.Server
+namespace VNLib.Data.Caching.ObjectCache.Server.Cache
 {
-
-    [ConfigurationName("event_manager")]
     internal sealed class CacheEventQueueManager : ICacheEventQueueManager, IDisposable, IIntervalScheduleable
     {
         private readonly int MaxQueueDepth;
 
         private readonly object SubLock;
-        private readonly LinkedList<NodeQueue> Subscribers;        
+        private readonly LinkedList<NodeQueue> Subscribers;
 
         private readonly object StoreLock;
         private readonly Dictionary<string, NodeQueue> QueueStore;
-       
 
-        public CacheEventQueueManager(PluginBase plugin, IConfigScope config)
+
+        public CacheEventQueueManager(PluginBase plugin)
         {
-            //Get purge interval
-            TimeSpan purgeInterval = config["purge_interval_sec"].GetTimeSpan(TimeParseType.Seconds);
+            //Get node config
+            NodeConfig config = plugin.GetOrCreateSingleton<NodeConfig>();
 
             //Get max queue depth
-            MaxQueueDepth = (int)config["max_depth"].GetUInt32();
+            MaxQueueDepth = config.MaxQueueDepth;
 
-            //Create purge interval
-            plugin.ScheduleInterval(this, purgeInterval);
+            /*
+             * Schedule purge interval to clean up stale queues
+             */
+            plugin.ScheduleInterval(this, config.EventQueuePurgeInterval);
 
             SubLock = new();
             Subscribers = new();
@@ -81,7 +81,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             lock (StoreLock)
             {
                 //Try to recover the queue for the node
-                if(!QueueStore.TryGetValue(peer.NodeId, out nq))
+                if (!QueueStore.TryGetValue(peer.NodeId, out nq))
                 {
                     //Create new queue
                     nq = new(peer.NodeId, MaxQueueDepth);
@@ -163,21 +163,21 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         public void PurgeStaleSubscribers()
         {
             //Enter locks
-            lock(SubLock)
-            lock(StoreLock)
-            {
-                //Get all stale queues (queues without listeners)
-                NodeQueue[] staleQueues = QueueStore.Values.Where(static nq => nq.Listeners == 0).ToArray();
-
-                foreach (NodeQueue nq in staleQueues)
+            lock (SubLock)
+                lock (StoreLock)
                 {
-                    //Remove from store
-                    QueueStore.Remove(nq.NodeId);
+                    //Get all stale queues (queues without listeners)
+                    NodeQueue[] staleQueues = QueueStore.Values.Where(static nq => nq.Listeners == 0).ToArray();
 
-                    //remove from subscribers
-                    Subscribers.Remove(nq);
+                    foreach (NodeQueue nq in staleQueues)
+                    {
+                        //Remove from store
+                        QueueStore.Remove(nq.NodeId);
+
+                        //remove from subscribers
+                        Subscribers.Remove(nq);
+                    }
                 }
-            }
         }
 
         //Interval to purge stale subscribers
@@ -186,7 +186,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             log.Debug("Purging stale peer event queues");
 
             PurgeStaleSubscribers();
-            
+
             return Task.CompletedTask;
         }
 
@@ -241,7 +241,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
 
             public void PublishChanges(Span<ChangeEvent> changes)
             {
-                for(int i = 0; i < changes.Length; i++)
+                for (int i = 0; i < changes.Length; i++)
                 {
                     Queue.TryEnque(changes[i]);
                 }

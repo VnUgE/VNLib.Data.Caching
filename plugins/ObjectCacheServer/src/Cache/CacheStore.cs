@@ -30,11 +30,19 @@ using VNLib.Utils.Logging;
 using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
 
-namespace VNLib.Data.Caching.ObjectCache.Server
+namespace VNLib.Data.Caching.ObjectCache.Server.Cache
 {
+    /*
+     * Implements the blob cache store, which is an abstraction around the blob cache listener.
+     * This allows for publishing local events (say from other nodes) to keep caches in sync.
+     */
+
     [ConfigurationName("cache")]
     internal sealed class CacheStore : ICacheStore, IDisposable
     {
+        /// <summary>
+        /// Gets the underlying cache listener
+        /// </summary>
         public BlobCacheListener Listener { get; }
 
 
@@ -44,16 +52,19 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             Listener = InitializeCache((ObjectCacheServerEntry)plugin, config);
         }
 
+        ///<inheritdoc/>
         ValueTask ICacheStore.AddOrUpdateBlobAsync<T>(string objectId, string? alternateId, GetBodyDataCallback<T> bodyData, T state, CancellationToken token)
         {
             return Listener.Cache.AddOrUpdateObjectAsync(objectId, alternateId, bodyData, state, default, token);
         }
 
+        ///<inheritdoc/>
         void ICacheStore.Clear()
         {
             throw new NotImplementedException();
         }
 
+        ///<inheritdoc/>
         ValueTask<bool> ICacheStore.DeleteItemAsync(string id, CancellationToken token)
         {
             return Listener.Cache.DeleteObjectAsync(id, token);
@@ -81,14 +92,14 @@ Cache Configuration:
             if (cacheConf.MaxCacheEntries < 200)
             {
                 plugin.Log.Information("Suggestion: You may want a larger cache size, you have less than 200 items in cache");
-            } 
+            }
 
             //calculate the max memory usage
-            ulong maxByteSize = ((ulong)cacheConf.MaxCacheEntries * (ulong)cacheConf.BucketCount * (ulong)cacheConf.MaxMessageSize);
+            ulong maxByteSize = cacheConf.MaxCacheEntries * (ulong)cacheConf.BucketCount * (ulong)cacheConf.MaxMessageSize;
 
             //Log the cache config
-            plugin.Log.Information(CacheConfigTemplate, 
-                maxByteSize / (ulong)(1024 * 1000),
+            plugin.Log.Information(CacheConfigTemplate,
+                maxByteSize / (1024 * 1000),
                 cacheConf.BucketCount,
                 cacheConf.MaxCacheEntries
             );
@@ -103,6 +114,9 @@ Cache Configuration:
             return new(bc, queue, plugin.Log, plugin.CacheHeap);
         }
 
+        /*
+         * Cleaned up by the plugin on exit
+         */
         public void Dispose()
         {
             Listener.Dispose();

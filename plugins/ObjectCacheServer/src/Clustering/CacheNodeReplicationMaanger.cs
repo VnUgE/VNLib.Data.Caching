@@ -36,6 +36,7 @@ using VNLib.Net.Messaging.FBM;
 using VNLib.Net.Messaging.FBM.Client;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Data.Caching.Extensions.Clustering;
+using VNLib.Data.Caching.ObjectCache.Server.Cache;
 
 namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
 {

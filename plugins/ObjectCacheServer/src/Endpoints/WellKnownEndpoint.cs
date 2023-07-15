@@ -24,10 +24,7 @@
 
 using System;
 using System.Net;
-using System.Text.Json;
 
-using VNLib.Data.Caching.Extensions;
-using VNLib.Data.Caching.Extensions.Clustering;
 using VNLib.Hashing;
 using VNLib.Hashing.IdentityUtility;
 using VNLib.Plugins;
@@ -35,6 +32,8 @@ using VNLib.Plugins.Essentials;
 using VNLib.Plugins.Essentials.Endpoints;
 using VNLib.Plugins.Essentials.Extensions;
 using VNLib.Plugins.Extensions.Loading;
+using VNLib.Data.Caching.Extensions;
+using VNLib.Data.Caching.Extensions.Clustering;
 
 namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
 {
@@ -44,12 +43,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
      * the network. Clients need to know the endpoint layout to be able to
      * connect and discover other nodes.
      */
-
-    [ConfigurationName("well_known", Required = false)]
     internal sealed class WellKnownEndpoint : ResourceEndpointBase
-    {
-        //Default path for the well known endpoint
-        const string DefaultPath = "/.well-known/vncache";
+    {       
 
         //Store serialized advertisment
         private readonly CacheNodeAdvertisment _advertisment;
@@ -62,10 +57,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             DisableSessionsRequired = true,
         };
 
-        public WellKnownEndpoint(PluginBase plugin):this(plugin, null)
-        { }
-
-        public WellKnownEndpoint(PluginBase plugin, IConfigScope? config)
+        public WellKnownEndpoint(PluginBase plugin)
         {
             //Get the node config
             NodeConfig nodeConfig = plugin.GetOrCreateSingleton<NodeConfig>();
@@ -74,16 +66,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             _advertisment = nodeConfig.Config.Advertisment;
             _keyStore = nodeConfig.KeyStore;
 
-            //Default to the well known path
-            string path = DefaultPath;
-
-            //See if the user configured a path
-            if(config != null && config.TryGetValue("path", out JsonElement pathEl))
-            {
-                path = pathEl.GetString() ?? DefaultPath;
-            }
-
-            InitPathAndLog(path, plugin.Log);
+            InitPathAndLog(nodeConfig.WellKnownPath, plugin.Log);
         }
 
         protected override VfReturnType Get(HttpEntity entity)

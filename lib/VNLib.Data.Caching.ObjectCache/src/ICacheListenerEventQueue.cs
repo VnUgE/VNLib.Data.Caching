@@ -25,6 +25,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+using System.Diagnostics.CodeAnalysis;
 
 namespace VNLib.Data.Caching.ObjectCache
 {
@@ -38,7 +39,7 @@ namespace VNLib.Data.Caching.ObjectCache
         /// </summary>
         /// <param name="userState">The unique state of the connection</param>
         /// <returns>True if event queuing is enabled</returns>
-        bool IsEnabled(object userState);
+        bool IsEnabled([NotNullWhen(true)] object? userState);
 
         /// <summary>
         /// Attempts to dequeue a single event from the queue without blocking

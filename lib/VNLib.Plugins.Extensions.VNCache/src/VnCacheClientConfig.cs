@@ -53,8 +53,8 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// The time (in seconds) to randomly delay polling the broker server
         /// for available servers
         /// </summary>
-        [JsonPropertyName("retry_interval_sec")]
-        public int? RetryIntervalSeconds { get; set; }
+        [JsonPropertyName("discovery_interval_Sec")]
+        public int? DiscoveryIntervalSeconds { get; set; }
 
         /// <summary>
         /// The maximum time (in seconds) for FBM cache operations are allowed
@@ -71,7 +71,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// <summary>
         /// Retry interval in a timespan
         /// </summary>
-        internal TimeSpan RetryInterval => TimeSpan.FromSeconds(RetryIntervalSeconds!.Value);
+        internal TimeSpan DiscoveryInterval => TimeSpan.FromSeconds(DiscoveryIntervalSeconds!.Value);
 
         /// <summary>
         /// FBM Request timeout
@@ -92,7 +92,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         public Uri[] GetInitialNodeUris()
         {
             _ = InitialNodes ?? throw new InvalidOperationException("Initial nodes have not been set");
-            return InitialNodes.Select(x => new Uri(x)).ToArray();
+            return InitialNodes.Select(static x => new Uri(x, UriKind.Absolute)).ToArray();
         }
 
         void IOnConfigValidation.Validate()
@@ -102,7 +102,7 @@ namespace VNLib.Plugins.Extensions.VNCache
                 throw new ArgumentException("Your maxium message size should be a reasonable value greater than 0", "max_message_size");
             }
 
-            if (!RetryIntervalSeconds.HasValue || RetryIntervalSeconds.Value < 1)
+            if (!DiscoveryIntervalSeconds.HasValue || DiscoveryIntervalSeconds.Value < 1)
             {
                 throw new ArgumentException("You must specify a retry interval period greater than 0", "retry_interval_sec");
             }
@@ -128,7 +128,7 @@ namespace VNLib.Plugins.Extensions.VNCache
                 }
 
                 //Verify http connection
-                if(peer.Scheme != Uri.UriSchemeHttp || peer.Scheme != Uri.UriSchemeHttps)
+                if(peer.Scheme != Uri.UriSchemeHttp && peer.Scheme != Uri.UriSchemeHttps)
                 {
                     throw new ArgumentException("You must specify an HTTP or HTTPS URI for each initial node", "initial_nodes");
                 }
