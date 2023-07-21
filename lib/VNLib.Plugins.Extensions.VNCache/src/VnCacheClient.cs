@@ -139,8 +139,16 @@ namespace VNLib.Plugins.Extensions.VNCache
 
                 while (true)
                 {
-                    //Wait for a discovery to complete  
-                    await _index.WaitForDiscoveryAsync(exitToken);
+                    try
+                    {
+                        //Wait for a discovery to complete  
+                        await _index.WaitForDiscoveryAsync(exitToken);
+                    }
+                    catch(CacheDiscoveryFailureException cdfe)
+                    {
+                        pluginLog.Error("Failed to discover nodes, will try again\n{err}", cdfe.Message);
+                        //Continue
+                    }
 
                     //Get the next node to connect to
                     CacheNodeAdvertisment? node = _index.GetNextNode();
