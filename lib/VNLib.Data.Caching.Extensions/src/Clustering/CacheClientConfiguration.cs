@@ -84,6 +84,8 @@ namespace VNLib.Data.Caching.Extensions.Clustering
         /// </summary>
         /// <param name="peers">The collection of servers to discover peers from and connect to</param>
         /// <returns>Chainable fluent object</returns>
+        /// <exception cref="ArgumentException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
         public CacheClientConfiguration WithInitialPeers(IEnumerable<Uri> peers)
         {
             //Check null

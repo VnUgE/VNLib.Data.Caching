@@ -1,0 +1,72 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Plugins", "Plugins", "{39E35C2F-BFBB-4819-B66A-475057D389EB}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "libs", "libs", "{FBF12BFF-51A7-43BD-A066-D2FFACF333AA}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VNLib.Data.Caching", "lib\VNLib.Data.Caching\src\VNLib.Data.Caching.csproj", "{31DE8FD7-AF05-4075-A5EE-747E76B5D134}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VNLib.Data.Caching.Extensions", "lib\VNLib.Data.Caching.Extensions\src\VNLib.Data.Caching.Extensions.csproj", "{D02BAAFC-818A-4D2C-B46F-6BB5C7BB14DB}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VNLib.Data.Caching.ObjectCache", "lib\VNLib.Data.Caching.ObjectCache\src\VNLib.Data.Caching.ObjectCache.csproj", "{FEDACFD5-2529-4E37-8D11-3E0143954368}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VNLib.Plugins.Extensions.VNCache", "lib\VNLib.Plugins.Extensions.VNCache\src\VNLib.Plugins.Extensions.VNCache.csproj", "{E21ED553-4B08-41A5-B329-4BAF7701A99F}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ObjectCacheServer", "plugins\ObjectCacheServer\src\ObjectCacheServer.csproj", "{AAECEC05-2439-47B4-A50D-D46EDDFA420C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{26A1C649-73F9-4B26-847F-4E40578CA2D6}"
+	ProjectSection(SolutionItems) = preProject
+		.gitattributes = .gitattributes
+		.gitignore = .gitignore
+		.onedev-buildspec.yml = .onedev-buildspec.yml
+		GitVersion.yml = GitVersion.yml
+		LICENSE.txt = LICENSE.txt
+		Module.Taskfile.yaml = Module.Taskfile.yaml
+		README.md = README.md
+		Taskfile.yaml = Taskfile.yaml
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{31DE8FD7-AF05-4075-A5EE-747E76B5D134}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{31DE8FD7-AF05-4075-A5EE-747E76B5D134}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{31DE8FD7-AF05-4075-A5EE-747E76B5D134}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{31DE8FD7-AF05-4075-A5EE-747E76B5D134}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D02BAAFC-818A-4D2C-B46F-6BB5C7BB14DB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D02BAAFC-818A-4D2C-B46F-6BB5C7BB14DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D02BAAFC-818A-4D2C-B46F-6BB5C7BB14DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D02BAAFC-818A-4D2C-B46F-6BB5C7BB14DB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FEDACFD5-2529-4E37-8D11-3E0143954368}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FEDACFD5-2529-4E37-8D11-3E0143954368}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FEDACFD5-2529-4E37-8D11-3E0143954368}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FEDACFD5-2529-4E37-8D11-3E0143954368}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E21ED553-4B08-41A5-B329-4BAF7701A99F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E21ED553-4B08-41A5-B329-4BAF7701A99F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E21ED553-4B08-41A5-B329-4BAF7701A99F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E21ED553-4B08-41A5-B329-4BAF7701A99F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AAECEC05-2439-47B4-A50D-D46EDDFA420C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AAECEC05-2439-47B4-A50D-D46EDDFA420C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AAECEC05-2439-47B4-A50D-D46EDDFA420C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AAECEC05-2439-47B4-A50D-D46EDDFA420C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{31DE8FD7-AF05-4075-A5EE-747E76B5D134} = {FBF12BFF-51A7-43BD-A066-D2FFACF333AA}
+		{D02BAAFC-818A-4D2C-B46F-6BB5C7BB14DB} = {FBF12BFF-51A7-43BD-A066-D2FFACF333AA}
+		{FEDACFD5-2529-4E37-8D11-3E0143954368} = {FBF12BFF-51A7-43BD-A066-D2FFACF333AA}
+		{E21ED553-4B08-41A5-B329-4BAF7701A99F} = {FBF12BFF-51A7-43BD-A066-D2FFACF333AA}
+		{AAECEC05-2439-47B4-A50D-D46EDDFA420C} = {39E35C2F-BFBB-4819-B66A-475057D389EB}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C1214A47-444A-432F-8CF8-FDF2B1FA1CEC}
+	EndGlobalSection
+EndGlobal

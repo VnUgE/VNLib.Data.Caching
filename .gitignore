@@ -365,9 +365,3 @@ FodyWeavers.xsd
 *.licenseheader
 
 *.json
-*.ps1
-*.sln
-*.task/*
-
-*[Tt]askfile.*
-**/.task/*

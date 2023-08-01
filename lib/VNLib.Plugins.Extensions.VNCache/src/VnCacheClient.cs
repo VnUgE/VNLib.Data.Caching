@@ -191,12 +191,13 @@ namespace VNLib.Plugins.Extensions.VNCache
                     }
                     catch (WebSocketException wse)
                     {
-                        pluginLog.Warn("Failed to connect to cache server {reason}", wse);
+                        pluginLog.Warn("Failed to establish a websocket connection to cache server {reason}", wse.Message);
                         continue;
                     }
+                    //SEs may be raised when the server is not available
                     catch (HttpRequestException he) when (he.InnerException is SocketException)
                     {
-                        pluginLog.Debug("Failed to connect to random cache server server");
+                        pluginLog.Debug("Failed to connect to random cache server because a TCP connection could not be established");
                         //Continue next loop
                         continue;
                     }
