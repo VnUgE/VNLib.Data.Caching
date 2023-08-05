@@ -119,7 +119,7 @@ namespace VNLib.Data.Caching.ObjectCache
                 //Get the stored blob
                 entry = node.ValueRef.Value;
 
-                //Update the 
+                //Update the node vaule with the new key and the same entry
                 node.Value = new KeyValuePair<string, CacheEntry>(newId, entry);
 
                 //Add to end of list

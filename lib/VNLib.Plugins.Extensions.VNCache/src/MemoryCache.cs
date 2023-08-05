@@ -176,5 +176,33 @@ namespace VNLib.Plugins.Extensions.VNCache
 
             return default;
         }
+
+        ///<inheritdoc/>
+        public async Task GetAsync(string key, IObjectData rawData, CancellationToken cancellation)
+        {
+            Check();
+
+            //Get the bucket from the desired key
+            IBlobCacheBucket bucket = _memCache.GetBucket(key);
+
+            //Obtain cache handle
+            using CacheBucketHandle handle = await bucket.WaitAsync(cancellation);
+            
+            //Try to read the value
+            if (handle.Cache.TryGetValue(key, out CacheEntry entry))
+            {
+                //Set result data
+                rawData.SetData(entry.GetDataSegment());
+            }
+        }
+
+        ///<inheritdoc/>
+        public Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, ICacheObjectSerialzer serialzer, CancellationToken cancellation)
+        {
+            Check();
+
+            //Update object data
+            return _memCache.AddOrUpdateObjectAsync(key, newKey, static b => b.GetData(), rawData, default, cancellation).AsTask();
+        }
     }
 }

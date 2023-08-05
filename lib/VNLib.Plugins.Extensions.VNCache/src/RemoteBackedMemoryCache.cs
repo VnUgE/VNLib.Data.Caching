@@ -192,20 +192,61 @@ namespace VNLib.Plugins.Extensions.VNCache
         {
             CheckConnected();
 
-            DateTime currentTime = DateTime.UtcNow;
-
             //Alloc serialzation buffer
             using AddOrUpdateBuffer buffer = new (Client.Config.BufferHeap);
 
             //Serialze the value
             serialzer.Serialize(value, buffer);
 
+            //Call update on raw data
+            await AddOrUpdateAsync(key, newKey, buffer, cancellation);
+        }
+
+        ///<inheritdoc/>
+        public override async Task GetAsync(string key, IObjectData rawData, CancellationToken cancellation)
+        {
+            CheckConnected();
+         
+            IBlobCacheBucket bucket = _memCache.GetBucket(key);
+
+            //Obtain cache handle
+            using (CacheBucketHandle handle = await bucket.WaitAsync(cancellation))
+            {
+                //Try to read the value
+                if (handle.Cache.TryGetValue(key, out CacheEntry entry))
+                {
+                    rawData.SetData(entry.GetDataSegment());
+                    return;
+                }
+            }
+
+            //Get the object from the server
+            await Client.GetObjectAsync(key, rawData, cancellation);
+
+            //See if object data was set
+            if (rawData.GetData().IsEmpty)
+            {
+                return;
+            }
+
+            //Update local cache
+            await _memCache.AddOrUpdateObjectAsync(key, null, static b => b.GetData(), rawData, DateTime.UtcNow, CancellationToken.None);
+        }
+
+        ///<inheritdoc/>
+        public override async Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, ICacheObjectSerialzer serialzer, CancellationToken cancellation)
+        {
+            CheckConnected();
+
+            DateTime currentTime = DateTime.UtcNow;
+
             try
             {
                 //Update remote first, and if exceptions are raised, do not update local cache
-                await Client.AddOrUpdateObjectAsync(key, newKey, (IObjectData)buffer, cancellation);
+                await Client.AddOrUpdateObjectAsync(key, newKey, rawData, cancellation);
 
-                await _memCache.AddOrUpdateObjectAsync(key, newKey, static b => b.GetData(), buffer, currentTime, CancellationToken.None);
+                //Safe to update local cache
+                await _memCache.AddOrUpdateObjectAsync(key, newKey, static b => b.GetData(), rawData, currentTime, CancellationToken.None);
             }
             catch
             {

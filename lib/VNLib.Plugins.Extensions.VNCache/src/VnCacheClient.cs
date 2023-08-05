@@ -273,7 +273,22 @@ namespace VNLib.Plugins.Extensions.VNCache
              ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
              : Client!.AddOrUpdateObjectAsync(key, newKey, value, serialzer, cancellation);
         }
-              
+
+        ///<inheritdoc/>
+        public virtual Task GetAsync(string key, IObjectData rawData, CancellationToken cancellation)
+        {
+            return !IsConnected
+              ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
+              : Client!.GetObjectAsync(key, rawData, cancellation);
+        }
+
+        ///<inheritdoc/>
+        public virtual Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, ICacheObjectSerialzer serialzer, CancellationToken cancellation)
+        {
+            return !IsConnected
+            ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
+            : Client!.AddOrUpdateObjectAsync(key, newKey, rawData, serialzer, cancellation);
+        }
 
         private sealed class AuthManager : ICacheAuthManager
         {

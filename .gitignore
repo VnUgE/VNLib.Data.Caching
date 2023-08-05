@@ -364,4 +364,4 @@ FodyWeavers.xsd
 
 *.licenseheader
 
-*.json
+**/*ObjectCacheServer.json

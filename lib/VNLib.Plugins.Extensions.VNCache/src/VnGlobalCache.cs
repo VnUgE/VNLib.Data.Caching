@@ -172,5 +172,17 @@ namespace VNLib.Plugins.Extensions.VNCache
         {
             return _client.GetAsync<T>(key, deserializer, cancellation);
         }
+
+        ///<inheritdoc/>
+        public Task GetAsync(string key, IObjectData rawData, CancellationToken cancellation)
+        {
+            return _client.GetAsync(key, rawData, cancellation);
+        }
+
+        ///<inheritdoc/>
+        public Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, ICacheObjectSerialzer serialzer, CancellationToken cancellation)
+        {
+            return _client.AddOrUpdateAsync(key, newKey, rawData, serialzer, cancellation);
+        }
     }
 }

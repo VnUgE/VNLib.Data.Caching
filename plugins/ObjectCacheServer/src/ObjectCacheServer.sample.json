@@ -1,0 +1,58 @@
+﻿{
+  //enables cache server cluster node data
+  "cluster": {
+    //Delay to re-discover peers
+    "discovery_interval_sec": 360,
+
+    //Limits the number of peers to connect to after discovery
+    "max_peers": 10,
+
+    //Max ev queue depth before LRU eviction
+    "max_queue_depth": 10000,
+
+    //Time between queue purge
+    "queue_purge_interval_sec": 360000,
+
+    //Forces strict ip address verification on upgrades (best to leave on)
+    "verify_ip": true,
+
+    //The cache websocket endpoint path
+    "connect_path": "/cache",
+
+    //Optional to allow nodes to discover nodes we adverties
+    "discovery_path": "/discover",
+
+    //Optionally change the well-known path (clients must know this)
+    "well_known_path": null
+  },
+
+  //Cache configuration object, FBM protocol variables
+  "cache": {
+
+    //the number of cache buckets to distribute load
+    "buckets": 100,
+
+    //Max number of cache entires per bucket
+    "max_cache": 10000,
+
+    //the maxium queue depth allowed per cache server event queue before LRU eviction
+    "change_queue_max_depth": 10000,
+
+    //FBM buffer config
+    "buffer_recv_max": 102400,  //Up to 100Kb transfer buffer 
+    "buffer_recv_min": 8192,    //min of 8k transfer buffer
+    "buffer_header_max": 2048,  //2k max header buffer size
+    "buffer_header_min": 128,   //128 byte min request header buffer size
+    "max_message_size": 20480   //Absolute maxium message size allowed, also the maxium size of cache entires
+  },
+
+  //Known peers array, must point to well-known endpoint for discovery
+  "known_peers": [
+  ],
+
+  "secrets": {
+    //Required cache secrets
+    "cache_private_key": "",
+    "client_public_key": ""
+  }
+}

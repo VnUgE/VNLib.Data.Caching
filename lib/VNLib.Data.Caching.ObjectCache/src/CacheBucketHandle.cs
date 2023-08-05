@@ -75,7 +75,7 @@ namespace VNLib.Data.Caching.ObjectCache
         /// </summary>
         /// <param name="other">The other handle to compare</param>
         /// <returns>True if the handles hold a referrence to the same bucket</returns>
-        public bool Equals(CacheBucketHandle other) => _bucket?.Equals(other._bucket) ?? false;
+        public bool Equals(CacheBucketHandle other) => ReferenceEquals(_bucket, other._bucket);
         /// <summary>
         /// Determines if the other handle instance is equal to the current. Handles are 
         /// equal iff the underlying bucket referrence is equal.

@@ -100,6 +100,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
                 KeyGen = keyGen;
             }
 
+            ///<inheritdoc/>
             public override Task AddOrUpdateAsync<T>(string key, string? newKey, T value, CancellationToken cancellation)
             {
                 _ = key ?? throw new ArgumentNullException(nameof(key));
@@ -113,6 +114,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
                 return cache.AddOrUpdateAsync(primary, secondary, value, cancellation);
             }
 
+            ///<inheritdoc/>
             public override Task DeleteAsync(string key, CancellationToken cancellation)
             {
                 _ = key ?? throw new ArgumentNullException(nameof(key));
@@ -121,6 +123,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
                 return cache.DeleteAsync(scoped, cancellation);
             }
 
+            ///<inheritdoc/>
             public override Task<T> GetAsync<T>(string key, CancellationToken cancellation)
             {
                 _ = key ?? throw new ArgumentNullException(nameof(key));
@@ -131,6 +134,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
                 return cache.GetAsync<T?>(scoped, cancellation);
             }
 
+            ///<inheritdoc/>
             public override Task<T> GetAsync<T>(string key, ICacheObjectDeserialzer deserializer, CancellationToken cancellation)
             {
                 _ = key ?? throw new ArgumentNullException(nameof(key));
@@ -141,6 +145,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
                 return cache.GetAsync<T?>(scoped, deserializer, cancellation);
             }
 
+            ///<inheritdoc/>
             public override Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerialzer serialzer, CancellationToken cancellation)
             {
                 _ = key ?? throw new ArgumentNullException(nameof(key));
@@ -152,6 +157,31 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
                 string? secondary = newKey != null ? KeyGen.ComputedKey(newKey) : null;
 
                 return cache.AddOrUpdateAsync(primary, secondary, value, serialzer, cancellation);
+            }
+
+            ///<inheritdoc/>
+            public override Task GetAsync(string key, IObjectData rawData, CancellationToken cancellation)
+            {
+                _ = key ?? throw new ArgumentNullException(nameof(key));
+
+                //Compute the key for the id
+                string scoped = KeyGen.ComputedKey(key);
+
+                return cache.GetAsync(scoped, rawData, cancellation);
+            }
+
+            ///<inheritdoc/>
+            public override Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, ICacheObjectSerialzer serialzer, CancellationToken cancellation)
+            {
+                _ = key ?? throw new ArgumentNullException(nameof(key));
+
+                //Compute primary key from id
+                string primary = KeyGen.ComputedKey(key);
+
+                //If newkey exists, compute the secondary key
+                string? secondary = newKey != null ? KeyGen.ComputedKey(newKey) : null;
+
+                return cache.AddOrUpdateAsync(primary, secondary, rawData, serialzer, cancellation);
             }
         }
     }
