@@ -44,10 +44,6 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
         public int MaxMessageSize { get; set; } = 1000 * 1024;
 
 
-        [JsonPropertyName("change_queue_max_depth")]
-        public int MaxEventQueueDepth { get; set; } = 10 * 1000;
-
-
         [JsonPropertyName("max_cache")]
         public uint MaxCacheEntries { get; set; } = 10000;
 

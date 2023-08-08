@@ -198,8 +198,22 @@ namespace VNLib.Plugins.Extensions.VNCache
             //Serialze the value
             serialzer.Serialize(value, buffer);
 
-            //Call update on raw data
-            await AddOrUpdateAsync(key, newKey, buffer, cancellation);
+            DateTime currentTime = DateTime.UtcNow;
+
+            try
+            {
+                //Update remote first, and if exceptions are raised, do not update local cache
+                await Client.AddOrUpdateObjectAsync(key, newKey, (IObjectData)buffer, cancellation);
+
+                //Safe to update local cache
+                await _memCache.AddOrUpdateObjectAsync(key, newKey, static b => b.GetData(), buffer, currentTime, CancellationToken.None);
+            }
+            catch
+            {
+                //Remove local cache if exception occurs
+                await _memCache.DeleteObjectAsync(key, CancellationToken.None);
+                throw;
+            }
         }
 
         ///<inheritdoc/>
