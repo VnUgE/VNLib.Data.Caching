@@ -374,9 +374,9 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             return VfReturnType.VirtualSkip;
         }
         
-        private async Task WebsocketAcceptedAsync(WebSocketSession wss)
+        private async Task WebsocketAcceptedAsync(WebSocketSession<WsUserState> wss)
         {
-            WsUserState state = (WsUserState)wss.UserState!;
+            WsUserState state = wss.UserState!;
 
             //Notify peers of new connection
             Peers.OnPeerConnected(state);
