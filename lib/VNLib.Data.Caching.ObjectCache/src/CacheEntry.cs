@@ -31,7 +31,6 @@ using System.Runtime.CompilerServices;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Extensions;
 
-
 namespace VNLib.Data.Caching
 {
     /// <summary>
@@ -66,10 +65,13 @@ namespace VNLib.Data.Caching
             MemoryHandle<byte> handle = heap.Alloc<byte>(bufferSize);
             
             //Create new entry from handle
-            CacheEntry entry = new (handle, data.Length);
+            CacheEntry entry = new (handle);
+            entry.SetLength(data.Length);
 
             //Get the data segment
             Span<byte> segment = entry.GetDataSegment();
+
+            Debug.Assert(segment.Length == data.Length);
 
             //Copy data segment
             data.CopyTo(segment);
@@ -77,30 +79,23 @@ namespace VNLib.Data.Caching
             return entry;
         }
 
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+       
         private static int GetRequiredHandleSize(int size)
         {
             //Caculate the minimum handle size to store all required information, rounded to nearest page
             return (int)MemoryUtil.NearestPage(size + DATA_SEGMENT_START);
         }
 
-        private CacheEntry(MemoryHandle<byte> handle, int length)
+        private CacheEntry(MemoryHandle<byte> handle)
         {
             _handle = handle;
-            //Store data length, assumes the handle is large enough to store it
-            SetLength(length);
         }
-
 
         ///<inheritdoc/>
         public readonly void Dispose() => _handle?.Dispose();
-
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+       
         private readonly Span<byte> GetTimeSegment() => _handle.AsSpan(0, TIME_SEGMENT_SIZE);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+      
         private readonly Span<byte> GetLengthSegment() => _handle.AsSpan(TIME_SEGMENT_SIZE, LENGTH_SEGMENT_SIZE);
 
         /// <summary>
@@ -114,7 +109,6 @@ namespace VNLib.Data.Caching
             _handle.ThrowIfClosed();
             return _handle.ByteLength;
         }
-
 
         /// <summary>
         /// Gets the last set time

@@ -202,6 +202,11 @@ namespace VNLib.Plugins.Extensions.VNCache
                     {
                         pluginLog.Debug("Failed to connect to random cache server because a TCP connection could not be established");
                     }
+                    catch(HttpRequestException he) when(he.StatusCode.HasValue)
+                    {
+                        pluginLog.Warn("Failed to negotiate with cache server {reason}", he.Message);
+                        await Task.Delay(1000, exitToken);
+                    }
                     finally
                     {
                         IsConnected = false;
