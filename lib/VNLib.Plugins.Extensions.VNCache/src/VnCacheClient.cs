@@ -179,7 +179,14 @@ namespace VNLib.Plugins.Extensions.VNCache
                         //Connect to the node
                         await Client.ConnectToCacheAsync(node, exitToken);
 
-                        pluginLog.Debug("Successfully connected to {s}", node);
+                        if (pluginLog.IsEnabled(LogLevel.Debug))
+                        {
+                            pluginLog.Debug("Connected server: {s}", node);
+                        }
+                        else
+                        {
+                            pluginLog.Information("Successfully connected to cache node");
+                        }
 
                         //Set connection status flag
                         IsConnected = true;
@@ -187,24 +194,27 @@ namespace VNLib.Plugins.Extensions.VNCache
                         //Wait for disconnect
                         await Client.WaitForExitAsync(exitToken);
 
-                        pluginLog.Debug("Cache server disconnected");
+                        pluginLog.Information("Cache server disconnected");
                     }
                     catch(TimeoutException)
                     {
-                        pluginLog.Warn("Failed to establish a websocket connection to cache server");
+                        pluginLog.Warn("Failed to establish a websocket connection to cache server within the timeout period");
                     }
                     catch (WebSocketException wse)
                     {
                         pluginLog.Warn("Failed to establish a websocket connection to cache server {reason}", wse.Message);
+                        pluginLog.Verbose("Stack trace: {re}", wse);
                     }
                     //SEs may be raised when the server is not available
                     catch (HttpRequestException he) when (he.InnerException is SocketException)
                     {
                         pluginLog.Debug("Failed to connect to random cache server because a TCP connection could not be established");
+                        pluginLog.Verbose("Stack trace: {re}", he.InnerException);
                     }
                     catch(HttpRequestException he) when(he.StatusCode.HasValue)
                     {
                         pluginLog.Warn("Failed to negotiate with cache server {reason}", he.Message);
+                        pluginLog.Verbose("Stack trace: {re}", he);
                         await Task.Delay(1000, exitToken);
                     }
                     finally
@@ -219,13 +229,9 @@ namespace VNLib.Plugins.Extensions.VNCache
             {
                 //Normal exit from listening loop
             }
-            catch (KeyNotFoundException e)
-            {
-                pluginLog.Error("Missing required configuration variable for VnCache client: {0}", e.Message);
-            }
             catch (FBMServerNegiationException fne)
             {
-                pluginLog.Error("Failed to negotiate connection with cache server {reason}", fne.Message);
+                pluginLog.Error("Failed to negotiate connection with cache server. Please check your configuration\n {reason}", fne.Message);
             }
             catch (Exception ex)
             {
