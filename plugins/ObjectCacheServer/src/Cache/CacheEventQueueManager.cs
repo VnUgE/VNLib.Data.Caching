@@ -32,7 +32,6 @@ using System.Collections.Generic;
 using VNLib.Plugins;
 using VNLib.Utils.Async;
 using VNLib.Utils.Logging;
-using VNLib.Utils.Extensions;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Plugins.Extensions.Loading.Events;
 
@@ -164,6 +163,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
         {
             //Enter locks
             lock (SubLock)
+            {
                 lock (StoreLock)
                 {
                     //Get all stale queues (queues without listeners)
@@ -178,6 +178,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
                         Subscribers.Remove(nq);
                     }
                 }
+            }
         }
 
         //Interval to purge stale subscribers
