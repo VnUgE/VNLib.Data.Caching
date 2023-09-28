@@ -14,14 +14,26 @@
     <Company>Vaughn Nugent</Company>
     <Product>VNLib.Plugins.Extensions.VNCache</Product>
     <PackageId>VNLib.Plugins.Extensions.VNCache</PackageId>
-    <Description>
-      An Essentials framework extension library for integrating VNCache global caching provider into applications
-      for distributed data caching, and extensions for entity caching.
-    </Description>
+    <Description>An Essentials framework extension library for integrating VNCache global caching provider into applications for distributed data caching, and extensions for entity caching.</Description>
     <Copyright>Copyright © 2023 Vaughn Nugent</Copyright>
     <PackageProjectUrl>https://www.vaughnnugent.com/resources/software/modules/VNLib.Data.Caching</PackageProjectUrl>
     <RepositoryUrl>https://github.com/VnUgE/VNLib.Data.Caching/tree/master/lib/VNLib.Plugins.Extensions.VNCache</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\Extensions\lib\VNLib.Plugins.Extensions.Loading\src\VNLib.Plugins.Extensions.Loading.csproj" />

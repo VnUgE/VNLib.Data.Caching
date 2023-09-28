@@ -14,14 +14,26 @@
     <Authors>Vaughn Nugent</Authors>
     <Company>Vaughn Nugent</Company>
     <Product>VNLib distributed caching extension library</Product>
-    <Description>
-      A libray for working with VNCache distributed object cache networks.
-    </Description>
+    <Description>A libray for working with VNCache distributed object cache networks.</Description>
     <Copyright>Copyright © 2023 Vaughn Nugent</Copyright>
     <PackageProjectUrl>https://www.vaughnnugent.com/resources/software/modules/VNLib.Data.Caching</PackageProjectUrl>
     <RepositoryUrl>https://github.com/VnUgE/VNLib.Data.Caching/tree/master/lib/VNLib.Data.Caching.Extensions</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
   </PropertyGroup>
-
+  
+  <ItemGroup>
+    <None Include="..\..\..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="ErrorProne.NET.CoreAnalyzers" Version="0.1.2">

@@ -16,14 +16,26 @@
     <Company>Vaughn Nugent</Company>
     <Product>VNLib.Data.Caching.ObjectCache.Server</Product>
     <PackageId>VNLib.Data.Caching.ObjectCache.Server</PackageId>
-    <Description>
-      An Essentials framework plugin for implementing a distributed in-memory data caching server disoverable in cache brokers. It provides
-      automatic live replication between cache server nodes.
-    </Description>
+    <Description>An Essentials framework plugin for implementing a distributed in-memory data caching server disoverable in cache brokers. It provides automatic live replication between cache server nodes.</Description>
     <Copyright>Copyright © 2023 Vaughn Nugent</Copyright>
     <PackageProjectUrl>https://www.vaughnnugent.com/resources/software/modules/VNLib.Data.Caching</PackageProjectUrl>
     <RepositoryUrl>https://github.com/VnUgE/VNLib.Data.Caching/tree/master/plugins/ObjectCacheServer</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
   
   <ItemGroup>
     <PackageReference Include="ErrorProne.NET.CoreAnalyzers" Version="0.1.2">

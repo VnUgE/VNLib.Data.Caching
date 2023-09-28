@@ -14,15 +14,21 @@
     <Authors>Vaughn Nugent</Authors>
     <Company>Vaughn Nugent</Company>
     <Product>VNLib FBM Data caching extension library</Product>
-    <Description>
-      Provides constants and extensions for a key-value data caching protocol layer atop the Fixed Buffer Messaging protocol to work VNCache servers. Provides rapid cache development
-    </Description>
+    <Description>Provides constants and extensions for a key-value data caching protocol layer atop the Fixed Buffer Messaging protocol to work VNCache servers. Provides rapid cache development</Description>
     <Copyright>Copyright © 2023 Vaughn Nugent</Copyright>
     <PackageProjectUrl>https://www.vaughnnugent.com/resources/software/modules/VNLib.Data.Caching</PackageProjectUrl>
     <RepositoryUrl>https://github.com/VnUgE/VNLib.Data.Caching/tree/master/lib/VNLib.Data.Caching</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="..\..\..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="..\README.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
