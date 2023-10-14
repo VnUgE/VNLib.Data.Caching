@@ -3,9 +3,9 @@
 * 
 * Library: VNLib
 * Package: VNLib.Plugins.Extensions.VNCache
-* File: RemoteBackedMemoryCache.cs 
+* File: MemoryCache.cs 
 *
-* RemoteBackedMemoryCache.cs is part of VNLib.Plugins.Extensions.VNCache 
+* MemoryCache.cs is part of VNLib.Plugins.Extensions.VNCache 
 * which is part of the larger VNLib collection of libraries and utilities.
 *
 * VNLib.Plugins.Extensions.VNCache is free software: you can redistribute it and/or modify 
@@ -34,6 +34,7 @@ using VNLib.Utils.Memory.Diagnostics;
 using VNLib.Data.Caching;
 using VNLib.Data.Caching.ObjectCache;
 using VNLib.Plugins.Extensions.Loading;
+using VNLib.Data.Caching.ObjectCache.Server;
 
 namespace VNLib.Plugins.Extensions.VNCache
 {
@@ -59,6 +60,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         private readonly ICacheObjectDeserialzer _deserialzer;
         private readonly IBlobCacheTable _memCache;
         private readonly IUnmangedHeap _bufferHeap;
+        private readonly BucketLocalManagerFactory _blobCacheMemManager;
 
         public MemoryCache(PluginBase pbase, IConfigScope config)
             :this(
@@ -66,11 +68,10 @@ namespace VNLib.Plugins.Extensions.VNCache
                  pbase.IsDebug(),
                  pbase.Log
             )
-        {
-        }
+        { }
 
         public MemoryCache(MemoryCacheConfig config):this(config, false, null)
-        {}
+        { }
 
         private MemoryCache(MemoryCacheConfig config, bool isDebug, ILogProvider? log)
         {
@@ -83,7 +84,7 @@ namespace VNLib.Plugins.Extensions.VNCache
                 IUnmangedHeap newHeap = MemoryUtil.InitializeNewHeapForProcess();
 
                 //Wrap in diag heap
-                _bufferHeap = new TrackedHeapWrapper(newHeap);
+                _bufferHeap = new TrackedHeapWrapper(newHeap, true);
             }
             else
             {
@@ -91,8 +92,10 @@ namespace VNLib.Plugins.Extensions.VNCache
                 _bufferHeap = MemoryUtil.InitializeNewHeapForProcess();
             }
 
+            _blobCacheMemManager = BucketLocalManagerFactory.Create(config.ZeroAllAllocations);
+
             //Setup cache table
-            _memCache = new BlobCacheTable(config.TableSize, config.BucketSize, _bufferHeap, null);
+            _memCache = new BlobCacheTable(config.TableSize, config.BucketSize, _blobCacheMemManager, null);
 
             /*
              * Default to json serialization by using the default
@@ -124,13 +127,11 @@ namespace VNLib.Plugins.Extensions.VNCache
         {
             _memCache.Dispose();
             _bufferHeap.Dispose();
+            _blobCacheMemManager.Dispose();
         }
 
         ///<inheritdoc/>
-        public Task AddOrUpdateAsync<T>(string key, string? newKey, T value, CancellationToken cancellation)
-        {
-            return AddOrUpdateAsync(key, newKey, value, _serialzer, cancellation);
-        }
+        public Task AddOrUpdateAsync<T>(string key, string? newKey, T value, CancellationToken cancellation) => AddOrUpdateAsync(key, newKey, value, _serialzer, cancellation);
 
         ///<inheritdoc/>
         public async Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerialzer serialzer, CancellationToken cancellation)
@@ -164,17 +165,23 @@ namespace VNLib.Plugins.Extensions.VNCache
 
             IBlobCacheBucket bucket = _memCache.GetBucket(key);
 
-            //Obtain cache handle
-            using (CacheBucketHandle handle = await bucket.WaitAsync(cancellation))
+            //Obtain lock
+            IBlobCache cache = await bucket.ManualWaitAsync(cancellation);
+
+            try
             {
                 //Try to read the value
-                if (handle.Cache.TryGetValue(key, out CacheEntry entry))
+                if (cache.TryGetValue(key, out CacheEntry entry))
                 {
-                    return (T?)deserializer.Deserialze(typeof(T), entry.GetDataSegment());
+                    return deserializer.Deserialze<T>(entry.GetDataSegment());
                 }
-            }
 
-            return default;
+                return default;
+            }
+            finally
+            {
+                bucket.Release();
+            }
         }
 
         ///<inheritdoc/>
@@ -185,19 +192,26 @@ namespace VNLib.Plugins.Extensions.VNCache
             //Get the bucket from the desired key
             IBlobCacheBucket bucket = _memCache.GetBucket(key);
 
-            //Obtain cache handle
-            using CacheBucketHandle handle = await bucket.WaitAsync(cancellation);
-            
-            //Try to read the value
-            if (handle.Cache.TryGetValue(key, out CacheEntry entry))
+            //Obtain lock
+            IBlobCache cache = await bucket.ManualWaitAsync(cancellation);
+
+            try
             {
-                //Set result data
-                rawData.SetData(entry.GetDataSegment());
+                //Try to read the value
+                if (cache.TryGetValue(key, out CacheEntry entry))
+                {
+                    //Set result data
+                    rawData.SetData(entry.GetDataSegment());
+                }
+            }
+            finally
+            {
+                bucket.Release();
             }
         }
 
         ///<inheritdoc/>
-        public Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, ICacheObjectSerialzer serialzer, CancellationToken cancellation)
+        public Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, CancellationToken cancellation)
         {
             Check();
 

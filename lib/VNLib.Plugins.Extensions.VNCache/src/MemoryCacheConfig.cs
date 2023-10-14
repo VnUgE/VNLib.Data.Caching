@@ -81,6 +81,12 @@ namespace VNLib.Plugins.Extensions.VNCache
             set => RefreshInterval = TimeSpan.FromSeconds(value);
         }
 
+        /// <summary>
+        /// Zeros all cache entry memory allocations before they are used
+        /// </summary>
+        [JsonPropertyName("zero_all")]
+        public bool ZeroAllAllocations { get; set; }
+
         ///<inheritdoc/>
         public void Validate()
         {

@@ -12,12 +12,11 @@ version: '3'
 
 vars:
   INT_DIR: '{{.SCRATCH_DIR}}/obj/{{.MODULE_NAME}}/'
-  MS_ARGS: '/p:RunAnalyzersDuringBuild=false /p:IntermediateOutputPath="{{.INT_DIR}}" /p:UseCommonOutputDirectory=true /p:BuildInParallel=true /p:MultiProcessorCompilation=true /p:ErrorOnDuplicatePublishOutputFiles=false /p:ErrorOnDuplicatePublishOutputFiles=false'
+  MS_ARGS: '/p:RunAnalyzersDuringBuild=false /p:IntermediateOutputPath="{{.INT_DIR}}" /p:UseCommonOutputDirectory=true /p:BuildInParallel=true /p:MultiProcessorCompilation=true /p:ErrorOnDuplicatePublishOutputFiles=false'
   PACK_OUT: '{{.OUTPUT_DIR}}/{{.HEAD_SHA}}/pkg'
 
 tasks:
-
-#called by build pipeline to sync repo
+  #called by build pipeline to sync repo
   update:
     cmds:
      - git remote update

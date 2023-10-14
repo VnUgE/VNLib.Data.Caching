@@ -32,6 +32,7 @@ using VNLib.Utils.Logging;
 using VNLib.Utils.Memory.Diagnostics;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Plugins.Extensions.Loading.Routing;
+
 using VNLib.Data.Caching.ObjectCache.Server.Endpoints;
 using VNLib.Data.Caching.ObjectCache.Server.Clustering;
 
@@ -42,12 +43,9 @@ namespace VNLib.Data.Caching.ObjectCache.Server
     {
         public override string PluginName => "ObjectCache.Service";
 
-        private readonly Lazy<IUnmangedHeap> _cacheHeap;   
+        private readonly Lazy<IUnmangedHeap> _cacheHeap;
 
-        /// <summary>
-        /// Gets the shared heap for the plugin 
-        /// </summary>
-        internal IUnmangedHeap CacheHeap => _cacheHeap.Value;
+        internal IUnmangedHeap ListenerHeap => _cacheHeap.Value;
 
         public ObjectCacheServerEntry()
         {
@@ -55,14 +53,14 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             _cacheHeap = new Lazy<IUnmangedHeap>(InitializeHeap, LazyThreadSafetyMode.PublicationOnly);
         }
 
-        private IUnmangedHeap InitializeHeap()
+        internal IUnmangedHeap InitializeHeap()
         {
             //Create default heap
             IUnmangedHeap _heap = MemoryUtil.InitializeNewHeapForProcess();
             try
             {
                 //If the plugin is in debug mode enable heap tracking
-                return this.IsDebug() ? new TrackedHeapWrapper(_heap) : _heap;
+                return this.IsDebug() ? new TrackedHeapWrapper(_heap, true) : _heap;
             }
             catch
             {

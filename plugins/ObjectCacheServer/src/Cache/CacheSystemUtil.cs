@@ -30,7 +30,6 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 using VNLib.Plugins;
-using VNLib.Utils.Memory;
 using VNLib.Plugins.Extensions.Loading;
 
 namespace VNLib.Data.Caching.ObjectCache.Server.Cache
@@ -52,7 +51,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
         /// <param name="cacheConf">The cache configuration object</param>
         /// <returns>The loaded <see cref="IBlobCacheTable"/> implementation</returns>
         /// <exception cref="FileNotFoundException"></exception>
-        public static IBlobCacheTable LoadMemoryCacheSystem(this PluginBase plugin, IConfigScope config, IUnmangedHeap heap, CacheConfiguration cacheConf)
+        public static IBlobCacheTable LoadMemoryCacheSystem(this PluginBase plugin, IConfigScope config, ICacheMemoryManagerFactory heap, CacheConfiguration cacheConf)
         {
             //First, try to load persitant cache store
             PersistantCacheManager? pCManager = GetPersistantStore(plugin, config);
@@ -79,7 +78,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
             return table;
         }
 
-        private static IBlobCacheTable GetInternalBlobCache(IUnmangedHeap heap, CacheConfiguration config, IPersistantCacheStore? store)
+        private static IBlobCacheTable GetInternalBlobCache(ICacheMemoryManagerFactory heap, CacheConfiguration config, IPersistantCacheStore? store)
         {
             return new BlobCacheTable(config.BucketCount, config.MaxCacheEntries, heap, store);
         }

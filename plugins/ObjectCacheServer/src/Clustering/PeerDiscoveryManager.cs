@@ -135,7 +135,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
 
                         if (allAds.Length > 0)
                         {
-                            //Discover all kown nodes
+                            //Discover all known nodes
                             await Config.Config.DiscoverNodesAsync(allAds, exitToken);
                         }
 

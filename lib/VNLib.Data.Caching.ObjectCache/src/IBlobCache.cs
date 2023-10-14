@@ -25,8 +25,6 @@
 using System;
 using System.Collections.Generic;
 
-using VNLib.Utils.Memory;
-
 namespace VNLib.Data.Caching.ObjectCache
 {
     /// <summary>
@@ -40,9 +38,9 @@ namespace VNLib.Data.Caching.ObjectCache
         public uint BucketId { get; }
 
         /// <summary>
-        /// The internal heap used to allocate <see cref="CacheEntry"/> buffers
+        /// The memory manager used to create <see cref="CacheEntry"/> memory handles
         /// </summary>
-        IUnmangedHeap CacheHeap { get; }
+        ICacheEntryMemoryManager MemoryManager { get; }
 
         /// <summary>
         /// Attempts to retreive the entry at the given id.

@@ -26,7 +26,6 @@ using System;
 using System.Diagnostics;
 using System.Collections.Generic;
 
-using VNLib.Utils.Memory;
 using VNLib.Utils.Memory.Caching;
 
 namespace VNLib.Data.Caching.ObjectCache
@@ -47,7 +46,7 @@ namespace VNLib.Data.Caching.ObjectCache
         protected override int MaxCapacity { get; }
         
         ///<inheritdoc/>
-        public IUnmangedHeap CacheHeap { get; }
+        public ICacheEntryMemoryManager MemoryManager { get; }
 
         ///<inheritdoc/>
         public uint BucketId { get; }
@@ -57,10 +56,10 @@ namespace VNLib.Data.Caching.ObjectCache
         /// </summary>
         /// <param name="bucketId">The id of the bucket that manages this instance</param>
         /// <param name="maxCapacity">The maximum number of items to keep in memory</param>
-        /// <param name="heap">The unmanaged heap used to allocate cache entry buffers from</param>
+        /// <param name="manager">The cache entry memory manager instance</param>
         /// <param name="store">The optional backing persistant cache storage</param>
         /// <exception cref="ArgumentException"></exception>
-        public BlobCache(uint bucketId, int maxCapacity, IUnmangedHeap heap, IPersistantCacheStore? store)
+        public BlobCache(uint bucketId, int maxCapacity, ICacheEntryMemoryManager manager, IPersistantCacheStore? store)
             :base(maxCapacity, StringComparer.Ordinal)
         {
             if(maxCapacity < 1)
@@ -72,7 +71,7 @@ namespace VNLib.Data.Caching.ObjectCache
 
             _persistance = store;
 
-            CacheHeap = heap;
+            MemoryManager = manager ?? throw new ArgumentNullException(nameof(manager));
 
             MaxCapacity = maxCapacity;
 
@@ -188,7 +187,7 @@ namespace VNLib.Data.Caching.ObjectCache
                 //remove the entry and bypass the disposal
                 bool result = base.Remove(objectId);
 
-                Debug.Assert(result == true);
+                Debug.Assert(result == true, "The cache entry was found in the table, but failed to remove");
 
                 return true;
             }
@@ -223,7 +222,7 @@ namespace VNLib.Data.Caching.ObjectCache
         CacheEntry IMemoryCacheEntryFactory.CreateEntry(ReadOnlySpan<byte> entryData)
         {
             //Create entry from the internal heap
-            return CacheEntry.Create(entryData, CacheHeap);
+            return CacheEntry.Create(entryData, MemoryManager);
         }
     }
 }

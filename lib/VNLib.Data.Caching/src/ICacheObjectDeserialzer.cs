@@ -36,8 +36,8 @@ namespace VNLib.Data.Caching
         /// object state.
         /// </summary>
         /// <param name="objectData">The buffer containing data to deserialze</param>
-        /// <param name="type">The type to deserialze</param>
+        /// <typeparam name="T"></typeparam>
         /// <returns>A new instance deserialzed to contain the original entity state</returns>
-        object? Deserialze(Type type, ReadOnlySpan<byte> objectData);
+        T? Deserialze<T>(ReadOnlySpan<byte> objectData);
     }
 }

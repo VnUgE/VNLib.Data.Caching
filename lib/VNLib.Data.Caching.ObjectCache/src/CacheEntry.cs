@@ -29,10 +29,10 @@ using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 
 using VNLib.Utils.Memory;
-using VNLib.Utils.Extensions;
 
 namespace VNLib.Data.Caching
 {
+
     /// <summary>
     /// A structure that represents an item in cache. It contains the binary content
     /// of a cache entry by its internal memory handle
@@ -45,28 +45,28 @@ namespace VNLib.Data.Caching
 
         private const int DATA_SEGMENT_START = TIME_SEGMENT_SIZE + LENGTH_SEGMENT_SIZE;
 
-
-        //Only contain ref to backing handle to keep struct size small
-        private readonly MemoryHandle<byte> _handle;
-
+        private readonly ICacheEntryMemoryManager _manager;
+        private readonly object _handle;
 
         /// <summary>
         /// Creates a new <see cref="CacheEntry"/> and copies the initial data to the internal buffer
         /// </summary>
         /// <param name="data">The initial data to store</param>
-        /// <param name="heap">The heap to allocate the buffer from</param>
+        /// <param name="dataManager">The heap to allocate the buffer from</param>
         /// <returns>The newly initialized and ready to use <see cref="CacheEntry"/></returns>
-        public static CacheEntry Create(ReadOnlySpan<byte> data, IUnmangedHeap heap)
+        /// <exception cref="ArgumentNullException"></exception>
+        public static CacheEntry Create(ReadOnlySpan<byte> data, ICacheEntryMemoryManager dataManager)
         {
-            //Calc buffer size
-            int bufferSize = GetRequiredHandleSize(data.Length);
+            _ = dataManager ?? throw new ArgumentNullException(nameof(dataManager));
 
-            //Alloc buffer
-            MemoryHandle<byte> handle = heap.Alloc<byte>(bufferSize);
+            //Calc buffer size
+            uint bufferSize = GetRequiredHandleSize(data.Length);
+
+            object handle = dataManager.AllocHandle(bufferSize);
             
             //Create new entry from handle
-            CacheEntry entry = new (handle);
-            entry.SetLength(data.Length);
+            CacheEntry entry = new(dataManager, handle);
+            entry.SetLength((uint)data.Length);
 
             //Get the data segment
             Span<byte> segment = entry.GetDataSegment();
@@ -79,24 +79,46 @@ namespace VNLib.Data.Caching
             return entry;
         }
 
+        /// <summary>
+        /// Creates a new <see cref="CacheEntry"/> from an existing handle
+        /// </summary>
+        /// <param name="handle">The cache data handle to create the entry around</param>
+        /// <param name="manager">The cache entry memory manager the handle blongs to</param>
+        /// <returns>The re-constructed entry</returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentException"></exception>
+        public static CacheEntry FromExistingHandle(object handle, ICacheEntryMemoryManager manager)
+        {
+            _ = handle ?? throw new ArgumentNullException(nameof(handle));
+            _ = manager ?? throw new ArgumentNullException(nameof(manager));
+
+            //validate handle size it at least the minimum size
+            if (manager.GetHandleSize(handle) < DATA_SEGMENT_START)
+            {
+                throw new ArgumentException("Memory segment is too small to be a valid cache entry");
+            }
+
+            return new(manager, handle);
+        }
        
-        private static int GetRequiredHandleSize(int size)
+        private static uint GetRequiredHandleSize(int size)
         {
             //Caculate the minimum handle size to store all required information, rounded to nearest page
-            return (int)MemoryUtil.NearestPage(size + DATA_SEGMENT_START);
+            return (uint)MemoryUtil.NearestPage(size + DATA_SEGMENT_START);
         }
 
-        private CacheEntry(MemoryHandle<byte> handle)
+        private CacheEntry(ICacheEntryMemoryManager manager, object handle)
         {
+            _manager = manager;
             _handle = handle;
         }
 
         ///<inheritdoc/>
-        public readonly void Dispose() => _handle?.Dispose();
+        public readonly void Dispose() => _manager?.FreeHandle(_handle);
        
-        private readonly Span<byte> GetTimeSegment() => _handle.AsSpan(0, TIME_SEGMENT_SIZE);
+        private readonly Span<byte> GetTimeSegment() => _manager.GetSpan(_handle, 0, TIME_SEGMENT_SIZE);
       
-        private readonly Span<byte> GetLengthSegment() => _handle.AsSpan(TIME_SEGMENT_SIZE, LENGTH_SEGMENT_SIZE);
+        private readonly Span<byte> GetLengthSegment() => _manager.GetSpan(_handle, TIME_SEGMENT_SIZE, LENGTH_SEGMENT_SIZE);
 
         /// <summary>
         /// Gets the size of the block of memory held by the underlying handle
@@ -104,11 +126,7 @@ namespace VNLib.Data.Caching
         /// <returns>The size of the block held by the current entry</returns>
         /// <exception cref="ObjectDisposedException"></exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly nuint GetMemoryUsage()
-        {
-            _handle.ThrowIfClosed();
-            return _handle.ByteLength;
-        }
+        public readonly nuint GetMemoryUsage() => _manager.GetHandleSize(_handle);
 
         /// <summary>
         /// Gets the last set time
@@ -148,21 +166,21 @@ namespace VNLib.Data.Caching
         /// <returns>The length of the data segment</returns>
         /// <exception cref="ObjectDisposedException"></exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly int GetLength()
+        public readonly uint GetLength()
         {
             //Get the length segment
             ReadOnlySpan<byte> segment = GetLengthSegment();
             //Recover the integer
-            return BinaryPrimitives.ReadInt32BigEndian(segment);
+            return BinaryPrimitives.ReadUInt32BigEndian(segment);
         }
 
-        private readonly void SetLength(int length)
+        private readonly void SetLength(uint length)
         {
             //Get the length segment
             Span<byte> segment = GetLengthSegment();
         
             //Update the length value
-            BinaryPrimitives.WriteInt32BigEndian(segment, length);
+            BinaryPrimitives.WriteUInt32BigEndian(segment, length);
         }
 
         /// <summary>
@@ -174,9 +192,9 @@ namespace VNLib.Data.Caching
         public readonly Span<byte> GetDataSegment()
         {
             //Get the actual length of the segment
-            int length = GetLength();
+            uint length = GetLength();
             //Get the segment from its begining offset and 
-            return _handle.AsSpan(DATA_SEGMENT_START, length);
+            return _manager.GetSpan(_handle, DATA_SEGMENT_START, length);
         }
 
         /// <summary>
@@ -188,13 +206,17 @@ namespace VNLib.Data.Caching
         public readonly void UpdateData(ReadOnlySpan<byte> data)
         {
             //Calc required buffer size
-            int bufferSize = GetRequiredHandleSize(data.Length);
+            uint bufferSize = GetRequiredHandleSize(data.Length);
 
-            //Resize handle if required
-            _handle.ResizeIfSmaller(bufferSize);
+            //Resize buffer if necessary
+            if(_manager.GetHandleSize(_handle) < bufferSize)
+            {
+                //resize handle
+                _manager.ResizeHandle(_handle, bufferSize);
+            }
 
             //Reset data length
-            SetLength(data.Length);
+            SetLength((uint)data.Length);
 
             //Get the data segment
             Span<byte> segment = GetDataSegment();
@@ -206,9 +228,6 @@ namespace VNLib.Data.Caching
             data.CopyTo(segment);
         }
 
-        ///<inheritdoc/>
-        public override int GetHashCode() => _handle.GetHashCode();
-
         /// <summary>
         /// Gets a <see cref="MemoryHandle"/> offset to the start of the 
         /// internal data segment, and avoids calling the fixed keyword.
@@ -216,14 +235,25 @@ namespace VNLib.Data.Caching
         /// </summary>
         /// <remarks>
         /// WARNING: You must respect the <see cref="GetLength"/> return value so 
-        /// as no to overrun the valid data segment.
+        /// as not to overrun the valid data segment.
         /// </remarks>
         /// <returns>A handle that points to the begining of the data segment</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly MemoryHandle UnsafeGetDataSegmentHandle()
         {
             //Get the handle offset to the data segment start, the caller must know when the data segment ends
-            return _handle.Pin(DATA_SEGMENT_START);
+            return _manager.PinHandle(_handle, DATA_SEGMENT_START);
+        }
+
+        /// <summary>
+        /// Gets the internal memory handle and manager its associated with
+        /// </summary>
+        /// <param name="handle">The opaque memory handle</param>
+        /// <param name="manager">The associated memory manager</param>
+        public readonly void GetInternalHandle(out object handle, out ICacheEntryMemoryManager manager)
+        {
+            handle = _handle;
+            manager = _manager;
         }
     }
 }

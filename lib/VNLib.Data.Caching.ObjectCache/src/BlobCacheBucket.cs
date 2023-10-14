@@ -25,8 +25,6 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-using VNLib.Utils.Memory;
-
 namespace VNLib.Data.Caching.ObjectCache
 {
 
@@ -50,13 +48,13 @@ namespace VNLib.Data.Caching.ObjectCache
         /// before LRU overflow happens.
         /// </param>
         /// <param name="bucketId">The unique id of the new bucket</param>
-        /// <param name="heap">The heap to allocate object cache buffers</param>
+        /// <param name="memMan">The cache entry memory manager intance</param>
         /// <param name="persistantCache">An optional <see cref="IPersistantCacheStore"/> for cache persistance</param>
-        public BlobCacheBucket(uint bucketId, int bucketCapacity, IUnmangedHeap heap, IPersistantCacheStore? persistantCache)
+        public BlobCacheBucket(uint bucketId, int bucketCapacity, ICacheEntryMemoryManager memMan, IPersistantCacheStore? persistantCache)
         {
             Id = bucketId;
             _lock = new(1, 1);
-            _cacheTable = new BlobCache(bucketId, bucketCapacity, heap, persistantCache);
+            _cacheTable = new BlobCache(bucketId, bucketCapacity, memMan, persistantCache);
         }
 
         ///<inheritdoc/>
@@ -69,37 +67,14 @@ namespace VNLib.Data.Caching.ObjectCache
         ///<inheritdoc/>
         public async ValueTask<IBlobCache> ManualWaitAsync(CancellationToken cancellation)
         {
-            //try to enter the lock synchronously
-            if (_lock.Wait(0, CancellationToken.None))
-            {
-                return _cacheTable;
-            }
-            else
-            {
-                await _lock.WaitAsync(cancellation).ConfigureAwait(false);
-                return _cacheTable;
-            }
+            await _lock.WaitAsync(cancellation).ConfigureAwait(false);
+            return _cacheTable;
         }
 
         ///<inheritdoc/>
         public void Release()
         {
             _lock.Release();
-        }
-
-        ///<inheritdoc/>
-        public async ValueTask<CacheBucketHandle> WaitAsync(CancellationToken cancellation)
-        {
-            //try to enter the lock synchronously
-            if (_lock.Wait(0, CancellationToken.None))
-            {
-                return new(this, _cacheTable);
-            }
-            else
-            {
-                await _lock.WaitAsync(cancellation).ConfigureAwait(false);
-                return new(this, _cacheTable);
-            }
         }
     }
 }

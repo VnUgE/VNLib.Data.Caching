@@ -136,7 +136,7 @@ namespace VNLib.Data.Caching
                 //Check ok status code, then its safe to deserialize
                 if (status.Value.Equals(ResponseCodes.Okay, StringComparison.Ordinal))
                 {
-                    return (T?)deserialzer.Deserialze(typeof(T), response.ResponseBody);
+                    return deserialzer.Deserialze<T>(response.ResponseBody);
                 }
 
                 //Object  may not exist on the server yet

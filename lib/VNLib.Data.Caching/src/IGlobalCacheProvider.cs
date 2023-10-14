@@ -101,13 +101,11 @@ namespace VNLib.Data.Caching
         /// Asynchronously sets (or updates) a cached value in the backing cache store 
         /// from the supplied raw data
         /// </summary>
-        /// <typeparam name="T"></typeparam>
         /// <param name="key">The key identifying the object to recover from cache</param>
         /// <param name="newKey">An optional key that will be changed for the new object</param>
         /// <param name="cancellation">A token to cancel the async operation</param>
         /// <param name="rawData">The raw data to store at the given key</param>
-        /// <param name="serialzer">The <see cref="ICacheObjectSerialzer"/> used to serialze the entity</param>
         /// <returns>A task that completes when the update operation has compelted</returns>
-        Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, ICacheObjectSerialzer serialzer, CancellationToken cancellation);
+        Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, CancellationToken cancellation);
     }
 }

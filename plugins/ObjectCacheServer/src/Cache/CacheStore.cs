@@ -107,11 +107,14 @@ Cache Configuration:
             //Get the event listener
             ICacheListenerEventQueue queue = plugin.GetOrCreateSingleton<CacheListenerPubQueue>();
 
+            //Get the memory manager
+            ICacheMemoryManagerFactory manager = plugin.GetOrCreateSingleton<BucketLocalManagerFactory>();
+
             //Load the blob cache table system
-            IBlobCacheTable bc = plugin.LoadMemoryCacheSystem(config, plugin.CacheHeap, cacheConf);
+            IBlobCacheTable bc = plugin.LoadMemoryCacheSystem(config, manager, cacheConf);
 
             //Endpoint only allows for a single reader
-            return new(bc, queue, plugin.Log, plugin.CacheHeap);
+            return new(bc, queue, plugin.Log, plugin.ListenerHeap);
         }
 
         /*

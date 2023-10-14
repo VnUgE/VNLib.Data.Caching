@@ -38,6 +38,7 @@ using VNLib.Data.Caching;
 using VNLib.Data.Caching.ObjectCache;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Plugins.Extensions.Loading.Events;
+using VNLib.Data.Caching.ObjectCache.Server;
 
 namespace VNLib.Plugins.Extensions.VNCache
 {
@@ -59,6 +60,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         private readonly ICacheObjectSerialzer _serialzer;
         private readonly ICacheObjectDeserialzer _deserialzer;
         private readonly IBlobCacheTable _memCache;
+        private readonly BucketLocalManagerFactory? _bucketFactory;
 
         public RemoteBackedMemoryCache(PluginBase plugin, IConfigScope config) : base(plugin, config)
         {
@@ -69,8 +71,10 @@ namespace VNLib.Plugins.Extensions.VNCache
 
             memCacheConfig.Validate();
 
+            ICacheMemoryManagerFactory manager = plugin.GetOrCreateSingleton<BucketLocalManagerFactory>();
+
             //Setup cache table
-            _memCache = new BlobCacheTable(memCacheConfig.TableSize, memCacheConfig.BucketSize, Client.Config.BufferHeap, null);
+            _memCache = new BlobCacheTable(memCacheConfig.TableSize, memCacheConfig.BucketSize, manager, null);
 
             _cacheConfig = memCacheConfig;
 
@@ -92,8 +96,14 @@ namespace VNLib.Plugins.Extensions.VNCache
 
         public RemoteBackedMemoryCache(VnCacheClientConfig client, MemoryCacheConfig memCache, ILogProvider? debugLog):base(client, debugLog)
         {
+            /*
+             * Create a local bucket manager factory, we must handle dispal
+             * however, since its not managed by a plugin
+             */
+            _bucketFactory = BucketLocalManagerFactory.Create(memCache.ZeroAllAllocations);
+
             //Setup mem cache table
-            _memCache = new BlobCacheTable(memCache.TableSize, memCache.BucketSize, Client.Config.BufferHeap, null);
+            _memCache = new BlobCacheTable(memCache.TableSize, memCache.BucketSize, _bucketFactory, null);
 
             _cacheConfig = memCache;
 
@@ -126,6 +136,7 @@ namespace VNLib.Plugins.Extensions.VNCache
             finally 
             {
                 _memCache.Dispose();
+                _bucketFactory?.Dispose();
             }
         }
 
@@ -164,7 +175,7 @@ namespace VNLib.Plugins.Extensions.VNCache
                 //Try to read the value
                 if (handle.Cache.TryGetValue(key, out CacheEntry entry))
                 {
-                    return (T?)deserializer.Deserialze(objType, entry.GetDataSegment());
+                    return deserializer.Deserialze<T>(entry.GetDataSegment());
                 }
             }
 
@@ -184,7 +195,7 @@ namespace VNLib.Plugins.Extensions.VNCache
             await _memCache.AddOrUpdateObjectAsync(key, null, static b => b.GetData(), getBuffer, DateTime.UtcNow, CancellationToken.None);
 
             //Deserialze the entity
-            return (T)deserializer.Deserialze(objType, getBuffer.GetData());
+            return deserializer.Deserialze<T>(getBuffer.GetData());
         }
 
         ///<inheritdoc/>
@@ -248,7 +259,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         }
 
         ///<inheritdoc/>
-        public override async Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, ICacheObjectSerialzer serialzer, CancellationToken cancellation)
+        public override async Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, CancellationToken cancellation)
         {
             CheckConnected();
 

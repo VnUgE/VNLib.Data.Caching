@@ -40,15 +40,6 @@ namespace VNLib.Data.Caching.ObjectCache
         uint Id { get; }
 
         /// <summary>
-        /// Gets a <see cref="CacheBucketHandle"/> that holds an exclusive lock 
-        /// for the current bucekt and holds a referrence to the stored
-        /// <see cref="IBlobCache"/>
-        /// </summary>
-        /// <param name="cancellation">A token to cancel the wait operation</param>
-        /// <returns>A <see cref="CacheBucketHandle"/> that holds the <see cref="IBlobCache"/> referrence</returns>
-        ValueTask<CacheBucketHandle> WaitAsync(CancellationToken cancellation);
-
-        /// <summary>
         /// Allows for waiting for the cache directly, IE without receiving a lock handle
         /// </summary>
         /// <param name="cancellation"></param>
@@ -56,7 +47,7 @@ namespace VNLib.Data.Caching.ObjectCache
         ValueTask<IBlobCache> ManualWaitAsync(CancellationToken cancellation);
 
         /// <summary>
-        /// Releases an exlcusive lock on the current bucket, DO NOT CALL BY USER CODE
+        /// Releases an exlcusive lock on the current bucket that was obtained by <see cref="ManualWaitAsync(CancellationToken)"/>
         /// </summary>
         void Release();
     }

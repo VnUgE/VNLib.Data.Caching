@@ -28,10 +28,10 @@ using System.Collections;
 using System.Collections.Generic;
 
 using VNLib.Utils;
-using VNLib.Utils.Memory;
 
 namespace VNLib.Data.Caching.ObjectCache
 {
+
     /// <summary>
     /// A concrete implementation of a <see cref="IBlobCacheTable"/>
     /// </summary>
@@ -41,18 +41,32 @@ namespace VNLib.Data.Caching.ObjectCache
         private readonly IBlobCacheBucket[] _buckets;
         private readonly IPersistantCacheStore? _persistant;
 
+
         /// <summary>
         /// Initializes a new <see cref="BlobCacheTable"/>
         /// </summary>
         /// <param name="bucketSize">The number of elements in each bucket</param>
         /// <param name="tableSize">The number of buckets within the table</param>
-        /// <param name="heap">The heap used to allocate cache entry buffers from</param>
+        /// <param name="manager">A single cache memory manger to share across all buckets</param>
         /// <param name="persistantCache">An optional <see cref="IPersistantCacheStore"/> for persistant cache implementations</param>
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="ArgumentException"></exception>
-        public BlobCacheTable(uint tableSize, uint bucketSize, IUnmangedHeap heap, IPersistantCacheStore? persistantCache)
+        public BlobCacheTable(uint tableSize, uint bucketSize, ICacheEntryMemoryManager manager, IPersistantCacheStore? persistantCache)
+            :this(tableSize, bucketSize, new SharedMemManager(manager), persistantCache)
+        { }
+
+        /// <summary>
+        /// Initializes a new <see cref="BlobCacheTable"/>
+        /// </summary>
+        /// <param name="bucketSize">The number of elements in each bucket</param>
+        /// <param name="tableSize">The number of buckets within the table</param>
+        /// <param name="factory">A factory that can generate bucket-local memory managers</param>
+        /// <param name="persistantCache">An optional <see cref="IPersistantCacheStore"/> for persistant cache implementations</param>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentException"></exception>
+        public BlobCacheTable(uint tableSize, uint bucketSize, ICacheMemoryManagerFactory factory, IPersistantCacheStore? persistantCache)
         {
-            _ = heap ?? throw new ArgumentNullException(nameof(heap));
+            _ = factory ?? throw new ArgumentNullException(nameof(factory));
 
             if(tableSize == 0)
             {
@@ -66,15 +80,18 @@ namespace VNLib.Data.Caching.ObjectCache
             _persistant = persistantCache;
 
             //Init buckets
-            InitBuckets(tableSize, bucketSize, _buckets, heap, persistantCache);
+            InitBuckets(tableSize, bucketSize, _buckets, factory, persistantCache);
         }
 
 
-        private static void InitBuckets(uint size, uint bucketSize, IBlobCacheBucket[] table, IUnmangedHeap heap, IPersistantCacheStore? persistantCache)
+        private static void InitBuckets(uint size, uint bucketSize, IBlobCacheBucket[] table, ICacheMemoryManagerFactory man, IPersistantCacheStore? persistantCache)
         {
             for(uint i = 0; i < size; i++)
             {
-                table[i] = new BlobCacheBucket(i, (int)bucketSize, heap, persistantCache);
+                //Get the memory manager for the bucket
+                ICacheEntryMemoryManager manager = man.CreateForBucket(i);
+
+                table[i] = new BlobCacheBucket(i, (int)bucketSize, manager, persistantCache);
             }
         }
 
@@ -142,6 +159,13 @@ namespace VNLib.Data.Caching.ObjectCache
         {
             Check();
             return _buckets.AsEnumerable().GetEnumerator();
+        }
+
+        private sealed record class SharedMemManager(ICacheEntryMemoryManager Manager) : ICacheMemoryManagerFactory
+        {
+            ///<inheritdoc/>
+            public ICacheEntryMemoryManager CreateForBucket(uint bucketId) => Manager;
+          
         }
     }
 }

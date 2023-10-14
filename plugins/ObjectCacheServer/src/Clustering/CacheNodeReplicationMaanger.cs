@@ -76,11 +76,11 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
             //Load the node config
             _nodeConfig = plugin.GetOrCreateSingleton<NodeConfig>();
             _cacheStore = plugin.GetOrCreateSingleton<CacheStore>();
-            _peerAdapter = plugin.GetOrCreateSingleton<PeerDiscoveryManager>();            
+            _peerAdapter = plugin.GetOrCreateSingleton<PeerDiscoveryManager>();       
 
             //Init fbm config with fixed message size
             _replicationClientConfig = FBMDataCacheExtensions.GetDefaultConfig(
-                (plugin as ObjectCacheServerEntry)!.CacheHeap,
+                (plugin as ObjectCacheServerEntry)!.ListenerHeap,
                 MAX_MESSAGE_SIZE,
                 debugLog: plugin.IsDebug() ? plugin.Log : null
             );

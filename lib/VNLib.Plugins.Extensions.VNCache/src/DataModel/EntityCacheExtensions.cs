@@ -54,12 +54,12 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         /// <param name="cancellation">A token to cancel the operation</param>
         /// <returns>A task that completes when the delete operation has compelted</returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static Task DeleteAsync<T>(this IGlobalCacheProvider cache, T entity, CancellationToken cancellation) where T: class, ICacheEntity
+        public static Task RemoveAsync<T>(this IEntityCache<T> cache, T entity, CancellationToken cancellation) where T: class, ICacheEntity
         {
             _ = entity ?? throw new ArgumentNullException(nameof(entity));
             _ = cache ?? throw new ArgumentNullException(nameof(entity));
             //Delete by its id
-            return cache.DeleteAsync(entity.Id, cancellation);
+            return cache.RemoveAsync(entity.Id, cancellation);
         }
 
         /// <summary>
@@ -71,27 +71,85 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         /// <param name="entity">The entity to set at the given key</param>
         /// <returns>A task that completes when the add/update operation has compelted</returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static Task AddOrUpdateAsync<T>(this IGlobalCacheProvider cache, T entity, CancellationToken cancellation) where T: class, ICacheEntity
+        public static Task UpsertAsync<T>(this IEntityCache<T> cache, T entity, CancellationToken cancellation) where T: class, ICacheEntity
         {
             _ = entity ?? throw new ArgumentNullException(nameof(entity));
             _ = cache ?? throw new ArgumentNullException(nameof(cache));
 
             //Add/update with its id
-            return cache.AddOrUpdateAsync(entity.Id, null, entity, cancellation);
+            return cache.UpsertAsync(entity.Id, entity, cancellation);
         }
-     
+
+        /// <summary>
+        /// Creates an <see cref="IEntityCache{T}"/> wrapper using the current global cache provider.
+        /// Understand this will share the same cache store as other stores. Consider creating a scoped cache
+        /// to avoid key collisions
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="cache"></param>
+        /// <param name="serialier">The entity data serializer</param>
+        /// <param name="deserializer">The entity data deserializer</param>
+        /// <returns>The new <see cref="IEntityCache{T}"/> wrapper instance</returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static IEntityCache<T> CreateEntityCache<T>(this IGlobalCacheProvider cache, ICacheObjectSerialzer serialier, ICacheObjectDeserialzer deserializer) where T: class
+        {
+            _ = cache ?? throw new ArgumentNullException(nameof(cache));
+            _ = serialier ?? throw new ArgumentNullException(nameof(serialier));
+            _ = deserializer ?? throw new ArgumentNullException(nameof(deserializer));
+
+            return new EntityCacheImpl<T>(cache, deserializer, serialier);
+        }
+
+        /// <summary>
+        /// Creates an <see cref="IEntityCache{T}"/> wrapper using the current global cache provider, 
+        /// with a Json serializer/deserializer
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="cache"></param>
+        /// <returns>The new <see cref="IEntityCache{T}"/> wrapper using json serialization</returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static IEntityCache<T> CreateJsonEntityCache<T>(this IGlobalCacheProvider cache) where T: class
+        {
+            _ = cache ?? throw new ArgumentNullException(nameof(cache));
+            JsonCacheObjectSerializer json = new();
+            return CreateEntityCache<T>(cache, json, json);
+        }
+
+        private sealed class EntityCacheImpl<T> : IEntityCache<T> where T : class
+        {
+            private readonly IGlobalCacheProvider _cacheProvider;
+            private readonly ICacheObjectDeserialzer _cacheObjectDeserialzer;
+            private readonly ICacheObjectSerialzer _cacheObjectSerialzer;
+
+            public EntityCacheImpl(IGlobalCacheProvider cache, ICacheObjectDeserialzer deserializer, ICacheObjectSerialzer serializer)
+            {
+                _cacheProvider = cache;
+                _cacheObjectDeserialzer = deserializer;
+                _cacheObjectSerialzer = serializer;
+            }
+
+            ///<inheritdoc/>
+            public Task<T?> GetAsync(string id, CancellationToken token = default) => _cacheProvider.GetAsync<T>(id, _cacheObjectDeserialzer, token);
+
+            ///<inheritdoc/>
+            public Task RemoveAsync(string id, CancellationToken token = default) => _cacheProvider.DeleteAsync(id, token);
+
+            ///<inheritdoc/>
+            public Task UpsertAsync(string id, T entity, CancellationToken token = default) => _cacheProvider.AddOrUpdateAsync(id, null, entity, _cacheObjectSerialzer, token);
+        }
 
         private sealed class ScopedCacheImpl: ScopedCache
         {
             private readonly IGlobalCacheProvider cache;
 
+            ///<inheritdoc/>
             public override bool IsConnected
             {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 get => cache.IsConnected;
             }
 
-
+            ///<inheritdoc/>
             protected override ICacheKeyGenerator KeyGen { get; }
 
             public ScopedCacheImpl(IGlobalCacheProvider cache, ICacheKeyGenerator keyGen)
@@ -171,7 +229,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
             }
 
             ///<inheritdoc/>
-            public override Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, ICacheObjectSerialzer serialzer, CancellationToken cancellation)
+            public override Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, CancellationToken cancellation)
             {
                 _ = key ?? throw new ArgumentNullException(nameof(key));
 
@@ -181,7 +239,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
                 //If newkey exists, compute the secondary key
                 string? secondary = newKey != null ? KeyGen.ComputedKey(newKey) : null;
 
-                return cache.AddOrUpdateAsync(primary, secondary, rawData, serialzer, cancellation);
+                return cache.AddOrUpdateAsync(primary, secondary, rawData, cancellation);
             }
         }
     }

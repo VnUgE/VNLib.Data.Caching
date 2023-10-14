@@ -180,9 +180,9 @@ namespace VNLib.Plugins.Extensions.VNCache
         }
 
         ///<inheritdoc/>
-        public Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, ICacheObjectSerialzer serialzer, CancellationToken cancellation)
+        public Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, CancellationToken cancellation)
         {
-            return _client.AddOrUpdateAsync(key, newKey, rawData, serialzer, cancellation);
+            return _client.AddOrUpdateAsync(key, newKey, rawData, cancellation);
         }
     }
 }

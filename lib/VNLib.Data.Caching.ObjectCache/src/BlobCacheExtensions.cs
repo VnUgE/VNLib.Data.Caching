@@ -34,9 +34,42 @@ namespace VNLib.Data.Caching.ObjectCache
     /// </summary>
     public static class BlobCacheExtensions
     {
+
+        /// <summary>
+        /// Gets a <see cref="CacheBucketHandle"/> that holds an exclusive lock 
+        /// for the current bucekt and holds a referrence to the stored
+        /// <see cref="IBlobCache"/>
+        /// </summary>
+        /// <param name="bucket"></param>
+        /// <param name="cancellation">A token to cancel the wait operation</param>
+        /// <returns>A <see cref="CacheBucketHandle"/> that holds the <see cref="IBlobCache"/> referrence</returns>
+        public static ValueTask<CacheBucketHandle> WaitAsync(this IBlobCacheBucket bucket, CancellationToken cancellation)
+        {
+            _ = bucket ?? throw new ArgumentNullException(nameof(bucket));
+
+            //Try enter the bucket lock
+            ValueTask<IBlobCache> cacheWait = bucket.ManualWaitAsync(cancellation);
+
+            if (cacheWait.IsCompleted)
+            {
+                IBlobCache bucketHandle = cacheWait.GetAwaiter().GetResult();
+                return new ValueTask<CacheBucketHandle>(new CacheBucketHandle(bucket, bucketHandle));
+            }
+            else
+            {
+                return GetHandleAsync(cacheWait, bucket);
+            }           
+
+            static async ValueTask<CacheBucketHandle> GetHandleAsync(ValueTask<IBlobCache> waitTask, IBlobCacheBucket bucket)
+            {
+                IBlobCache cache = await waitTask.ConfigureAwait(false);
+                return new CacheBucketHandle(bucket, cache);
+            }
+        }
+
         internal static CacheEntry CreateEntry(this IBlobCache cache, string objectId, ReadOnlySpan<byte> initialData, DateTime time)
         {
-            CacheEntry entry = CacheEntry.Create(initialData, cache.CacheHeap);
+            CacheEntry entry = CacheEntry.Create(initialData, cache.MemoryManager);
             try
             {
                 //try to add the entry, but if exists, let it throw
@@ -115,17 +148,27 @@ namespace VNLib.Data.Caching.ObjectCache
             DateTime time,
             CancellationToken cancellation = default)
         {
+
+            _ = table ?? throw new ArgumentNullException(nameof(table));
+            _ = bodyData ?? throw new ArgumentNullException(nameof(bodyData));
+
             //See if an id change is required
             if (string.IsNullOrWhiteSpace(alternateId))
             {
                 //safe to get the bucket for the primary id
                 IBlobCacheBucket bucket = table.GetBucket(objectId);
 
-                //Wait for the bucket
-                using CacheBucketHandle handle = await bucket.WaitAsync(cancellation);
+                //Wait for the bucket to be available
+                IBlobCache cache = await bucket.ManualWaitAsync(cancellation);
 
-                //add/update for single entity
-                _ = handle.Cache.AddOrUpdateEntry(objectId, bodyData(state), time);
+                try
+                {
+                    _ = cache.AddOrUpdateEntry(objectId, bodyData(state), time);
+                }
+                finally
+                {
+                    bucket.Release();
+                }
             }
             else
             {
@@ -136,11 +179,17 @@ namespace VNLib.Data.Caching.ObjectCache
                 //Same bucket
                 if (ReferenceEquals(primary, alternate))
                 {
-                    //wait for lock on only one bucket otherwise dealock
-                    using CacheBucketHandle handle = await primary.WaitAsync(cancellation);
+                    IBlobCache cache = await primary.ManualWaitAsync(cancellation);
 
-                    //Update the entry for the single bucket
-                    _ = handle.Cache.TryChangeKey(objectId, alternateId, bodyData(state), time);
+                    try
+                    {
+                        //Update the entry for the single bucket
+                        _ = cache.TryChangeKey(objectId, alternateId, bodyData(state), time);
+                    }
+                    finally
+                    {
+                        primary.Release();
+                    }
                 }
                 else
                 {
@@ -187,11 +236,17 @@ namespace VNLib.Data.Caching.ObjectCache
             //Try to get the bucket that the id should belong to
             IBlobCacheBucket bucket = table.GetBucket(objectId);
 
-            //Wait for lock on bucket async
-            using CacheBucketHandle handle = await bucket.WaitAsync(cancellation);
+            //Wait for the bucket
+            IBlobCache cache = await bucket.ManualWaitAsync(cancellation);
 
-            //Remove the object from the blob store
-            return handle.Cache.Remove(objectId);
+            try
+            {
+                return cache.Remove(objectId);
+            }
+            finally
+            {
+                bucket.Release();
+            }
         }
     }
 }

@@ -295,11 +295,11 @@ namespace VNLib.Plugins.Extensions.VNCache
         }
 
         ///<inheritdoc/>
-        public virtual Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, ICacheObjectSerialzer serialzer, CancellationToken cancellation)
+        public virtual Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, CancellationToken cancellation)
         {
             return !IsConnected
             ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
-            : Client!.AddOrUpdateObjectAsync(key, newKey, rawData, serialzer, cancellation);
+            : Client!.AddOrUpdateObjectAsync(key, newKey, rawData, cancellation);
         }
 
         private sealed class AuthManager : ICacheAuthManager

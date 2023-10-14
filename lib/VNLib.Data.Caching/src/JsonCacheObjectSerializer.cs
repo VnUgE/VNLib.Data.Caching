@@ -75,10 +75,7 @@ namespace VNLib.Data.Caching
         }
 
         ///<inheritdoc/>
-        public virtual object? Deserialze(Type type, ReadOnlySpan<byte> objectData)
-        {
-            return JsonSerializer.Deserialize(objectData, type, _options);
-        }
+        public virtual T? Deserialze<T>(ReadOnlySpan<byte> objectData) => JsonSerializer.Deserialize<T>(objectData, _options);
 
         ///<inheritdoc/>
         public virtual void Serialize<T>(T obj, IBufferWriter<byte> finiteWriter)
