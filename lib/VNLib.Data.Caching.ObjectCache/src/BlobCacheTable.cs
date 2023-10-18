@@ -38,7 +38,7 @@ namespace VNLib.Data.Caching.ObjectCache
     public sealed class BlobCacheTable : VnDisposeable, IBlobCacheTable
     {
         private readonly uint _tableSize;
-        private readonly IBlobCacheBucket[] _buckets;
+        private readonly BlobCacheBucket[] _buckets;
         private readonly IPersistantCacheStore? _persistant;
 
 
@@ -75,17 +75,17 @@ namespace VNLib.Data.Caching.ObjectCache
 
             //Init bucket table
             _tableSize = tableSize;
-            _buckets = new IBlobCacheBucket[tableSize];
-
             _persistant = persistantCache;
 
             //Init buckets
-            InitBuckets(tableSize, bucketSize, _buckets, factory, persistantCache);
+            InitBuckets(tableSize, bucketSize, out _buckets, factory, persistantCache);
         }
 
 
-        private static void InitBuckets(uint size, uint bucketSize, IBlobCacheBucket[] table, ICacheMemoryManagerFactory man, IPersistantCacheStore? persistantCache)
+        private static void InitBuckets(uint size, uint bucketSize, out BlobCacheBucket[] table, ICacheMemoryManagerFactory man, IPersistantCacheStore? persistantCache)
         {
+            table = new BlobCacheBucket[size];
+
             for(uint i = 0; i < size; i++)
             {
                 //Get the memory manager for the bucket

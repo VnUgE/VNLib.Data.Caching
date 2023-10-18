@@ -33,7 +33,7 @@ namespace VNLib.Data.Caching.ObjectCache
     /// </summary>
     public sealed class BlobCacheBucket : IBlobCacheBucket
     {
-        private readonly IBlobCache _cacheTable;
+        private readonly BlobCache _cacheTable;
         private readonly SemaphoreSlim _lock;
 
         ///<inheritdoc/>
