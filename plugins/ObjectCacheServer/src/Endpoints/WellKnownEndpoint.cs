@@ -53,7 +53,6 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
         //Loosen up security requirements
         protected override ProtectionSettings EndpointProtectionSettings { get; } = new()
         {
-            DisableBrowsersOnly = true,
             DisableSessionsRequired = true,
         };
 

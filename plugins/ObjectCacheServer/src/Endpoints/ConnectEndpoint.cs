@@ -82,7 +82,6 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
         ///<inheritdoc/>
         protected override ProtectionSettings EndpointProtectionSettings { get; } = new()
         {
-            DisableBrowsersOnly = true,
             DisableSessionsRequired = true
         };
 
