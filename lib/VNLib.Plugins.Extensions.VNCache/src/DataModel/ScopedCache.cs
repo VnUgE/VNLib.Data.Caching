@@ -50,21 +50,24 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         public abstract Task AddOrUpdateAsync<T>(string key, string? newKey, T value, CancellationToken cancellation);
 
         ///<inheritdoc/>
-        public abstract Task DeleteAsync(string key, CancellationToken cancellation);
+        public abstract Task<bool> DeleteAsync(string key, CancellationToken cancellation);
        
         ///<inheritdoc/>
         public abstract Task<T?> GetAsync<T>(string key, CancellationToken cancellation);
 
         ///<inheritdoc/>
-        public abstract Task<T?> GetAsync<T>(string key, ICacheObjectDeserialzer deserializer, CancellationToken cancellation);
+        public abstract Task<T?> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation);
 
         ///<inheritdoc/>
-        public abstract Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerialzer serialzer, CancellationToken cancellation);
+        public abstract Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation);
 
         ///<inheritdoc/>
-        public abstract Task GetAsync(string key, IObjectData rawData, CancellationToken cancellation);
+        public abstract Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation);
 
         ///<inheritdoc/>
-        public abstract Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, CancellationToken cancellation);
+        public abstract Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataReader<T> callback, T state, CancellationToken cancellation);
+
+        ///<inheritdoc/>
+        public abstract object GetUnderlyingStore();
     }
 }

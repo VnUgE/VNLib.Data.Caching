@@ -101,6 +101,20 @@ namespace VNLib.Data.Caching.Extensions
         /// <returns>A preconfigured <see cref="FBMClientConfig"/> for object caching</returns>
         public static FBMClientConfig GetDefaultConfig(IUnmangedHeap heap, int maxMessageSize, TimeSpan timeout = default, ILogProvider? debugLog = null)
         {
+            return GetDefaultConfig(new FallbackFBMMemoryManager(heap), maxMessageSize, timeout, debugLog);
+        }
+
+        /// <summary>
+        /// Gets a <see cref="FBMClientConfig"/> preconfigured object caching
+        /// protocl
+        /// </summary>
+        /// <param name="memManager">The client buffer heap</param>
+        /// <param name="maxMessageSize">The maxium message size (in bytes)</param>
+        /// <param name="debugLog">An optional debug log</param>
+        /// <param name="timeout">Request message timeout</param>
+        /// <returns>A preconfigured <see cref="FBMClientConfig"/> for object caching</returns>
+        public static FBMClientConfig GetDefaultConfig(IFBMMemoryManager memManager, int maxMessageSize, TimeSpan timeout = default, ILogProvider? debugLog = null)
+        {
             /*
              * Max message size (for server) should account for max data + the additional header buffer
              */
@@ -108,7 +122,7 @@ namespace VNLib.Data.Caching.Extensions
 
             return new()
             {
-                BufferHeap = heap,
+                MemoryManager = memManager,
                
                 //Max message size is referrences 
                 MaxMessageSize = maxExtra,
@@ -703,5 +717,6 @@ namespace VNLib.Data.Caching.Extensions
             int randServer = RandomNumberGenerator.GetInt32(0, servers.Count);
             return servers.ElementAt(randServer);
         }
+
     }
 }

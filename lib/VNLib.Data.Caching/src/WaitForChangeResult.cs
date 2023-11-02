@@ -27,14 +27,21 @@ namespace VNLib.Data.Caching
     /// <summary>
     /// The result of a cache server change event
     /// </summary>
-    /// <param name="Status">The operation status code</param>
-    /// <param name="CurrentId">The current (or old) id of the element that changed</param>
-    /// <param name="NewId">The new id of the element that changed</param>
-    public readonly record struct WaitForChangeResult(
-        string Status,
-        string CurrentId,
-        string NewId)
+    public sealed record class WaitForChangeResult
     {
-       
+        /// <summary>
+        /// The operation status code
+        /// </summary>
+        public string? Status { get; set; }
+
+        /// <summary>
+        /// The current (or old) id of the element that changed
+        /// </summary>
+        public string? CurrentId { get; set; }
+
+        /// <summary>
+        /// The new id of the element that changed
+        /// </summary>
+        public string? NewId { get; set; }
     }
 }

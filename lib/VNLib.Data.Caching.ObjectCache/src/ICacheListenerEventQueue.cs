@@ -32,14 +32,15 @@ namespace VNLib.Data.Caching.ObjectCache
     /// <summary>
     /// Represents a single client's event queue
     /// </summary>
-    public interface ICacheListenerEventQueue
+    /// <typeparam name="T">The user state parameter type</typeparam>
+    public interface ICacheListenerEventQueue<T>
     {
         /// <summary>
         /// Determines if the queue is enabled for the given user state
         /// </summary>
         /// <param name="userState">The unique state of the connection</param>
         /// <returns>True if event queuing is enabled</returns>
-        bool IsEnabled([NotNullWhen(true)] object? userState);
+        bool IsEnabled([NotNullWhen(true)] T? userState);
 
         /// <summary>
         /// Attempts to dequeue a single event from the queue without blocking
@@ -47,7 +48,7 @@ namespace VNLib.Data.Caching.ObjectCache
         /// <param name="userState">A user state object to associate with the wait operation</param>
         /// <param name="changeEvent">The dequeued event if successfully dequeued</param>
         /// <returns>True if an event was waiting and could be dequeued, false otherwise</returns>
-        bool TryDequeue(object userState, out ChangeEvent changeEvent);
+        bool TryDequeue(T userState, out ChangeEvent changeEvent);
 
         /// <summary>
         /// Waits asynchronously for an event to be dequeued
@@ -55,7 +56,7 @@ namespace VNLib.Data.Caching.ObjectCache
         /// <param name="userState">A user state object to associate with the wait operation</param>
         /// <param name="cancellation">A token to cancel the wait operation</param>
         /// <returns>The <see cref="ChangeEvent"/> that as a result of the dequeue operation</returns>
-        ValueTask<ChangeEvent> DequeueAsync(object userState, CancellationToken cancellation);
+        ValueTask<ChangeEvent> DequeueAsync(T userState, CancellationToken cancellation);
 
         /// <summary>
         /// Publishes an event to the queue

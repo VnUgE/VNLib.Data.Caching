@@ -3,9 +3,9 @@
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
-* File: ICacheObjectSerialzer.cs 
+* File: ICacheObjectSerializer.cs 
 *
-* ICacheObjectSerialzer.cs is part of VNLib.Data.Caching which is part 
+* ICacheObjectSerializer.cs is part of VNLib.Data.Caching which is part 
 * of the larger VNLib collection of libraries and utilities.
 *
 * VNLib.Data.Caching is free software: you can redistribute it and/or modify 
@@ -30,7 +30,7 @@ namespace VNLib.Data.Caching
     /// <summary>
     /// Provides custom binary deserialziation for a given type
     /// </summary>
-    public interface ICacheObjectSerialzer
+    public interface ICacheObjectSerializer
     {
         /// <summary>
         /// Serializes an instance of the given type and writes

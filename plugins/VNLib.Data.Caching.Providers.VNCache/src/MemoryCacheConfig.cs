@@ -2,18 +2,18 @@
 * Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
-* Package: VNLib.Plugins.Extensions.VNCache
+* Package: VNLib.Data.Caching.Providers.VNCache
 * File: MemoryCacheConfig.cs 
 *
-* MemoryCacheConfig.cs is part of VNLib.Plugins.Extensions.VNCache 
+* MemoryCacheConfig.cs is part of VNLib.Data.Caching.Providers.VNCache 
 * which is part of the larger VNLib collection of libraries and utilities.
 *
-* VNLib.Plugins.Extensions.VNCache is free software: you can redistribute it and/or modify 
+* VNLib.Data.Caching.Providers.VNCache is free software: you can redistribute it and/or modify 
 * it under the terms of the GNU Affero General Public License as 
 * published by the Free Software Foundation, either version 3 of the
 * License, or (at your option) any later version.
 *
-* VNLib.Plugins.Extensions.VNCache is distributed in the hope that it will be useful,
+* VNLib.Data.Caching.Providers.VNCache is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 * GNU Affero General Public License for more details.
@@ -27,7 +27,7 @@ using System.Text.Json.Serialization;
 
 using VNLib.Plugins.Extensions.Loading;
 
-namespace VNLib.Plugins.Extensions.VNCache
+namespace VNLib.Data.Caching.Providers.VNCache
 {
     /// <summary>
     /// Memorycache configuration object. Json-(de)serializable 
@@ -50,7 +50,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// The maxium size (in bytes) of each cache entry within any bucket
         /// </summary>
         [JsonPropertyName("max_object_size")]
-        public uint MaxBlobSize { get; set; } = 16 * 1024; 
+        public uint MaxBlobSize { get; set; } = 16 * 1024;
 
         [JsonIgnore]
         public TimeSpan MaxCacheAge { get; set; } = TimeSpan.FromMinutes(1);
@@ -90,17 +90,17 @@ namespace VNLib.Plugins.Extensions.VNCache
         ///<inheritdoc/>
         public void Validate()
         {
-            if(TableSize == 0)
+            if (TableSize == 0)
             {
                 throw new ArgumentException("You must specify a cache bucket table size", "buckets");
             }
 
-            if(BucketSize == 0)
+            if (BucketSize == 0)
             {
                 throw new ArgumentException("You must specify the maxium number of entires allowed in each bucket ", "bucket_size");
             }
 
-            if(MaxBlobSize < 16)
+            if (MaxBlobSize < 16)
             {
                 throw new ArgumentException("You must configure a maximum object size", "max_object_size");
             }

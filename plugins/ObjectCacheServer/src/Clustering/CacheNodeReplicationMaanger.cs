@@ -231,18 +231,25 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
         private async Task ReplicationWorkerDoWorkAsync(FBMClient client, ILogProvider log, CancellationToken exitToken)
         {
             //Reusable request message
-            using FBMRequest request = new(client.Config);
+            using FBMRequest request = new(in client.Config);
+
+            WaitForChangeResult changedObject = new();
 
             //Listen for changes
             while (true)
             {
                 //Wait for changes
-                WaitForChangeResult changedObject = await client.WaitForChangeAsync(exitToken);
+                await client.WaitForChangeAsync(changedObject, exitToken);
 
                 log.Debug("Object changed {typ} {obj}", changedObject.Status, changedObject.CurrentId);
 
                 switch (changedObject.Status)
                 {
+                    /*
+                     * During a WFC operation, if a NotFound response is received, it 
+                     * means a wait queue was not found for the connection, usually meaning
+                     * the server does not support replication.
+                     */
                     case ResponseCodes.NotFound:
                         log.Error("Server cache not properly configured, worker exiting");
                         return;
@@ -254,7 +261,14 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
                         //Reload the record from the store
                         await UpdateRecordAsync(client, request, log, changedObject.CurrentId, changedObject.NewId, exitToken);
                         break;
+                    default:
+                        log.Error("Unknown status {status} received from server", changedObject.Status);
+                        break;
                 }
+
+                changedObject.Status = null;
+                changedObject.CurrentId = null;
+                changedObject.NewId = null;
 
                 //Reset request message
                 request.Reset();

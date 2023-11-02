@@ -32,9 +32,10 @@ using VNLib.Plugins;
 using VNLib.Utils;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Extensions;
+using VNLib.Data.Caching.ObjectCache;
 using VNLib.Plugins.Extensions.Loading;
 
-namespace VNLib.Data.Caching.ObjectCache.Server
+namespace VNLib.Data.Caching.Providers.VNCache
 {
     [ConfigurationName("memory_manager", Required = false)]
     internal sealed class BucketLocalManagerFactory : VnDisposeable, ICacheMemoryManagerFactory
@@ -60,10 +61,10 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         /// </summary>
         /// <param name="zeroAll">Forces all allocations to be zeroed before being returned to callers</param>
         /// <returns></returns>
-        public static BucketLocalManagerFactory Create(bool zeroAll) => new (zeroAll);
+        public static BucketLocalManagerFactory Create(bool zeroAll) => new(zeroAll);
 
         private BucketLocalManagerFactory(bool zeroAll)
-        { 
+        {
             _zeroAll = zeroAll;
         }
 

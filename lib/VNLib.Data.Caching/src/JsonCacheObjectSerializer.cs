@@ -32,10 +32,10 @@ using VNLib.Utils.Memory.Caching;
 namespace VNLib.Data.Caching
 {
     /// <summary>
-    /// Implements a <see cref="ICacheObjectDeserialzer"/> and a <see cref="ICacheObjectSerialzer"/>
+    /// Implements a <see cref="ICacheObjectDeserializer"/> and a <see cref="ICacheObjectSerializer"/>
     /// that uses JSON serialization, with writer pooling. Members of this class are thread-safe.
     /// </summary>
-    public class JsonCacheObjectSerializer : ICacheObjectSerialzer, ICacheObjectDeserialzer
+    public class JsonCacheObjectSerializer : ICacheObjectSerializer, ICacheObjectDeserializer
     {
         //Create threadlocal writer for attempted lock-free writer reuse
         private static readonly ObjectRental<ReusableJsonWriter> JsonWriterPool = ObjectRental.CreateThreadLocal<ReusableJsonWriter>();
@@ -75,7 +75,7 @@ namespace VNLib.Data.Caching
         }
 
         ///<inheritdoc/>
-        public virtual T? Deserialze<T>(ReadOnlySpan<byte> objectData) => JsonSerializer.Deserialize<T>(objectData, _options);
+        public virtual T? Deserialize<T>(ReadOnlySpan<byte> objectData) => JsonSerializer.Deserialize<T>(objectData, _options);
 
         ///<inheritdoc/>
         public virtual void Serialize<T>(T obj, IBufferWriter<byte> finiteWriter)

@@ -27,6 +27,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using VNLib.Utils.Logging;
+using VNLib.Net.Messaging.FBM;
 using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
 
@@ -43,7 +44,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
         /// <summary>
         /// Gets the underlying cache listener
         /// </summary>
-        public BlobCacheListener Listener { get; }
+        public BlobCacheListener<IPeerEventQueue> Listener { get; }
 
 
         public CacheStore(PluginBase plugin, IConfigScope config)
@@ -53,7 +54,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
         }
 
         ///<inheritdoc/>
-        ValueTask ICacheStore.AddOrUpdateBlobAsync<T>(string objectId, string? alternateId, GetBodyDataCallback<T> bodyData, T state, CancellationToken token)
+        ValueTask ICacheStore.AddOrUpdateBlobAsync<T>(string objectId, string? alternateId, ObjectDataReader<T> bodyData, T state, CancellationToken token)
         {
             return Listener.Cache.AddOrUpdateObjectAsync(objectId, alternateId, bodyData, state, default, token);
         }
@@ -70,7 +71,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
             return Listener.Cache.DeleteObjectAsync(id, token);
         }
 
-        private static BlobCacheListener InitializeCache(ObjectCacheServerEntry plugin, IConfigScope config)
+        private static BlobCacheListener<IPeerEventQueue> InitializeCache(ObjectCacheServerEntry plugin, IConfigScope config)
         {
             const string CacheConfigTemplate =
 @"
@@ -105,7 +106,7 @@ Cache Configuration:
             );
 
             //Get the event listener
-            ICacheListenerEventQueue queue = plugin.GetOrCreateSingleton<CacheListenerPubQueue>();
+            ICacheListenerEventQueue<IPeerEventQueue> queue = plugin.GetOrCreateSingleton<CacheListenerPubQueue>();
 
             //Get the memory manager
             ICacheMemoryManagerFactory manager = plugin.GetOrCreateSingleton<BucketLocalManagerFactory>();
@@ -113,8 +114,10 @@ Cache Configuration:
             //Load the blob cache table system
             IBlobCacheTable bc = plugin.LoadMemoryCacheSystem(config, manager, cacheConf);
 
+            FallbackFBMMemoryManager fbmMemManager = new(plugin.ListenerHeap);
+
             //Endpoint only allows for a single reader
-            return new(bc, queue, plugin.Log, plugin.ListenerHeap);
+            return new(bc, queue, plugin.Log, fbmMemManager);
         }
 
         /*

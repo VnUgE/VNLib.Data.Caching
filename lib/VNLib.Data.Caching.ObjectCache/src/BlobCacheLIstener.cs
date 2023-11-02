@@ -42,57 +42,54 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
+using VNLib.Net.Messaging.FBM;
 using VNLib.Net.Messaging.FBM.Server;
 using static VNLib.Data.Caching.Constants;
 
 namespace VNLib.Data.Caching.ObjectCache
 {
-    public delegate ReadOnlySpan<byte> GetBodyDataCallback<T>(T state);
 
     /// <summary>
     /// An <see cref="FBMListener"/> for key-value object data caching servers.
     /// </summary>
-    public class BlobCacheListener : FBMListenerBase, IDisposable
+    public class BlobCacheListener<T> : FBMListenerBase<T>, IDisposable
     {
         private bool disposedValue;
 
         ///<inheritdoc/>
         protected override ILogProvider Log { get; }
+        ///<inheritdoc/>
+        protected override FBMListener Listener { get; }
 
         /// <summary>
         /// A queue that stores update and delete events
         /// </summary>
-        public ICacheListenerEventQueue EventQueue { get; }
+        public ICacheListenerEventQueue<T> EventQueue { get; }
 
         /// <summary>
         /// The Cache store to access data blobs
         /// </summary>
         public IBlobCacheTable Cache { get; }
 
-
         /// <summary>
-        /// Initialzies a new <see cref="BlobCacheListener"/>
+        /// Initialzies a new <see cref="BlobCacheListener{T}"/>
         /// </summary>
         /// <param name="cache">The cache table to work from</param>
         /// <param name="queue">The event queue to publish changes to</param>
         /// <param name="log">Writes error and debug logging information</param>
-        /// <param name="heap">The heap to alloc FBM buffers and <see cref="CacheEntry"/> cache buffers from</param>
+        /// <param name="memoryManager">The heap to alloc FBM buffers and <see cref="CacheEntry"/> cache buffers from</param>
         /// <exception cref="ArgumentNullException"></exception>
-        public BlobCacheListener(IBlobCacheTable cache, ICacheListenerEventQueue queue, ILogProvider log, IUnmangedHeap heap)
+        public BlobCacheListener(IBlobCacheTable cache, ICacheListenerEventQueue<T> queue, ILogProvider log, IFBMMemoryManager memoryManager)
         {
-            Log = log;
-            
+            Log = log;            
             Cache = cache ?? throw new ArgumentNullException(nameof(cache));
-
             EventQueue = queue ?? throw new ArgumentNullException(nameof(queue));
-
-            InitListener(heap);
+            Listener = new(memoryManager);
         }
 
         ///<inheritdoc/>
-        protected override async Task ProcessAsync(FBMContext context, object? userState, CancellationToken exitToken)
+        protected override async Task ProcessAsync(FBMContext context, T? userState, CancellationToken exitToken)
         {
             try
             {

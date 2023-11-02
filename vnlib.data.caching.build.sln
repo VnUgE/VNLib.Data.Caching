@@ -29,6 +29,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		Taskfile.yaml = Taskfile.yaml
 	EndProjectSection
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VNLib.Data.Caching.Providers.VNCache", "plugins\VNLib.Data.Caching.Providers.VNCache\src\VNLib.Data.Caching.Providers.VNCache.csproj", "{EE352860-AC6F-4938-9F7C-F251CF9AF7B4}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VNLib.Data.Caching.Providers.Redis", "plugins\VNLib.Data.Caching.Providers.Redis\src\VNLib.Data.Caching.Providers.Redis.csproj", "{AA412A81-C03E-49C1-8E78-26E3310D06EF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +59,14 @@ Global
 		{AAECEC05-2439-47B4-A50D-D46EDDFA420C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AAECEC05-2439-47B4-A50D-D46EDDFA420C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AAECEC05-2439-47B4-A50D-D46EDDFA420C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EE352860-AC6F-4938-9F7C-F251CF9AF7B4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EE352860-AC6F-4938-9F7C-F251CF9AF7B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EE352860-AC6F-4938-9F7C-F251CF9AF7B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EE352860-AC6F-4938-9F7C-F251CF9AF7B4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AA412A81-C03E-49C1-8E78-26E3310D06EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AA412A81-C03E-49C1-8E78-26E3310D06EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AA412A81-C03E-49C1-8E78-26E3310D06EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AA412A81-C03E-49C1-8E78-26E3310D06EF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -65,6 +77,8 @@ Global
 		{FEDACFD5-2529-4E37-8D11-3E0143954368} = {FBF12BFF-51A7-43BD-A066-D2FFACF333AA}
 		{E21ED553-4B08-41A5-B329-4BAF7701A99F} = {FBF12BFF-51A7-43BD-A066-D2FFACF333AA}
 		{AAECEC05-2439-47B4-A50D-D46EDDFA420C} = {39E35C2F-BFBB-4819-B66A-475057D389EB}
+		{EE352860-AC6F-4938-9F7C-F251CF9AF7B4} = {39E35C2F-BFBB-4819-B66A-475057D389EB}
+		{AA412A81-C03E-49C1-8E78-26E3310D06EF} = {39E35C2F-BFBB-4819-B66A-475057D389EB}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C1214A47-444A-432F-8CF8-FDF2B1FA1CEC}

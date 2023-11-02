@@ -2,18 +2,18 @@
 * Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
-* Package: VNLib.Plugins.Extensions.VNCache
+* Package: VNLib.Data.Caching.Providers.VNCache
 * File: AddOrUpdateBuffer.cs 
 *
-* AddOrUpdateBuffer.cs is part of VNLib.Plugins.Extensions.VNCache 
+* AddOrUpdateBuffer.cs is part of VNLib.Data.Caching.Providers.VNCache 
 * which is part of the larger VNLib collection of libraries and utilities.
 *
-* VNLib.Plugins.Extensions.VNCache is free software: you can redistribute it and/or modify 
+* VNLib.Data.Caching.Providers.VNCache is free software: you can redistribute it and/or modify 
 * it under the terms of the GNU Affero General Public License as 
 * published by the Free Software Foundation, either version 3 of the
 * License, or (at your option) any later version.
 *
-* VNLib.Plugins.Extensions.VNCache is distributed in the hope that it will be useful,
+* VNLib.Data.Caching.Providers.VNCache is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 * GNU Affero General Public License for more details.
@@ -28,16 +28,15 @@ using System.Buffers;
 using VNLib.Utils;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Extensions;
-using VNLib.Data.Caching;
 
-namespace VNLib.Plugins.Extensions.VNCache
+namespace VNLib.Data.Caching.Providers.VNCache
 {
     /// <summary>
     /// Implements a buffer writer that serves to serialize object data and 
     /// store the object data for use by the memory cache store, and the 
     /// remote cache store
     /// </summary>
-    class AddOrUpdateBuffer : VnDisposeable, IBufferWriter<byte>, IObjectData
+    internal sealed class AddOrUpdateBuffer : VnDisposeable, IBufferWriter<byte>, IObjectData
     {
         private int _count;
         private readonly IUnmangedHeap _heap;
@@ -48,18 +47,21 @@ namespace VNLib.Plugins.Extensions.VNCache
             _heap = heap;
         }
 
+        ///<inheritdoc/>
         public void Advance(int count)
         {
             //Update count
             _count += count;
         }
 
-        public Memory<byte> GetMemory(int sizeHint = 0)
+        ///<inheritdoc/>
+        Memory<byte> IBufferWriter<byte>.GetMemory(int sizeHint = 0)
         {
             throw new NotImplementedException();
         }
 
-        public Span<byte> GetSpan(int sizeHint = 0)
+        ///<inheritdoc/>
+        Span<byte> IBufferWriter<byte>.GetSpan(int sizeHint = 0)
         {
             //Round to nearest page for new size
             nint newSize = MemoryUtil.NearestPage(sizeHint + _count);
@@ -78,16 +80,13 @@ namespace VNLib.Plugins.Extensions.VNCache
             return _buffer.AsSpan(_count);
         }
 
-        public void SetData(ReadOnlySpan<byte> data)
+        void IObjectData.SetData(ReadOnlySpan<byte> data)
         {
             throw new NotSupportedException();
         }
 
-        public ReadOnlySpan<byte> GetData()
-        {
-            //Get stored data from within handle
-            return _buffer!.AsSpan(0, _count);
-        }
+        ///<inheritdoc/>
+        public ReadOnlySpan<byte> GetData() => _buffer!.AsSpan(0, _count);
 
         protected override void Free()
         {

@@ -24,12 +24,10 @@
 
 using System;
 using System.Net;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
-using VNLib.Hashing;
 using VNLib.Net.Http;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
@@ -49,22 +47,20 @@ using VNLib.Data.Caching.Extensions.Clustering;
 using VNLib.Data.Caching.ObjectCache.Server.Cache;
 using VNLib.Data.Caching.ObjectCache.Server.Clustering;
 
+
 namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
 {
 
     internal sealed class ConnectEndpoint : ResourceEndpointBase
     {
-        private const string LOG_SCOPE_NAME = "CONEP";
+        internal const string LOG_SCOPE_NAME = "CONEP";
 
-        private static readonly TimeSpan AuthTokenExpiration = TimeSpan.FromSeconds(30);
-      
-
-        private readonly NodeConfig NodeConfiguration;
+       
         private readonly ICacheEventQueueManager PubSubManager;
         private readonly IPeerMonitor Peers;
-        private readonly BlobCacheListener Store;
-        
-        private readonly string AudienceLocalServerId;
+        private readonly BlobCacheListener<IPeerEventQueue> Store;
+        private readonly NodeConfig NodeConfiguration;
+        private readonly CacheNegotationManager AuthManager;
 
         private uint _connectedClients;
 
@@ -105,11 +101,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             //Get the cache store configuration
             CacheConfig = plugin.GetConfigForType<CacheStore>().Deserialze<CacheConfiguration>();
 
-            /*
-            * Generate a random guid for the current server when created so we 
-            * know client tokens belong to us when singed by the same key
-            */
-            AudienceLocalServerId = Guid.NewGuid().ToString("N");
+            //Get the auth manager
+            AuthManager = plugin.GetOrCreateSingleton<CacheNegotationManager>();
         }
       
 
@@ -136,52 +129,19 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             string? jwtAuth = entity.Server.Headers[HttpRequestHeader.Authorization];
             if (string.IsNullOrWhiteSpace(jwtAuth))
             {
-                entity.CloseResponse(HttpStatusCode.Unauthorized);
-                return VfReturnType.VirtualSkip;
+                return VirtualClose(entity, HttpStatusCode.Forbidden);
             }
 
-            string? nodeId = null;
-            string? challenge = null;
-            bool isPeer = false;
-
-            // Parse jwt
-            using (JsonWebToken jwt = JsonWebToken.Parse(jwtAuth))
+            //Create negotiation state
+            if(!AuthManager.IsClientNegotiationValid(jwtAuth, out ClientNegotiationState state))
             {
-                //verify signature for client
-                if (NodeConfiguration.KeyStore.VerifyJwt(jwt, false))
-                {
-                    //Validated
-                }
-                //May be signed by a cache server
-                else if(NodeConfiguration.KeyStore.VerifyJwt(jwt, true))
-                {
-                    //Set peer and verified flag since the another cache server signed the request
-                    isPeer = true;
-                }
-                else
-                {
-                    Log.Information("Client signature verification failed");
-                    entity.CloseResponse(HttpStatusCode.Unauthorized);
-                    return VfReturnType.VirtualSkip;
-                }
-
-                //Recover json body
-                using JsonDocument doc = jwt.GetPayload();
-
-                if (doc.RootElement.TryGetProperty("sub", out JsonElement servIdEl))
-                {
-                    nodeId = servIdEl.GetString();
-                }
-
-                if (doc.RootElement.TryGetProperty("chl", out JsonElement challengeEl))
-                {
-                    challenge = challengeEl.GetString();
-                }
+                Log.Information("Initial negotiation client signature verification failed");
+                return VirtualClose(entity, HttpStatusCode.Unauthorized);
             }
 
-            if (isPeer)
+            if (state.IsPeer)
             {
-                Log.Debug("Received negotiation request from peer node {node}", nodeId);
+                Log.Debug("Received negotiation request from peer node {node}", state.NodeId);
             }
             else
             {
@@ -189,29 +149,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             }
 
             //Verified, now we can create an auth message with a short expiration
-            using JsonWebToken auth = new();
-            
-            auth.WriteHeader(NodeConfiguration.KeyStore.GetJwtHeader());
-            auth.InitPayloadClaim()
-                .AddClaim("aud", AudienceLocalServerId)
-                .AddClaim("iat", entity.RequestedTimeUtc.ToUnixTimeSeconds())
-                .AddClaim("exp", entity.RequestedTimeUtc.Add(AuthTokenExpiration).ToUnixTimeSeconds())
-                .AddClaim("nonce", RandomHash.GetRandomBase32(8))
-                .AddClaim("chl", challenge!)
-                //Set the ispeer flag if the request was signed by a cache server
-                .AddClaim("isPeer", isPeer)
-                //Specify the server's node id if set
-                .AddClaim("sub", nodeId!)
-                //Set ip address
-                .AddClaim("ip", entity.TrustedRemoteIp.ToString())
-                //Add negotiaion args
-                .AddClaim(FBMClient.REQ_HEAD_BUF_QUERY_ARG, CacheConfig.MaxHeaderBufferSize)
-                .AddClaim(FBMClient.REQ_RECV_BUF_QUERY_ARG, CacheConfig.MaxRecvBufferSize)
-                .AddClaim(FBMClient.REQ_MAX_MESS_QUERY_ARG, CacheConfig.MaxMessageSize)
-                .CommitClaims();
-
-            //Sign the auth message from our private key
-            NodeConfiguration.KeyStore.SignJwt(auth);
+            using JsonWebToken auth = AuthManager.ConfirmCLientNegotiation(state, entity.TrustedRemoteIp, entity.RequestedTimeUtc);
 
             //Close response
             entity.CloseResponse(HttpStatusCode.OK, ContentType.Text, auth.DataBuffer);
@@ -222,101 +160,35 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
         {
             //Parse jwt from authorization
             string? jwtAuth = entity.Server.Headers[HttpRequestHeader.Authorization];
-
-            if (string.IsNullOrWhiteSpace(jwtAuth))
-            {
-                entity.CloseResponse(HttpStatusCode.Unauthorized);
-                return VfReturnType.VirtualSkip;
-            }
-
-            //Get the upgrade signature header
             string? clientSignature = entity.Server.Headers[FBMDataCacheExtensions.X_UPGRADE_SIG_HEADER];
+            string? optionalDiscovery = entity.Server.Headers[FBMDataCacheExtensions.X_NODE_DISCOVERY_HEADER];
 
-            if (string.IsNullOrWhiteSpace(clientSignature))
+            //Not null
+            if (string.IsNullOrWhiteSpace(jwtAuth) || string.IsNullOrWhiteSpace(clientSignature))
             {
-                entity.CloseResponse(HttpStatusCode.Unauthorized);
-                return VfReturnType.VirtualSkip;
+                return VfReturnType.Forbidden;
             }
 
             string? nodeId = null;
+            bool isPeer = false;
+
+            //Validate upgrade request
+            if (!AuthManager.ValidateUpgrade(jwtAuth, clientSignature, entity.RequestedTimeUtc, entity.TrustedRemoteIp, ref nodeId, ref isPeer))
+            {
+                return VirtualClose(entity, HttpStatusCode.Unauthorized);
+            }
+
             CacheNodeAdvertisment? discoveryAd = null;
 
-            //Parse jwt
-            using (JsonWebToken jwt = JsonWebToken.Parse(jwtAuth))
+            /*
+             * If the client is a peer server, it may offer a signed advertisment 
+             * that this node will have the duty of making available to other peers
+             * if it is valid
+             */
+
+            if (isPeer && !string.IsNullOrWhiteSpace(optionalDiscovery))
             {
-                //verify signature against the cache public key, since this server must have signed it
-                if (!NodeConfiguration.KeyStore.VerifyCachePeer(jwt))
-                {
-                    entity.CloseResponse(HttpStatusCode.Unauthorized);
-                    return VfReturnType.VirtualSkip;
-                }
-
-                //Recover json body
-                using JsonDocument doc = jwt.GetPayload();
-
-                //Verify audience, expiration
-
-                if (!doc.RootElement.TryGetProperty("aud", out JsonElement audEl) 
-                    || !AudienceLocalServerId.Equals(audEl.GetString(), StringComparison.OrdinalIgnoreCase))
-                {
-                    entity.CloseResponse(HttpStatusCode.Unauthorized);
-                    return VfReturnType.VirtualSkip;
-                }
-
-                if (!doc.RootElement.TryGetProperty("exp", out JsonElement expEl)
-                    || DateTimeOffset.FromUnixTimeSeconds(expEl.GetInt64()) < entity.RequestedTimeUtc)
-                {
-                    entity.CloseResponse(HttpStatusCode.Unauthorized);
-                    return VfReturnType.VirtualSkip;
-                }
-
-                //Check node ip address matches if required
-                if (NodeConfiguration.VerifyIp)
-                {
-                    if (!doc.RootElement.TryGetProperty("ip", out JsonElement ipEl))
-                    {
-                        entity.CloseResponse(HttpStatusCode.Unauthorized);
-                        return VfReturnType.VirtualSkip;
-                    }
-
-                    string? clientIp = ipEl.GetString();
-                    //Verify the client ip address matches the one in the token
-                    if (clientIp == null || !IPAddress.TryParse(clientIp, out IPAddress? clientIpAddr) || !clientIpAddr.Equals(entity.TrustedRemoteIp))
-                    {
-                        entity.CloseResponse(HttpStatusCode.Unauthorized);
-                        return VfReturnType.VirtualSkip;
-                    }
-                }
-
-                //Check if the client is a peer
-                bool isPeer = doc.RootElement.TryGetProperty("isPeer", out JsonElement isPeerEl) && isPeerEl.GetBoolean();
-
-                //The node id is optional and stored in the 'sub' field, ignore if the client is not a peer
-                if (isPeer && doc.RootElement.TryGetProperty("sub", out JsonElement servIdEl))
-                {
-                    nodeId = servIdEl.GetString();
-                }
-
-                //Verify the signature the client included of the auth token
-
-                //Verify token signature against a fellow cache public key
-                if (!NodeConfiguration.KeyStore.VerifyUpgradeToken(clientSignature, jwtAuth, isPeer))
-                {
-                    entity.CloseResponse(HttpStatusCode.Unauthorized);
-                    return VfReturnType.VirtualSkip;
-                }
-
-                if (isPeer)
-                {
-                    //Try to get the node advertisement header
-                    string? discoveryHeader = entity.Server.Headers[FBMDataCacheExtensions.X_NODE_DISCOVERY_HEADER];
-
-                    //Verify the node advertisement header and publish it
-                    if (!string.IsNullOrWhiteSpace(discoveryHeader))
-                    {
-                        discoveryAd = NodeConfiguration.KeyStore.VerifyPeerAdvertisment(discoveryHeader);
-                    }
-                }
+                discoveryAd = NodeConfiguration.KeyStore.VerifyPeerAdvertisment(optionalDiscovery);
             }
 
             WsUserState state;
@@ -369,7 +241,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             Log.Debug("Client buffer state {state}", state);
 
             //Accept socket and pass state object
-            entity.AcceptWebSocket(WebsocketAcceptedAsync, state);
+            _ = entity.AcceptWebSocket(WebsocketAcceptedAsync, state);
             return VfReturnType.VirtualSkip;
         }
         
@@ -400,7 +272,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
                 };
 
                 //Check if the client is a peer node, if it is, subscribe to change events
-                if (!string.IsNullOrWhiteSpace(state.NodeId))
+                if (state.IsPeer)
                 {
                     //Get the event queue for the current node
                     IPeerEventQueue queue = PubSubManager.Subscribe(state);
@@ -408,7 +280,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
                     try
                     {
                         //Begin listening for messages with a queue
-                        await Store.ListenAsync(wss, args, queue);
+                        await Store.ListenAsync(wss, queue, args);
                     }
                     finally
                     {
@@ -419,7 +291,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
                 else
                 {
                     //Begin listening for messages without a queue
-                    await Store.ListenAsync(wss, args, null);
+                    await Store.ListenAsync(wss, null!, args);
                 }
             }
             catch (OperationCanceledException)
@@ -455,6 +327,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             public int MaxResponseBufferSize { get; init; }
             public string? NodeId { get; init; }
             public CacheNodeAdvertisment? Advertisment { get; init; }
+
+            public bool IsPeer => !string.IsNullOrWhiteSpace(NodeId);
 
             public override string ToString()
             {

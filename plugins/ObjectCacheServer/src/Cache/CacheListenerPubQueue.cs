@@ -43,7 +43,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
      * their individual queues.
      */
 
-    internal sealed class CacheListenerPubQueue : ICacheListenerEventQueue, IAsyncBackgroundWork
+    internal sealed class CacheListenerPubQueue : ICacheListenerEventQueue<IPeerEventQueue>, IAsyncBackgroundWork
     {
         private const int MAX_LOCAL_QUEUE_ITEMS = 10000;
         private const string LOG_SCOPE_NAME = "QUEUE";
@@ -110,7 +110,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
         }
 
         ///<inheritdoc/>
-        public bool IsEnabled([NotNullWhen(true)] object? userState)
+        public bool IsEnabled([NotNullWhen(true)] IPeerEventQueue? userState)
         {
             return userState is IPeerEventQueue;
         }
@@ -125,15 +125,15 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
         }
 
         ///<inheritdoc/>
-        public bool TryDequeue(object userState, out ChangeEvent changeEvent)
+        public bool TryDequeue(IPeerEventQueue userState, out ChangeEvent changeEvent)
         {
-            return (userState as IPeerEventQueue)!.TryDequeue(out changeEvent);
+            return userState.TryDequeue(out changeEvent);
         }
 
         ///<inheritdoc/>
-        public ValueTask<ChangeEvent> DequeueAsync(object userState, CancellationToken cancellation)
+        public ValueTask<ChangeEvent> DequeueAsync(IPeerEventQueue userState, CancellationToken cancellation)
         {
-            return (userState as IPeerEventQueue)!.DequeueAsync(cancellation);
+            return userState.DequeueAsync(cancellation);
         }
     }
 }

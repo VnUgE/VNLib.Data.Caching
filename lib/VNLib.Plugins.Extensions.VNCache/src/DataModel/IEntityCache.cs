@@ -57,7 +57,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         /// <param name="id">The id of the item to remove</param>
         /// <param name="token">A token to cancel delete opdation</param>
         /// <returns>A task that completes when the item has been deleted successfully</returns>
-        Task RemoveAsync(string id, CancellationToken token = default);
+        Task<bool> RemoveAsync(string id, CancellationToken token = default);
     }
    
 }

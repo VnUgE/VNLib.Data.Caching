@@ -129,7 +129,8 @@ namespace VNLib.Data.Caching.ObjectCache
 
 
         /// <summary>
-        /// Asynchronously adds or updates an object in the store and optionally update's it's id
+        /// Asynchronously adds or updates an object in the store and optionally update's it's id.
+        /// If the alternate key already exists, it's data is overwritten.
         /// </summary>
         /// <param name="table"></param>
         /// <param name="objectId">The current (or old) id of the object</param>
@@ -143,7 +144,7 @@ namespace VNLib.Data.Caching.ObjectCache
             this IBlobCacheTable table,
             string objectId,
             string? alternateId,
-            GetBodyDataCallback<T> bodyData,
+            ObjectDataReader<T> bodyData,
             T state,
             DateTime time,
             CancellationToken cancellation = default)
@@ -202,23 +203,43 @@ namespace VNLib.Data.Caching.ObjectCache
                     {
                         try
                         {
-                            //Update the handle data and reuse the entry
-                            entry.UpdateData(bodyData(state));
+                            //Try to see if the alternate key already exists
+                            if (alternateHandle.Cache.TryGetValue(alternateId, out CacheEntry existing))
+                            {
+                                existing.UpdateData(bodyData(state));
 
-                            //Add the updated entry to the alternate table
-                            alternateHandle.Cache.Add(alternateId, entry);
+                                //dispose the old entry since we don't need it
+                                entry.Dispose();
+                            }
+                            else
+                            {
+                                //Update the entry buffer and reuse the entry
+                                entry.UpdateData(bodyData(state));
+
+                                //Add the updated entry to the alternate table
+                                alternateHandle.Cache.Add(alternateId, entry);
+                            }
                         }
                         catch
                         {
-                            //Cleanup handle if error adding
+                            //Cleanup removed entry if error adding
                             entry.Dispose();
                             throw;
                         }
                     }
                     else
                     {
-                        //Old entry did not exist, we need to create a new entry for the alternate bucket
-                        _ = alternateHandle.Cache.CreateEntry(alternateId, bodyData(state), time);
+                        //Try to see if the alternate key already exists in the target store
+                        if (alternateHandle.Cache.TryGetValue(alternateId, out CacheEntry existing))
+                        {
+                            //overwrite the existing entry data
+                            existing.UpdateData(bodyData(state));
+                        }
+                        else
+                        {
+                            //Old entry did not exist, we need to create a new entry for the alternate bucket
+                            _ = alternateHandle.Cache.CreateEntry(alternateId, bodyData(state), time);
+                        }
                     }
                 }
             }

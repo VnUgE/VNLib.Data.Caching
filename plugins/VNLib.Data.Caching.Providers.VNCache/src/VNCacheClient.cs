@@ -2,18 +2,18 @@
 * Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
-* Package: VNLib.Plugins.Extensions.VNCache
-* File: VnGlobalCache.cs 
+* Package: VNLib.Data.Caching.Providers.VNCache
+* File: VNCacheClient.cs 
 *
-* VnGlobalCache.cs is part of VNLib.Plugins.Extensions.VNCache which is part of the larger 
-* VNLib collection of libraries and utilities.
+* VNCacheClient.cs is part of VNLib.Data.Caching.Providers.VNCache which is 
+* part of the larger VNLib collection of libraries and utilities.
 *
-* VNLib.Plugins.Extensions.VNCache is free software: you can redistribute it and/or modify 
+* VNLib.Data.Caching.Providers.VNCache is free software: you can redistribute it and/or modify 
 * it under the terms of the GNU Affero General Public License as 
 * published by the Free Software Foundation, either version 3 of the
 * License, or (at your option) any later version.
 *
-* VNLib.Plugins.Extensions.VNCache is distributed in the hope that it will be useful,
+* VNLib.Data.Caching.Providers.VNCache is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 * GNU Affero General Public License for more details.
@@ -28,44 +28,60 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using VNLib.Utils.Logging;
-using VNLib.Data.Caching;
+using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
 
-namespace VNLib.Plugins.Extensions.VNCache
+/*
+ * This package exports an IGlobalCacheProvider that is intended to be packaged by 
+ * application distributors that want to use VNCache as a global cache for their 
+ * application.
+ * 
+ * This package allows for memory only caching, write-through memory cache, and 
+ * direct remote caching using VNCache as the backend.
+ */
+
+namespace VNLib.Data.Caching.Providers.VNCache
 {
 
     /// <summary>
-    /// A wrapper to simplify a shared global cache client
+    /// The VNCache global cache provider client, that is intended to be loaded
+    /// using <see cref="LoadingExtensions.GetOrCreateSingleton{T}(PluginBase)"/> directly
+    /// on the plugin loading a cache client.
+    /// <para>
+    /// Users may also create cache instances outside of plugin context using static 
+    /// methods.
+    /// </para>
     /// </summary>
-    [ConfigurationName(VNCacheExtensions.CACHE_CONFIG_KEY)]
-    public sealed class VnGlobalCache : IGlobalCacheProvider
+    [ExternService]
+    [ConfigurationName(CACHE_CONFIG_KEY)]
+    public sealed class VNCacheClient : IGlobalCacheProvider
     {
+        internal const string CACHE_CONFIG_KEY = "cache";
+        internal const string MEMORY_CACHE_CONFIG_KEY = "memory_cache";
+        internal const string MEMORY_CACHE_ONLY_KEY = "memory_only";
+
         private readonly IGlobalCacheProvider _client;
 
-        /// <summary>
-        /// Initializes an emtpy client wrapper that still requires 
-        /// configuration loading
-        /// </summary>
-        public VnGlobalCache(PluginBase pbase, IConfigScope config)
+        public VNCacheClient(PluginBase plugin, IConfigScope config)
         {
-            if (config.TryGetValue(VNCacheExtensions.MEMORY_CACHE_CONFIG_KEY, out _))
+            if (config.TryGetValue(MEMORY_CACHE_CONFIG_KEY, out _))
             {
                 //Check for memory only flag
-                if (config.TryGetValue(VNCacheExtensions.MEMORY_CACHE_ONLY_KEY, out JsonElement memOnly) && memOnly.GetBoolean())
+                if (config.TryGetValue(MEMORY_CACHE_ONLY_KEY, out JsonElement memOnly) && memOnly.GetBoolean())
                 {
                     //Create a memory-only cache
-                    _client = pbase.GetOrCreateSingleton<MemoryCache>();
+                    _client = plugin.GetOrCreateSingleton<MemoryCache>();
                 }
                 else
                 {
                     //Remote-backed memory cache
-                    _client = pbase.GetOrCreateSingleton<RemoteBackedMemoryCache>();
+                    _client = plugin.GetOrCreateSingleton<RemoteBackedMemoryCache>();
                 }
             }
             else
             {
                 //Setup non-memory backed cache client
-                _client = pbase.GetOrCreateSingleton<VnCacheClient>();
+                _client = plugin.GetOrCreateSingleton<FBMCacheClient>();
             }
         }
 
@@ -86,14 +102,14 @@ namespace VNLib.Plugins.Extensions.VNCache
             _ = config ?? throw new ArgumentNullException(nameof(config));
 
             //Init client
-            VnCacheClient client = new(config, debugLog);
+            FBMCacheClient client = new(config, debugLog);
 
             //Return single handle
-            return new(client);
+            return new(client, null);
         }
 
         /// <summary>
-        /// Allows you to programtically create your own instance if a VNCache remote server backed
+        /// Allows you to programatically create your own instance if a VNCache remote server backed
         /// memory cache programatically. 
         /// </summary>
         /// <param name="remote">The remote cache configuration, required for VNCache remote cache servers</param>
@@ -111,11 +127,13 @@ namespace VNLib.Plugins.Extensions.VNCache
             _ = remote ?? throw new ArgumentNullException(nameof(remote));
             _ = memory ?? throw new ArgumentNullException(nameof(memory));
 
+            FBMCacheClient client = new(remote, debugLog);
+
             //Init client
-            RemoteBackedMemoryCache client = new(remote, memory, debugLog);
+            RemoteBackedMemoryCache memCache = new(memory, client);
 
             //Return single handle
-            return new(client);
+            return new(client, memCache);
         }
 
         /// <summary>
@@ -138,7 +156,6 @@ namespace VNLib.Plugins.Extensions.VNCache
             //Return single handle
             return new(cache);
         }
-    
 
         ///<inheritdoc/>
         public bool IsConnected => _client.IsConnected;
@@ -150,13 +167,19 @@ namespace VNLib.Plugins.Extensions.VNCache
         }
 
         ///<inheritdoc/>
-        public Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerialzer serialzer, CancellationToken cancellation)
+        public Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
         {
             return _client.AddOrUpdateAsync(key, newKey, value, serialzer, cancellation);
         }
 
         ///<inheritdoc/>
-        public Task DeleteAsync(string key, CancellationToken cancellation)
+        public Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataReader<T> callback, T state, CancellationToken cancellation)
+        {
+            return _client.AddOrUpdateAsync(key, newKey, callback, state, cancellation);
+        }
+
+        ///<inheritdoc/>
+        public Task<bool> DeleteAsync(string key, CancellationToken cancellation)
         {
             return _client.DeleteAsync(key, cancellation);
         }
@@ -168,21 +191,21 @@ namespace VNLib.Plugins.Extensions.VNCache
         }
 
         ///<inheritdoc/>
-        public Task<T?> GetAsync<T>(string key, ICacheObjectDeserialzer deserializer, CancellationToken cancellation)
+        public Task<T?> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation)
         {
             return _client.GetAsync<T>(key, deserializer, cancellation);
         }
 
         ///<inheritdoc/>
-        public Task GetAsync(string key, IObjectData rawData, CancellationToken cancellation)
+        public Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation)
         {
-            return _client.GetAsync(key, rawData, cancellation);
+            return _client.GetAsync(key, callback, state, cancellation);
         }
 
         ///<inheritdoc/>
-        public Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, CancellationToken cancellation)
+        public object GetUnderlyingStore()
         {
-            return _client.AddOrUpdateAsync(key, newKey, rawData, cancellation);
+            return _client.GetUnderlyingStore();
         }
     }
 }

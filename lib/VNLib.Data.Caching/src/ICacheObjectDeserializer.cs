@@ -3,7 +3,7 @@
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
-* File: ICacheObjectDeserialzer.cs 
+* File: ICacheObjectDeserializer.cs 
 *
 * ICacheObjectDeserialzer.cs is part of VNLib.Data.Caching which is part 
 * of the larger VNLib collection of libraries and utilities.
@@ -29,7 +29,7 @@ namespace VNLib.Data.Caching
     /// <summary>
     /// Provides custom binary deserialzation for a given type
     /// </summary>
-    public interface ICacheObjectDeserialzer
+    public interface ICacheObjectDeserializer
     {
         /// <summary>
         /// Attempts to deserialze the supplied binary buffer to its original
@@ -38,6 +38,6 @@ namespace VNLib.Data.Caching
         /// <param name="objectData">The buffer containing data to deserialze</param>
         /// <typeparam name="T"></typeparam>
         /// <returns>A new instance deserialzed to contain the original entity state</returns>
-        T? Deserialze<T>(ReadOnlySpan<byte> objectData);
+        T? Deserialize<T>(ReadOnlySpan<byte> objectData);
     }
 }

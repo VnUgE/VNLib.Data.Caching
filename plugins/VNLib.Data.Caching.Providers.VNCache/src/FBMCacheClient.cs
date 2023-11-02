@@ -2,18 +2,18 @@
 * Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
-* Package: VNLib.Plugins.Extensions.VNCache
-* File: VnCacheClient.cs 
+* Package: VNLib.Data.Caching.Providers.VNCache
+* File: FBMCacheClient.cs 
 *
-* VnCacheClient.cs is part of VNLib.Plugins.Extensions.VNCache which is part of the larger 
+* FBMCacheClient.cs is part of VNLib.Data.Caching.Providers.VNCache which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
-* VNLib.Plugins.Extensions.VNCache is free software: you can redistribute it and/or modify 
+* VNLib.Data.Caching.Providers.VNCache is free software: you can redistribute it and/or modify 
 * it under the terms of the GNU Affero General Public License as 
 * published by the Free Software Foundation, either version 3 of the
 * License, or (at your option) any later version.
 *
-* VNLib.Plugins.Extensions.VNCache is distributed in the hope that it will be useful,
+* VNLib.Data.Caching.Providers.VNCache is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 * GNU Affero General Public License for more details.
@@ -35,29 +35,23 @@ using VNLib.Hashing;
 using VNLib.Hashing.IdentityUtility;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
-using VNLib.Data.Caching;
-using VNLib.Data.Caching.Extensions;
-using VNLib.Data.Caching.ObjectCache;
 using VNLib.Net.Messaging.FBM.Client;
-using VNLib.Plugins.Extensions.Loading;
+using VNLib.Data.Caching.Extensions;
 using VNLib.Data.Caching.Extensions.Clustering;
+using VNLib.Plugins;
+using VNLib.Plugins.Extensions.Loading;
 using VNLib.Plugins.Extensions.Loading.Events;
-using VNLib.Plugins.Extensions.VNCache.Clustering;
 
-namespace VNLib.Plugins.Extensions.VNCache
+using VNLib.Data.Caching.Providers.VNCache.Clustering;
+
+namespace VNLib.Data.Caching.Providers.VNCache
 {
-    public interface ICacheRefreshPolicy
-    {
-        TimeSpan MaxCacheAge { get; }
-
-        TimeSpan RefreshInterval { get; }
-    }
 
     /// <summary>
     /// A base class that manages 
     /// </summary>
-    [ConfigurationName(VNCacheExtensions.CACHE_CONFIG_KEY)]
-    internal class VnCacheClient : IGlobalCacheProvider, IAsyncBackgroundWork
+    [ConfigurationName(VNCacheClient.CACHE_CONFIG_KEY)]
+    internal class FBMCacheClient : IGlobalCacheProvider, IAsyncBackgroundWork
     {
         private const string LOG_NAME = "CLIENT";
         private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(10);
@@ -76,8 +70,8 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// </summary>
         public bool IsConnected { get; private set; }
 
-        public VnCacheClient(PluginBase plugin, IConfigScope config)
-            :this(
+        public FBMCacheClient(PluginBase plugin, IConfigScope config)
+            : this(
                  config.Deserialze<VnCacheClientConfig>(),
                  plugin.IsDebug() ? plugin.Log : null
                 )
@@ -93,7 +87,7 @@ namespace VNLib.Plugins.Extensions.VNCache
             plugin.ScheduleInterval(_index, _config.DiscoveryInterval);
 
             //Run discovery after initial delay if interval is greater than initial delay
-            if(_config.DiscoveryInterval > InitialDelay)
+            if (_config.DiscoveryInterval > InitialDelay)
             {
                 //Run a manual initial load
                 scoped.Information("Running initial discovery in {delay}", InitialDelay);
@@ -101,7 +95,7 @@ namespace VNLib.Plugins.Extensions.VNCache
             }
         }
 
-        public VnCacheClient(VnCacheClientConfig config, ILogProvider? debugLog)
+        public FBMCacheClient(VnCacheClientConfig config, ILogProvider? debugLog)
         {
             //Validate config
             (config as IOnConfigValidation).Validate();
@@ -132,7 +126,7 @@ namespace VNLib.Plugins.Extensions.VNCache
             pluginLog = pluginLog.CreateScope(LOG_NAME);
 
             try
-            {      
+            {
                 //Initial delay
                 pluginLog.Debug("Worker started, waiting for startup delay");
                 await Task.Delay((int)InitialDelay.TotalMilliseconds + 1000, exitToken);
@@ -144,7 +138,7 @@ namespace VNLib.Plugins.Extensions.VNCache
                         //Wait for a discovery to complete  
                         await _index.WaitForDiscoveryAsync(exitToken);
                     }
-                    catch(CacheDiscoveryFailureException cdfe)
+                    catch (CacheDiscoveryFailureException cdfe)
                     {
                         pluginLog.Error("Failed to discover nodes, will try again\n{err}", cdfe.Message);
                         //Continue
@@ -162,7 +156,7 @@ namespace VNLib.Plugins.Extensions.VNCache
                         if (_config.DiscoveryInterval > NoNodeDelay)
                         {
                             pluginLog.Debug("Forcing a manual discovery");
-                            
+
                             //We dont need to await this because it is awaited at the top of the loop
                             _ = _index.OnIntervalAsync(pluginLog, exitToken);
                         }
@@ -196,7 +190,7 @@ namespace VNLib.Plugins.Extensions.VNCache
 
                         pluginLog.Information("Cache server disconnected");
                     }
-                    catch(TimeoutException)
+                    catch (TimeoutException)
                     {
                         pluginLog.Warn("Failed to establish a websocket connection to cache server within the timeout period");
                     }
@@ -211,7 +205,7 @@ namespace VNLib.Plugins.Extensions.VNCache
                         pluginLog.Debug("Failed to connect to random cache server because a TCP connection could not be established");
                         pluginLog.Verbose("Stack trace: {re}", he.InnerException);
                     }
-                    catch(HttpRequestException he) when(he.StatusCode.HasValue)
+                    catch (HttpRequestException he) when (he.StatusCode.HasValue)
                     {
                         pluginLog.Warn("Failed to negotiate with cache server {reason}", he.Message);
                         pluginLog.Verbose("Stack trace: {re}", he);
@@ -255,7 +249,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         }
 
         ///<inheritdoc/>
-        public virtual Task DeleteAsync(string key, CancellationToken cancellation)
+        public virtual Task<bool> DeleteAsync(string key, CancellationToken cancellation)
         {
             return !IsConnected
               ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
@@ -271,7 +265,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         }
 
         ///<inheritdoc/>
-        public virtual Task<T?> GetAsync<T>(string key, ICacheObjectDeserialzer deserializer, CancellationToken cancellation)
+        public virtual Task<T?> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation)
         {
             return !IsConnected
                ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
@@ -279,7 +273,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         }
 
         ///<inheritdoc/>
-        public virtual Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerialzer serialzer, CancellationToken cancellation)
+        public virtual Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
         {
             return !IsConnected
              ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
@@ -287,20 +281,23 @@ namespace VNLib.Plugins.Extensions.VNCache
         }
 
         ///<inheritdoc/>
-        public virtual Task GetAsync(string key, IObjectData rawData, CancellationToken cancellation)
+        public virtual Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation)
         {
             return !IsConnected
-              ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
-              : Client!.GetObjectAsync(key, rawData, cancellation);
+           ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
+           : Client!.GetObjectAsync(key, callback, state, cancellation);
         }
 
         ///<inheritdoc/>
-        public virtual Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, CancellationToken cancellation)
+        public virtual Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataReader<T> callback, T state, CancellationToken cancellation)
         {
             return !IsConnected
-            ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
-            : Client!.AddOrUpdateObjectAsync(key, newKey, rawData, cancellation);
+           ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
+           : Client!.AddOrUpdateObjectAsync(key, newKey, callback, state, cancellation);
         }
+
+        ///<inheritdoc/>
+        public object GetUnderlyingStore() => Client;   //Client is the underlying "store"
 
         private sealed class AuthManager : ICacheAuthManager
         {
@@ -323,7 +320,7 @@ namespace VNLib.Plugins.Extensions.VNCache
             {
                 await _sigKey;
                 await _verKey;
-            }         
+            }
 
             ///<inheritdoc/>
             public IReadOnlyDictionary<string, string?> GetJwtHeader()
@@ -344,14 +341,14 @@ namespace VNLib.Plugins.Extensions.VNCache
             {
                 //try to get the rsa alg for the signing key
                 using RSA? rsa = _sigKey.Value.GetRSAPrivateKey();
-                if(rsa != null)
+                if (rsa != null)
                 {
                     return rsa.SignHash(hash, alg.GetAlgName(), RSASignaturePadding.Pkcs1);
                 }
 
                 //try to get the ecdsa alg for the signing key
                 using ECDsa? ecdsa = _sigKey.Value.GetECDsaPrivateKey();
-                if(ecdsa != null)
+                if (ecdsa != null)
                 {
                     return ecdsa.SignHash(hash);
                 }
@@ -381,7 +378,7 @@ namespace VNLib.Plugins.Extensions.VNCache
                 {
                     return ecdsa.VerifyHash(hash, signature);
                 }
-                
+
                 throw new NotSupportedException("The current key is not an RSA or ECDSA key and is not supported");
             }
         }

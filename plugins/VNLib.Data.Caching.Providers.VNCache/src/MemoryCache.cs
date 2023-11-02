@@ -2,18 +2,18 @@
 * Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
-* Package: VNLib.Plugins.Extensions.VNCache
+* Package: VNLib.Data.Caching.Providers.VNCache
 * File: MemoryCache.cs 
 *
-* MemoryCache.cs is part of VNLib.Plugins.Extensions.VNCache 
+* MemoryCache.cs is part of VNLib.Data.Caching.Providers.VNCache 
 * which is part of the larger VNLib collection of libraries and utilities.
 *
-* VNLib.Plugins.Extensions.VNCache is free software: you can redistribute it and/or modify 
+* VNLib.Data.Caching.Providers.VNCache is free software: you can redistribute it and/or modify 
 * it under the terms of the GNU Affero General Public License as 
 * published by the Free Software Foundation, either version 3 of the
 * License, or (at your option) any later version.
 *
-* VNLib.Plugins.Extensions.VNCache is distributed in the hope that it will be useful,
+* VNLib.Data.Caching.Providers.VNCache is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 * GNU Affero General Public License for more details.
@@ -33,12 +33,12 @@ using VNLib.Utils.Logging;
 using VNLib.Utils.Memory.Diagnostics;
 using VNLib.Data.Caching;
 using VNLib.Data.Caching.ObjectCache;
+using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
-using VNLib.Data.Caching.ObjectCache.Server;
 
-namespace VNLib.Plugins.Extensions.VNCache
+namespace VNLib.Data.Caching.Providers.VNCache
 {
-    [ConfigurationName(VNCacheExtensions.CACHE_CONFIG_KEY)]
+    [ConfigurationName(VNCacheClient.CACHE_CONFIG_KEY)]
     internal sealed class MemoryCache : VnDisposeable, IGlobalCacheProvider
     {
         const int MB_DIVISOR = 1000 * 1024;
@@ -56,24 +56,25 @@ namespace VNLib.Plugins.Extensions.VNCache
  | -----------------------------
 ";
 
-        private readonly ICacheObjectSerialzer _serialzer;
-        private readonly ICacheObjectDeserialzer _deserialzer;
+        private readonly ICacheObjectSerializer _serialzer;
+        private readonly ICacheObjectDeserializer _deserialzer;
         private readonly IBlobCacheTable _memCache;
         private readonly IUnmangedHeap _bufferHeap;
-        private readonly BucketLocalManagerFactory _blobCacheMemManager;
+        private readonly BucketLocalManagerFactory? _blobCacheMemManager;
 
         public MemoryCache(PluginBase pbase, IConfigScope config)
-            :this(
-                 config[VNCacheExtensions.MEMORY_CACHE_CONFIG_KEY].Deserialize<MemoryCacheConfig>()!,
-                 pbase.IsDebug(),
-                 pbase.Log
+            : this(
+                config[VNCacheClient.MEMORY_CACHE_CONFIG_KEY].Deserialize<MemoryCacheConfig>()!,
+                pbase.IsDebug(),
+                pbase.Log,
+                pbase.GetOrCreateSingleton<BucketLocalManagerFactory>()
             )
         { }
 
-        public MemoryCache(MemoryCacheConfig config):this(config, false, null)
+        public MemoryCache(MemoryCacheConfig config) : this(config, false, null, null)
         { }
 
-        private MemoryCache(MemoryCacheConfig config, bool isDebug, ILogProvider? log)
+        private MemoryCache(MemoryCacheConfig config, bool isDebug, ILogProvider? log, BucketLocalManagerFactory? factory)
         {
             //Validate config
             config.Validate();
@@ -92,10 +93,11 @@ namespace VNLib.Plugins.Extensions.VNCache
                 _bufferHeap = MemoryUtil.InitializeNewHeapForProcess();
             }
 
-            _blobCacheMemManager = BucketLocalManagerFactory.Create(config.ZeroAllAllocations);
+            //Fallback to creating a local/single instance of the manager
+            factory ??= _blobCacheMemManager = BucketLocalManagerFactory.Create(config.ZeroAllAllocations);
 
             //Setup cache table
-            _memCache = new BlobCacheTable(config.TableSize, config.BucketSize, _blobCacheMemManager, null);
+            _memCache = new BlobCacheTable(config.TableSize, config.BucketSize, factory, null);
 
             /*
              * Default to json serialization by using the default
@@ -113,9 +115,9 @@ namespace VNLib.Plugins.Extensions.VNCache
         {
             long maxObjects = config.BucketSize * config.TableSize;
 
-            long size4kMb = (maxObjects * 4096)/MB_DIVISOR;
-            long size8kMb = (maxObjects * 8128)/MB_DIVISOR;
-            long size16kMb = (maxObjects * 16384)/MB_DIVISOR;
+            long size4kMb = maxObjects * 4096/MB_DIVISOR;
+            long size8kMb = maxObjects * 8128/MB_DIVISOR;
+            long size16kMb = maxObjects * 16384/MB_DIVISOR;
 
             log?.Debug(DEBUG_TEMPLATE, config.TableSize, config.BucketSize, maxObjects, size4kMb, size8kMb, size16kMb);
         }
@@ -127,14 +129,14 @@ namespace VNLib.Plugins.Extensions.VNCache
         {
             _memCache.Dispose();
             _bufferHeap.Dispose();
-            _blobCacheMemManager.Dispose();
+            _blobCacheMemManager?.Dispose();
         }
 
         ///<inheritdoc/>
         public Task AddOrUpdateAsync<T>(string key, string? newKey, T value, CancellationToken cancellation) => AddOrUpdateAsync(key, newKey, value, _serialzer, cancellation);
 
         ///<inheritdoc/>
-        public async Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerialzer serialzer, CancellationToken cancellation)
+        public async Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
         {
             Check();
 
@@ -149,7 +151,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         }
 
         ///<inheritdoc/>
-        public Task DeleteAsync(string key, CancellationToken cancellation)
+        public Task<bool> DeleteAsync(string key, CancellationToken cancellation)
         {
             Check();
             return _memCache.DeleteObjectAsync(key, cancellation).AsTask();
@@ -159,7 +161,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         public Task<T?> GetAsync<T>(string key, CancellationToken cancellation) => GetAsync<T>(key, _deserialzer, cancellation);
 
         ///<inheritdoc/>
-        public async Task<T?> GetAsync<T>(string key, ICacheObjectDeserialzer deserializer, CancellationToken cancellation)
+        public async Task<T?> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation)
         {
             Check();
 
@@ -173,7 +175,7 @@ namespace VNLib.Plugins.Extensions.VNCache
                 //Try to read the value
                 if (cache.TryGetValue(key, out CacheEntry entry))
                 {
-                    return deserializer.Deserialze<T>(entry.GetDataSegment());
+                    return deserializer.Deserialize<T>(entry.GetDataSegment());
                 }
 
                 return default;
@@ -185,7 +187,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         }
 
         ///<inheritdoc/>
-        public async Task GetAsync(string key, IObjectData rawData, CancellationToken cancellation)
+        public async Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation)
         {
             Check();
 
@@ -201,7 +203,7 @@ namespace VNLib.Plugins.Extensions.VNCache
                 if (cache.TryGetValue(key, out CacheEntry entry))
                 {
                     //Set result data
-                    rawData.SetData(entry.GetDataSegment());
+                    callback(state, entry.GetDataSegment());
                 }
             }
             finally
@@ -211,12 +213,16 @@ namespace VNLib.Plugins.Extensions.VNCache
         }
 
         ///<inheritdoc/>
-        public Task AddOrUpdateAsync(string key, string? newKey, IObjectData rawData, CancellationToken cancellation)
+        public Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataReader<T> callback, T state, CancellationToken cancellation)
         {
             Check();
 
             //Update object data
-            return _memCache.AddOrUpdateObjectAsync(key, newKey, static b => b.GetData(), rawData, default, cancellation).AsTask();
+            return _memCache.AddOrUpdateObjectAsync(key, newKey, callback, state, default, cancellation).AsTask();
         }
+
+        ///<inheritdoc/>
+        public object GetUnderlyingStore() => _memCache;
+
     }
 }

@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <RootNamespace>VNLib.Data.Caching.Providers.Redis</RootNamespace>
+    <AssemblyName>VNLib.Data.Caching.Providers.Redis</AssemblyName>
+    <Nullable>enable</Nullable>
+    <AnalysisLevel>latest-all</AnalysisLevel>
+    <ProduceReferenceAssembly>True</ProduceReferenceAssembly>
+    <GenerateDocumentationFile>False</GenerateDocumentationFile>
+    <!-- Resolve nuget dll files and store them in the output dir -->
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Authors>Vaughn Nugent</Authors>
+    <Company>Vaughn Nugent</Company>
+    <Product>VNLib.Data.Caching.Providers.Redis</Product>
+    <PackageId>VNLib.Data.Caching.Providers.Redis</PackageId>
+    <Description>A runtime asset library that exposes a Redis global cache client instance for application-wide caching</Description>
+    <Copyright>Copyright © 2023 Vaughn Nugent</Copyright>
+    <PackageProjectUrl>https://www.vaughnnugent.com/resources/software/modules/VNLib.Data.Caching</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/VnUgE/VNLib.Data.Caching/tree/master/plugins/VNLib.Data.Caching.Providers.Redis</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StackExchange.Redis" Version="2.7.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\Extensions\lib\VNLib.Plugins.Extensions.Loading\src\VNLib.Plugins.Extensions.Loading.csproj" />
+    <ProjectReference Include="..\..\..\lib\VNLib.Data.Caching\src\VNLib.Data.Caching.csproj" />
+  </ItemGroup>
+
+  <Target Condition="'$(BuildingInsideVisualStudio)' == true" Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="start xcopy &quot;$(TargetDir)&quot; &quot;..\..\..\..\..\devplugins\runtimeassets\$(TargetName)&quot; /E /Y /R" />
+  </Target>
+
+</Project>

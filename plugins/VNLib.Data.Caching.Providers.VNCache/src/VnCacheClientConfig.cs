@@ -2,18 +2,18 @@
 * Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
-* Package: VNLib.Plugins.Extensions.VNCache
+* Package: VNLib.Data.Caching.Providers.VNCache
 * File: VnCacheClientConfig.cs 
 *
-* VnCacheClientConfig.cs is part of VNLib.Plugins.Extensions.VNCache which is part of the larger 
+* VnCacheClientConfig.cs is part of VNLib.Data.Caching.Providers.VNCache which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
-* VNLib.Plugins.Extensions.VNCache is free software: you can redistribute it and/or modify 
+* VNLib.Data.Caching.Providers.VNCache is free software: you can redistribute it and/or modify 
 * it under the terms of the GNU Affero General Public License as 
 * published by the Free Software Foundation, either version 3 of the
 * License, or (at your option) any later version.
 *
-* VNLib.Plugins.Extensions.VNCache is distributed in the hope that it will be useful,
+* VNLib.Data.Caching.Providers.VNCache is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 * GNU Affero General Public License for more details.
@@ -28,7 +28,7 @@ using System.Text.Json.Serialization;
 
 using VNLib.Plugins.Extensions.Loading;
 
-namespace VNLib.Plugins.Extensions.VNCache
+namespace VNLib.Data.Caching.Providers.VNCache
 {
     /// <summary>
     /// Represents a remote VNCache client configuration
@@ -53,7 +53,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// The time (in seconds) to randomly delay polling the broker server
         /// for available servers
         /// </summary>
-        [JsonPropertyName("discovery_interval_Sec")]
+        [JsonPropertyName("discovery_interval_sec")]
         public int? DiscoveryIntervalSeconds { get; set; }
 
         /// <summary>
@@ -104,11 +104,11 @@ namespace VNLib.Plugins.Extensions.VNCache
 
             if (!DiscoveryIntervalSeconds.HasValue || DiscoveryIntervalSeconds.Value < 1)
             {
-                throw new ArgumentException("You must specify a retry interval period greater than 0", "retry_interval_sec");
+                throw new ArgumentException("You must specify a discovery interval period greater than 0", "retry_interval_sec");
             }
 
             //Allow a 0 timeout to disable timeouts, not recommended, but allowed
-            if(!RequestTimeoutSeconds.HasValue || RequestTimeoutSeconds.Value < 0)
+            if (!RequestTimeoutSeconds.HasValue || RequestTimeoutSeconds.Value < 0)
             {
                 throw new ArgumentException("You must specify a positive integer FBM message timoeut", "request_timeout_sec");
             }
@@ -128,12 +128,12 @@ namespace VNLib.Plugins.Extensions.VNCache
                 }
 
                 //Verify http connection
-                if(peer.Scheme != Uri.UriSchemeHttp && peer.Scheme != Uri.UriSchemeHttps)
+                if (peer.Scheme != Uri.UriSchemeHttp && peer.Scheme != Uri.UriSchemeHttps)
                 {
                     throw new ArgumentException("You must specify an HTTP or HTTPS URI for each initial node", "initial_nodes");
                 }
             }
         }
-       
+
     }
 }
