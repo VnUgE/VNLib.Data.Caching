@@ -51,7 +51,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
     /// A base class that manages 
     /// </summary>
     [ConfigurationName(VNCacheClient.CACHE_CONFIG_KEY)]
-    internal class FBMCacheClient : IGlobalCacheProvider, IAsyncBackgroundWork
+    internal class FBMCacheClient : VNCacheBase, IAsyncBackgroundWork
     {
         private const string LOG_NAME = "CLIENT";
         private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(10);
@@ -59,6 +59,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
 
         private readonly VnCacheClientConfig _config;
         private readonly ClusterNodeIndex _index;
+
+        private bool _isConnected;
 
         /// <summary>
         /// The internal client
@@ -68,7 +70,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// <summary>
         /// Gets a value that determines if the client is currently connected to a server
         /// </summary>
-        public bool IsConnected { get; private set; }
+        public override bool IsConnected => _isConnected;
 
         public FBMCacheClient(PluginBase plugin, IConfigScope config)
             : this(
@@ -95,7 +97,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
             }
         }
 
-        public FBMCacheClient(VnCacheClientConfig config, ILogProvider? debugLog)
+        public FBMCacheClient(VnCacheClientConfig config, ILogProvider? debugLog):base(config)
         {
             //Validate config
             (config as IOnConfigValidation).Validate();
@@ -103,7 +105,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
             _config = config;
 
             //Init the client with default settings
-            FBMClientConfig conf = FBMDataCacheExtensions.GetDefaultConfig(MemoryUtil.Shared, config.MaxMessageSize!.Value, config.RequestTimeout, debugLog);
+            FBMClientConfig conf = FBMDataCacheExtensions.GetDefaultConfig(MemoryUtil.Shared, (int)config.MaxBlobSize, config.RequestTimeout, debugLog);
 
             Client = new(conf);
 
@@ -183,7 +185,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
                         }
 
                         //Set connection status flag
-                        IsConnected = true;
+                        _isConnected = true;
 
                         //Wait for disconnect
                         await Client.WaitForExitAsync(exitToken);
@@ -213,7 +215,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
                     }
                     finally
                     {
-                        IsConnected = false;
+                        _isConnected = false;
                     }
 
                     //Loop again
@@ -241,15 +243,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
 
 
         ///<inheritdoc/>
-        public virtual Task AddOrUpdateAsync<T>(string key, string? newKey, T value, CancellationToken cancellation)
-        {
-            return !IsConnected
-               ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
-               : Client!.AddOrUpdateObjectAsync(key, newKey, value, cancellation);
-        }
-
-        ///<inheritdoc/>
-        public virtual Task<bool> DeleteAsync(string key, CancellationToken cancellation)
+        public override Task<bool> DeleteAsync(string key, CancellationToken cancellation)
         {
             return !IsConnected
               ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
@@ -257,15 +251,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public virtual Task<T?> GetAsync<T>(string key, CancellationToken cancellation)
-        {
-            return !IsConnected
-               ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
-               : Client!.GetObjectAsync<T>(key, cancellation);
-        }
-
-        ///<inheritdoc/>
-        public virtual Task<T?> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation)
+        public override Task<T> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation)
         {
             return !IsConnected
                ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
@@ -273,7 +259,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public virtual Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
+        public override Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
         {
             return !IsConnected
              ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
@@ -281,7 +267,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public virtual Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation)
+        public override Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation)
         {
             return !IsConnected
            ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
@@ -289,7 +275,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public virtual Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataReader<T> callback, T state, CancellationToken cancellation)
+        public override Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataReader<T> callback, T state, CancellationToken cancellation)
         {
             return !IsConnected
            ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
@@ -297,7 +283,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public object GetUnderlyingStore() => Client;   //Client is the underlying "store"
+        public override object GetUnderlyingStore() => Client;   //Client is the underlying "store"
 
         private sealed class AuthManager : ICacheAuthManager
         {

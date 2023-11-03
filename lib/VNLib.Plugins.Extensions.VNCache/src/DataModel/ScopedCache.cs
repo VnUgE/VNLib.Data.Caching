@@ -47,13 +47,13 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         public abstract bool IsConnected { get; }
 
         ///<inheritdoc/>
-        public abstract Task AddOrUpdateAsync<T>(string key, string? newKey, T value, CancellationToken cancellation);
+        public abstract ICacheObjectDeserializer DefaultDeserializer { get; }
+
+        ///<inheritdoc/>
+        public abstract ICacheObjectSerializer DefaultSerializer { get; }
 
         ///<inheritdoc/>
         public abstract Task<bool> DeleteAsync(string key, CancellationToken cancellation);
-       
-        ///<inheritdoc/>
-        public abstract Task<T?> GetAsync<T>(string key, CancellationToken cancellation);
 
         ///<inheritdoc/>
         public abstract Task<T?> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation);

@@ -26,8 +26,6 @@ using System;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-
-using VNLib.Utils;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
 using VNLib.Utils.Memory.Diagnostics;
@@ -38,8 +36,9 @@ using VNLib.Plugins.Extensions.Loading;
 
 namespace VNLib.Data.Caching.Providers.VNCache
 {
+
     [ConfigurationName(VNCacheClient.CACHE_CONFIG_KEY)]
-    internal sealed class MemoryCache : VnDisposeable, IGlobalCacheProvider
+    internal sealed class MemoryCache : VNCacheBase, IDisposable
     {
         const int MB_DIVISOR = 1000 * 1024;
 
@@ -56,8 +55,6 @@ namespace VNLib.Data.Caching.Providers.VNCache
  | -----------------------------
 ";
 
-        private readonly ICacheObjectSerializer _serialzer;
-        private readonly ICacheObjectDeserializer _deserialzer;
         private readonly IBlobCacheTable _memCache;
         private readonly IUnmangedHeap _bufferHeap;
         private readonly BucketLocalManagerFactory? _blobCacheMemManager;
@@ -74,7 +71,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public MemoryCache(MemoryCacheConfig config) : this(config, false, null, null)
         { }
 
-        private MemoryCache(MemoryCacheConfig config, bool isDebug, ILogProvider? log, BucketLocalManagerFactory? factory)
+        private MemoryCache(MemoryCacheConfig config, bool isDebug, ILogProvider? log, BucketLocalManagerFactory? factory) : base(config)
         {
             //Validate config
             config.Validate();
@@ -99,15 +96,6 @@ namespace VNLib.Data.Caching.Providers.VNCache
             //Setup cache table
             _memCache = new BlobCacheTable(config.TableSize, config.BucketSize, factory, null);
 
-            /*
-             * Default to json serialization by using the default
-             * serializer and JSON options
-             */
-
-            JsonCacheObjectSerializer defaultSerializer = new();
-            _serialzer = defaultSerializer;
-            _deserialzer = defaultSerializer;
-
             PrintDebug(log, config);
         }
 
@@ -122,10 +110,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
             log?.Debug(DEBUG_TEMPLATE, config.TableSize, config.BucketSize, maxObjects, size4kMb, size8kMb, size16kMb);
         }
 
-        ///<inheritdoc/>
-        public bool IsConnected { get; } = true;
-
-        protected override void Free()
+        public void Dispose()
         {
             _memCache.Dispose();
             _bufferHeap.Dispose();
@@ -133,13 +118,14 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public Task AddOrUpdateAsync<T>(string key, string? newKey, T value, CancellationToken cancellation) => AddOrUpdateAsync(key, newKey, value, _serialzer, cancellation);
+        public override object GetUnderlyingStore() => _memCache;
 
         ///<inheritdoc/>
-        public async Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
-        {
-            Check();
+        public override bool IsConnected { get; } = true;
 
+        ///<inheritdoc/>
+        public override async Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
+        {
             //Alloc serialzation buffer
             using AddOrUpdateBuffer buffer = new (_bufferHeap);
 
@@ -151,20 +137,14 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public Task<bool> DeleteAsync(string key, CancellationToken cancellation)
+        public override Task<bool> DeleteAsync(string key, CancellationToken cancellation)
         {
-            Check();
             return _memCache.DeleteObjectAsync(key, cancellation).AsTask();
         }
 
         ///<inheritdoc/>
-        public Task<T?> GetAsync<T>(string key, CancellationToken cancellation) => GetAsync<T>(key, _deserialzer, cancellation);
-
-        ///<inheritdoc/>
-        public async Task<T?> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation)
+        public override async Task<T> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation)
         {
-            Check();
-
             IBlobCacheBucket bucket = _memCache.GetBucket(key);
 
             //Obtain lock
@@ -175,10 +155,10 @@ namespace VNLib.Data.Caching.Providers.VNCache
                 //Try to read the value
                 if (cache.TryGetValue(key, out CacheEntry entry))
                 {
-                    return deserializer.Deserialize<T>(entry.GetDataSegment());
+                    return deserializer.Deserialize<T>(entry.GetDataSegment())!;
                 }
 
-                return default;
+                return default!;
             }
             finally
             {
@@ -187,10 +167,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public async Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation)
+        public override async Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation)
         {
-            Check();
-
             //Get the bucket from the desired key
             IBlobCacheBucket bucket = _memCache.GetBucket(key);
 
@@ -213,16 +191,10 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataReader<T> callback, T state, CancellationToken cancellation)
+        public override Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataReader<T> callback, T state, CancellationToken cancellation)
         {
-            Check();
-
             //Update object data
             return _memCache.AddOrUpdateObjectAsync(key, newKey, callback, state, default, cancellation).AsTask();
         }
-
-        ///<inheritdoc/>
-        public object GetUnderlyingStore() => _memCache;
-
     }
 }

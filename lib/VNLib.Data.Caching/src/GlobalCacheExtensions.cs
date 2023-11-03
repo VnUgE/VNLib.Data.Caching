@@ -78,5 +78,33 @@ namespace VNLib.Data.Caching
         {
             return cache.AddOrUpdateAsync(key, newKey, static cd => cd.Span, rawData, cancellation);
         }
+
+        /// <summary>
+        /// Asynchronously gets a value from the backing cache store
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="cache"></param>
+        /// <param name="key">The key identifying the object to recover from cache</param>
+        /// <param name="cancellation">A token to cancel the async operation</param>
+        /// <returns>The value if found, or null if it does not exist in the store</returns>
+        public static Task<T?> GetAsync<T>(this IGlobalCacheProvider cache, string key, CancellationToken cancellation)
+        {
+            return cache.GetAsync<T>(key, cache.DefaultDeserializer, cancellation);
+        }
+
+        /// <summary>
+        /// Asynchronously sets (or updates) a cached value in the backing cache store
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="cache"></param>
+        /// <param name="key">The key identifying the object to recover from cache</param>
+        /// <param name="newKey">An optional key that will be changed for the new object</param>
+        /// <param name="cancellation">A token to cancel the async operation</param>
+        /// <param name="value">The value to set at the given key</param>
+        /// <returns>A task that completes when the update operation has compelted</returns>
+        public static Task AddOrUpdateAsync<T>(this IGlobalCacheProvider cache, string key, string? newKey, T value, CancellationToken cancellation)
+        {
+            return cache.AddOrUpdateAsync(key, newKey, value, cache.DefaultSerializer, cancellation);
+        }
     }
 }

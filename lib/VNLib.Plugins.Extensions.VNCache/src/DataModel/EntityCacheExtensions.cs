@@ -141,36 +141,28 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
 
         private sealed class ScopedCacheImpl: ScopedCache
         {
-            private readonly IGlobalCacheProvider cache;
+            private readonly IGlobalCacheProvider Cache;
 
             ///<inheritdoc/>
             public override bool IsConnected
             {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => cache.IsConnected;
+                get => Cache.IsConnected;
             }
 
             ///<inheritdoc/>
             protected override ICacheKeyGenerator KeyGen { get; }
 
-            public ScopedCacheImpl(IGlobalCacheProvider cache, ICacheKeyGenerator keyGen)
-            {
-                this.cache = cache;
-                KeyGen = keyGen;
-            }
+            ///<inheritdoc/>
+            public override ICacheObjectDeserializer DefaultDeserializer => Cache.DefaultDeserializer;
 
             ///<inheritdoc/>
-            public override Task AddOrUpdateAsync<T>(string key, string? newKey, T value, CancellationToken cancellation)
+            public override ICacheObjectSerializer DefaultSerializer => Cache.DefaultSerializer;
+
+            public ScopedCacheImpl(IGlobalCacheProvider cache, ICacheKeyGenerator keyGen)
             {
-                _ = key ?? throw new ArgumentNullException(nameof(key));
-
-                //Compute primary key from id
-                string primary = KeyGen.ComputedKey(key);
-
-                //If newkey exists, compute the secondary key
-                string? secondary = newKey != null ? KeyGen.ComputedKey(newKey) : null;
-
-                return cache.AddOrUpdateAsync(primary, secondary, value, cancellation);
+                this.Cache = cache;
+                KeyGen = keyGen;
             }
 
             ///<inheritdoc/>
@@ -179,18 +171,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
                 _ = key ?? throw new ArgumentNullException(nameof(key));
                 //Compute the key for the id
                 string scoped = KeyGen.ComputedKey(key);
-                return cache.DeleteAsync(scoped, cancellation);
-            }
-
-            ///<inheritdoc/>
-            public override Task<T> GetAsync<T>(string key, CancellationToken cancellation)
-            {
-                _ = key ?? throw new ArgumentNullException(nameof(key));
-
-                //Compute the key for the id
-                string scoped = KeyGen.ComputedKey(key);
-
-                return cache.GetAsync<T?>(scoped, cancellation);
+                return Cache.DeleteAsync(scoped, cancellation);
             }
 
             ///<inheritdoc/>
@@ -201,7 +182,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
                 //Compute the key for the id
                 string scoped = KeyGen.ComputedKey(key);
 
-                return cache.GetAsync<T?>(scoped, deserializer, cancellation);
+                return Cache.GetAsync<T?>(scoped, deserializer, cancellation);
             }
 
             ///<inheritdoc/>
@@ -215,7 +196,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
                 //If newkey exists, compute the secondary key
                 string? secondary = newKey != null ? KeyGen.ComputedKey(newKey) : null;
 
-                return cache.AddOrUpdateAsync(primary, secondary, value, serialzer, cancellation);
+                return Cache.AddOrUpdateAsync(primary, secondary, value, serialzer, cancellation);
             }
          
             ///<inheritdoc/>
@@ -226,7 +207,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
                 //Compute the key for the id
                 string scoped = KeyGen.ComputedKey(key);
 
-                return cache.GetAsync(scoped, callback, state, cancellation);
+                return Cache.GetAsync(scoped, callback, state, cancellation);
             }
 
             ///<inheritdoc/>
@@ -240,11 +221,11 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
                 //If newkey exists, compute the secondary key
                 string? secondary = newKey != null ? KeyGen.ComputedKey(newKey) : null;
 
-                return cache.AddOrUpdateAsync(primary, secondary, callback, state, cancellation);
+                return Cache.AddOrUpdateAsync(primary, secondary, callback, state, cancellation);
             }
 
             ///<inheritdoc/>
-            public override object GetUnderlyingStore() => cache.GetUnderlyingStore();
+            public override object GetUnderlyingStore() => Cache.GetUnderlyingStore();
         }
     }
    

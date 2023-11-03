@@ -25,14 +25,12 @@
 using System;
 using System.Text.Json.Serialization;
 
-using VNLib.Plugins.Extensions.Loading;
-
 namespace VNLib.Data.Caching.Providers.VNCache
 {
     /// <summary>
-    /// Memorycache configuration object. Json-(de)serializable 
+    /// Memorycache configuration object
     /// </summary>
-    public sealed class MemoryCacheConfig : ICacheRefreshPolicy, IOnConfigValidation
+    public sealed class MemoryCacheConfig : VNCacheConfig
     {
         /// <summary>
         /// The number of buckets within the cache table
@@ -46,50 +44,11 @@ namespace VNLib.Data.Caching.Providers.VNCache
         [JsonPropertyName("bucket_size")]
         public uint BucketSize { get; set; } = 5000;
 
-        /// <summary>
-        /// The maxium size (in bytes) of each cache entry within any bucket
-        /// </summary>
-        [JsonPropertyName("max_object_size")]
-        public uint MaxBlobSize { get; set; } = 16 * 1024;
-
-        [JsonIgnore]
-        public TimeSpan MaxCacheAge { get; set; } = TimeSpan.FromMinutes(1);
-
-        /// <summary>
-        /// When refresh intervals are configured, The maxium cache entry age in seconds. 
-        /// </summary>
-        [JsonPropertyName("max_age_sec")]
-        public uint MaxAgeSeconds
-        {
-            get => (uint)MaxCacheAge.TotalSeconds;
-            set => MaxCacheAge = TimeSpan.FromSeconds(value);
-        }
-        /*
-         * Default disable cache
-         */
-        [JsonIgnore]
-        public TimeSpan RefreshInterval { get; set; } = TimeSpan.Zero;
-
-        /// <summary>
-        /// The time (in seconds) a cache entry refresh interval will occur
-        /// if scheduled on a plugin
-        /// </summary>
-        [JsonPropertyName("refresh_interval_sec")]
-        public uint RefreshIntervalSeconds
-        {
-            get => (uint)RefreshInterval.TotalSeconds;
-            set => RefreshInterval = TimeSpan.FromSeconds(value);
-        }
-
-        /// <summary>
-        /// Zeros all cache entry memory allocations before they are used
-        /// </summary>
-        [JsonPropertyName("zero_all")]
-        public bool ZeroAllAllocations { get; set; }
-
         ///<inheritdoc/>
-        public void Validate()
+        public override void Validate()
         {
+            base.Validate();
+
             if (TableSize == 0)
             {
                 throw new ArgumentException("You must specify a cache bucket table size", "buckets");
@@ -98,11 +57,6 @@ namespace VNLib.Data.Caching.Providers.VNCache
             if (BucketSize == 0)
             {
                 throw new ArgumentException("You must specify the maxium number of entires allowed in each bucket ", "bucket_size");
-            }
-
-            if (MaxBlobSize < 16)
-            {
-                throw new ArgumentException("You must configure a maximum object size", "max_object_size");
             }
         }
     }

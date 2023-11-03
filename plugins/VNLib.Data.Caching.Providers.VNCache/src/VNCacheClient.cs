@@ -161,10 +161,10 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public bool IsConnected => _client.IsConnected;
 
         ///<inheritdoc/>
-        public Task AddOrUpdateAsync<T>(string key, string? newKey, T value, CancellationToken cancellation)
-        {
-            return _client.AddOrUpdateAsync(key, newKey, value, cancellation);
-        }
+        public ICacheObjectDeserializer DefaultDeserializer => _client.DefaultDeserializer;
+
+        ///<inheritdoc/>
+        public ICacheObjectSerializer DefaultSerializer => _client.DefaultSerializer;
 
         ///<inheritdoc/>
         public Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
@@ -182,12 +182,6 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public Task<bool> DeleteAsync(string key, CancellationToken cancellation)
         {
             return _client.DeleteAsync(key, cancellation);
-        }
-
-        ///<inheritdoc/>
-        public Task<T?> GetAsync<T>(string key, CancellationToken cancellation)
-        {
-            return _client.GetAsync<T>(key, cancellation);
         }
 
         ///<inheritdoc/>

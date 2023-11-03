@@ -26,23 +26,13 @@ using System;
 using System.Linq;
 using System.Text.Json.Serialization;
 
-using VNLib.Plugins.Extensions.Loading;
-
 namespace VNLib.Data.Caching.Providers.VNCache
 {
     /// <summary>
     /// Represents a remote VNCache client configuration
     /// </summary>
-    public class VnCacheClientConfig : IOnConfigValidation
+    public class VnCacheClientConfig : VNCacheConfig
     {
-        /// <summary>
-        /// The maximum size (in bytes) of messages sent to the 
-        /// cache server. This value will be negotiated with the server
-        /// during a connection upgrade
-        /// </summary>
-        [JsonPropertyName("max_object_size")]
-        public int? MaxMessageSize { get; set; }
-
         /// <summary>
         /// The broker server address
         /// </summary>
@@ -95,12 +85,10 @@ namespace VNLib.Data.Caching.Providers.VNCache
             return InitialNodes.Select(static x => new Uri(x, UriKind.Absolute)).ToArray();
         }
 
-        void IOnConfigValidation.Validate()
+        ///<inheritdoc/>
+        public override void Validate()
         {
-            if (!MaxMessageSize.HasValue || MaxMessageSize.Value < 1)
-            {
-                throw new ArgumentException("Your maxium message size should be a reasonable value greater than 0", "max_message_size");
-            }
+            base.Validate();
 
             if (!DiscoveryIntervalSeconds.HasValue || DiscoveryIntervalSeconds.Value < 1)
             {
@@ -134,6 +122,5 @@ namespace VNLib.Data.Caching.Providers.VNCache
                 }
             }
         }
-
     }
 }

@@ -53,13 +53,10 @@ namespace VNLib.Data.Caching.Providers.VNCache
      * lost or is exiting
      */
 
-
     [ConfigurationName(VNCacheClient.CACHE_CONFIG_KEY)]
-    internal sealed class RemoteBackedMemoryCache : IDisposable, IGlobalCacheProvider, IIntervalScheduleable
+    internal sealed class RemoteBackedMemoryCache : VNCacheBase, IDisposable, IIntervalScheduleable
     {
         private readonly MemoryCacheConfig _cacheConfig;
-        private readonly ICacheObjectSerializer _fallbackSerializer;
-        private readonly ICacheObjectDeserializer _fallbackDeserializer;
         private readonly IBlobCacheTable _memCache;
         private readonly IGlobalCacheProvider _backing;
         private readonly IUnmangedHeap _bufferHeap;
@@ -84,7 +81,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public RemoteBackedMemoryCache(MemoryCacheConfig memCache, IGlobalCacheProvider backingStore) : this(memCache, backingStore, null)
         { }
 
-        public RemoteBackedMemoryCache(MemoryCacheConfig memCache, IGlobalCacheProvider backingStore, BucketLocalManagerFactory? factory)
+        public RemoteBackedMemoryCache(MemoryCacheConfig memCache, IGlobalCacheProvider backingStore, BucketLocalManagerFactory? factory):base(memCache)
         {
             _ = memCache ?? throw new ArgumentNullException(nameof(memCache));
             _ = backingStore ?? throw new ArgumentNullException(nameof(backingStore));
@@ -105,18 +102,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
             //If backing store is a VnCacheClient, steal it's buffer heap
             _bufferHeap = backingStore is FBMCacheClient client && client.Client.Config.MemoryManager.TryGetHeap(out IUnmangedHeap? heap) ? heap : MemoryUtil.Shared;
 
-
             _cacheConfig = memCache;
             _backing = backingStore;
-
-            /*
-             * Default to json serialization by using the default
-             * serializer and JSON options
-             */
-
-            JsonCacheObjectSerializer defaultSerializer = new();
-            _fallbackSerializer = defaultSerializer;
-            _fallbackDeserializer = defaultSerializer;
         }
 
         void IDisposable.Dispose()
@@ -132,7 +119,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        object IGlobalCacheProvider.GetUnderlyingStore() => _backing.GetUnderlyingStore();
+        public override object GetUnderlyingStore() => _backing.GetUnderlyingStore();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void CheckConnected()
@@ -144,14 +131,10 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public bool IsConnected => _backing.IsConnected;
+        public override bool IsConnected => _backing.IsConnected;
 
         ///<inheritdoc/>
-        public Task AddOrUpdateAsync<T>(string key, string? newKey, T value, CancellationToken cancellation)
-            => AddOrUpdateAsync(key, newKey, value, _fallbackSerializer, cancellation);
-
-        ///<inheritdoc/>
-        public Task<bool> DeleteAsync(string key, CancellationToken cancellation)
+        public override Task<bool> DeleteAsync(string key, CancellationToken cancellation)
         {
             CheckConnected();
 
@@ -164,10 +147,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public Task<T?> GetAsync<T>(string key, CancellationToken cancellation) => GetAsync<T>(key, _fallbackDeserializer, cancellation);
-
-        ///<inheritdoc/>
-        public async Task<T?> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation)
+        public override async Task<T> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation)
         {
             _ = deserializer ?? throw new ArgumentNullException(nameof(deserializer));
 
@@ -184,7 +164,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public async Task GetAsync<T>(string key, ObjectDataSet<T> setter, T state, CancellationToken cancellation)
+        public override async Task GetAsync<T>(string key, ObjectDataSet<T> setter, T state, CancellationToken cancellation)
         {
             _ = key ?? throw new ArgumentNullException(nameof(key));
             _ = setter ?? throw new ArgumentNullException(nameof(setter));
@@ -226,7 +206,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public async Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
+        public override async Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
         {
             CheckConnected();
 
@@ -240,7 +220,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public async Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataReader<T> callback, T state, CancellationToken cancellation)
+        public override async Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataReader<T> callback, T state, CancellationToken cancellation)
         {
             CheckConnected();
 

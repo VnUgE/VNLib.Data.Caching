@@ -63,24 +63,14 @@ namespace VNLib.Data.Caching
         object GetUnderlyingStore();
 
         /// <summary>
-        /// Asynchronously gets a value from the backing cache store
+        /// Gets the default deserializer for the cache provider
         /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="key">The key identifying the object to recover from cache</param>
-        /// <param name="cancellation">A token to cancel the async operation</param>
-        /// <returns>The value if found, or null if it does not exist in the store</returns>
-        Task<T?> GetAsync<T>(string key, CancellationToken cancellation);
+        ICacheObjectDeserializer DefaultDeserializer { get; }
 
         /// <summary>
-        /// Asynchronously sets (or updates) a cached value in the backing cache store
+        /// Gets the default serializer for the cache provider
         /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="key">The key identifying the object to recover from cache</param>
-        /// <param name="newKey">An optional key that will be changed for the new object</param>
-        /// <param name="cancellation">A token to cancel the async operation</param>
-        /// <param name="value">The value to set at the given key</param>
-        /// <returns>A task that completes when the update operation has compelted</returns>
-        Task AddOrUpdateAsync<T>(string key, string? newKey, T value, CancellationToken cancellation);
+        ICacheObjectSerializer DefaultSerializer { get; }
 
         /// <summary>
         /// Asynchronously deletes an item from cache by its key

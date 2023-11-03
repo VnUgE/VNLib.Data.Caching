@@ -58,8 +58,7 @@ namespace VNLib.Data.Caching.Providers.Redis
     public sealed class RedisClientCacheEntry : IGlobalCacheProvider
     {
         private const int InitialWriterBufferSize = 4096;
-       
-        private readonly JsonCacheObjectSerializer _fallbackSerializer;
+    
         private readonly IUnmangedHeap _defaultHeap;
         private readonly Task OnLoadTask;
       
@@ -69,8 +68,9 @@ namespace VNLib.Data.Caching.Providers.Redis
 
         public RedisClientCacheEntry(PluginBase plugin, IConfigScope config)
         {
-            _fallbackSerializer = new();
             _defaultHeap = MemoryUtil.Shared;
+            DefaultDeserializer = new JsonCacheObjectSerializer();
+            DefaultSerializer = new JsonCacheObjectSerializer();
 
             ILogProvider redisLog = plugin.Log.CreateScope("REDIS");
 
@@ -203,7 +203,10 @@ namespace VNLib.Data.Caching.Providers.Redis
         public Task InitAsync() => OnLoadTask;
 
         ///<inheritdoc/>
-        public Task AddOrUpdateAsync<T>(string key, string? newKey, T value, CancellationToken cancellation) => AddOrUpdateAsync(key, newKey, value, _fallbackSerializer, cancellation);
+        public ICacheObjectDeserializer DefaultDeserializer { get; }
+
+        ///<inheritdoc/>
+        public ICacheObjectSerializer DefaultSerializer { get; }
 
         ///<inheritdoc/>
         public async Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
@@ -256,13 +259,10 @@ namespace VNLib.Data.Caching.Providers.Redis
                 ReadOnlySpan<byte> data = callback(state);
                 length = data.Length;
 
-                //Alloc the buffer on the desired heap
-                MemoryManager<byte> buffer = heap.DirectAlloc<byte>(length, false);
+                //Alloc the buffer on the desired heap and copy data into it
+                IMemoryHandle<byte> buffer = heap.AllocAndCopy(data);
 
-                //Copy object data to the buffer
-                data.CopyTo(buffer.GetSpan());
-
-                return buffer;
+                return buffer.ToMemoryManager(true);
             }
         }
 
@@ -272,9 +272,6 @@ namespace VNLib.Data.Caching.Providers.Redis
             RedisValue value = await _database.StringGetDeleteAsync(key);
             return value.IsNull == false;   //Should only be null if the key did not exist
         }
-
-        ///<inheritdoc/>
-        public Task<T?> GetAsync<T>(string key, CancellationToken cancellation) => GetAsync<T>(key, _fallbackSerializer, cancellation);
 
         ///<inheritdoc/>
         public async Task<T?> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation)
