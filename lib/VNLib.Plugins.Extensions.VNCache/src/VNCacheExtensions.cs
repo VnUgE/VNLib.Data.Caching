@@ -162,7 +162,7 @@ namespace VNLib.Plugins.Extensions.VNCache
                     using UnsafeMemoryHandle<char> buffer = MemoryUtil.UnsafeAlloc<char>(bufferSize, true);
 
                     //Writer to accumulate data
-                    ForwardOnlyWriter<char> writer = new(buffer);
+                    ForwardOnlyWriter<char> writer = new(buffer.Span);
 
                     //Append prefix and entity id
                     writer.Append(Prefix);
