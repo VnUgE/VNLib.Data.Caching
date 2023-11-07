@@ -51,14 +51,14 @@ namespace VNLib.Data.Caching.Providers.VNCache
     /// A base class that manages 
     /// </summary>
     [ConfigurationName(VNCacheClient.CACHE_CONFIG_KEY)]
-    internal class FBMCacheClient : VNCacheBase, IAsyncBackgroundWork
+    internal sealed class FBMCacheClient : VNCacheBase, IAsyncBackgroundWork
     {
         private const string LOG_NAME = "CLIENT";
         private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(10);
         private static readonly TimeSpan NoNodeDelay = TimeSpan.FromSeconds(10);
 
         private readonly VnCacheClientConfig _config;
-        private readonly ClusterNodeIndex _index;
+        private readonly IClusterNodeIndex _index;
 
         private bool _isConnected;
 
@@ -85,15 +85,19 @@ namespace VNLib.Data.Caching.Providers.VNCache
                 .WithAuthenticator(new AuthManager(plugin))
                 .WithErrorHandler(new DiscoveryErrHAndler(scoped));
 
-            //Schedule discovery interval
-            plugin.ScheduleInterval(_index, _config.DiscoveryInterval);
-
-            //Run discovery after initial delay if interval is greater than initial delay
-            if (_config.DiscoveryInterval > InitialDelay)
+            //Only the master index is schedulable
+            if(_index is IIntervalScheduleable sch)
             {
-                //Run a manual initial load
-                scoped.Information("Running initial discovery in {delay}", InitialDelay);
-                _ = plugin.ObserveWork(() => _index.OnIntervalAsync(scoped, plugin.UnloadToken), (int)InitialDelay.TotalMilliseconds);
+                //Schedule discovery interval
+                plugin.ScheduleInterval(sch, _config.DiscoveryInterval);
+
+                //Run discovery after initial delay if interval is greater than initial delay
+                if (_config.DiscoveryInterval > InitialDelay)
+                {
+                    //Run a manual initial load
+                    scoped.Information("Running initial discovery in {delay}", InitialDelay);
+                    _ = plugin.ObserveWork(() => sch.OnIntervalAsync(scoped, plugin.UnloadToken), (int)InitialDelay.TotalMilliseconds);
+                }
             }
         }
 
@@ -115,7 +119,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
                 .WithInitialPeers(config.GetInitialNodeUris());
 
             //Init index
-            _index = new ClusterNodeIndex(Client.GetCacheConfiguration());
+            _index = ClusterNodeIndex.CreateIndex(Client.GetCacheConfiguration());
         }
 
         /*
@@ -133,37 +137,65 @@ namespace VNLib.Data.Caching.Providers.VNCache
                 pluginLog.Debug("Worker started, waiting for startup delay");
                 await Task.Delay((int)InitialDelay.TotalMilliseconds + 1000, exitToken);
 
+                CacheNodeAdvertisment? node = null;
+
                 while (true)
                 {
-                    try
+                    //Check for master index
+                    if (_index is IIntervalScheduleable sch)
                     {
-                        //Wait for a discovery to complete  
-                        await _index.WaitForDiscoveryAsync(exitToken);
-                    }
-                    catch (CacheDiscoveryFailureException cdfe)
-                    {
-                        pluginLog.Error("Failed to discover nodes, will try again\n{err}", cdfe.Message);
-                        //Continue
-                    }
-
-                    //Get the next node to connect to
-                    CacheNodeAdvertisment? node = _index.GetNextNode();
-
-                    if (node is null)
-                    {
-                        pluginLog.Warn("No nodes available to connect to, trying again in {delay}", NoNodeDelay);
-                        await Task.Delay(NoNodeDelay, exitToken);
-
-                        //Run another manual discovery if the interval is greater than the delay
-                        if (_config.DiscoveryInterval > NoNodeDelay)
+                        try
                         {
-                            pluginLog.Debug("Forcing a manual discovery");
-
-                            //We dont need to await this because it is awaited at the top of the loop
-                            _ = _index.OnIntervalAsync(pluginLog, exitToken);
+                            //Wait for a discovery to complete  
+                            await _index.WaitForDiscoveryAsync(exitToken);
+                        }
+                        catch (CacheDiscoveryFailureException cdfe)
+                        {
+                            pluginLog.Error("Failed to discover nodes, will try again\n{err}", cdfe.Message);
+                            //Continue
                         }
 
-                        continue;
+                        //Get the next node to connect to
+                        node = _index.GetNextNode();
+
+                        if (node is null)
+                        {
+                            pluginLog.Warn("No nodes available to connect to, trying again in {delay}", NoNodeDelay);
+                            await Task.Delay(NoNodeDelay, exitToken);
+
+                            //Run another manual discovery if the interval is greater than the delay
+                            if (_config.DiscoveryInterval > NoNodeDelay)
+                            {
+                                pluginLog.Debug("Forcing a manual discovery");
+
+                                //We dont need to await this because it is awaited at the top of the loop
+                                _ = sch.OnIntervalAsync(pluginLog, exitToken);
+                            }
+
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            //Wait for a discovery to complete  
+                            await _index.WaitForDiscoveryAsync(exitToken);
+                        }
+                        catch (CacheDiscoveryFailureException)
+                        {
+                            //Ignore as master instance will handle this error
+                        }
+
+                        //Get the next node to connect to
+                        node = _index.GetNextNode();
+
+                        //Again master instance will handle this condition, we just need to wait
+                        if(node is null)
+                        {
+                            await Task.Delay(NoNodeDelay, exitToken);
+                            continue;
+                        }
                     }
 
                     //Ready to connect

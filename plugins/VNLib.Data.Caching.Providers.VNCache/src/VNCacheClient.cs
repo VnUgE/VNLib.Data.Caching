@@ -52,7 +52,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
     /// methods.
     /// </para>
     /// </summary>
-    [ExternService]
+    [ServiceExport]
     [ConfigurationName(CACHE_CONFIG_KEY)]
     public sealed class VNCacheClient : IGlobalCacheProvider
     {

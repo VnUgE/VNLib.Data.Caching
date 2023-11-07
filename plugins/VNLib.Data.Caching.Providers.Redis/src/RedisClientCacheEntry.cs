@@ -53,7 +53,7 @@ namespace VNLib.Data.Caching.Providers.Redis
      * decision making where possible, such as protobufs
      */
 
-    [ExternService]
+    [ServiceExport]
     [ConfigurationName("cache")]
     public sealed class RedisClientCacheEntry : IGlobalCacheProvider
     {
