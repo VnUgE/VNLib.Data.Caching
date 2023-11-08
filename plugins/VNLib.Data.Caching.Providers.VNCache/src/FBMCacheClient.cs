@@ -126,7 +126,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
          * Background work method manages the remote cache connection
          * to the cache cluster
          */
-        public virtual async Task DoWorkAsync(ILogProvider pluginLog, CancellationToken exitToken)
+        public async Task DoWorkAsync(ILogProvider pluginLog, CancellationToken exitToken)
         {
             //Scope log
             pluginLog = pluginLog.CreateScope(LOG_NAME);
