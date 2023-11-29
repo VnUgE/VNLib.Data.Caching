@@ -65,7 +65,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
         private readonly NodeConfig _nodeConfig;
         private readonly ICacheStore _cacheStore;
         private readonly ICachePeerAdapter _peerAdapter;
-        private readonly FBMClientConfig _replicationClientConfig;
+        private readonly FBMClientFactory _clientFactory;
        
         private readonly bool _isDebug;
 
@@ -79,11 +79,15 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
             _peerAdapter = plugin.GetOrCreateSingleton<PeerDiscoveryManager>();       
 
             //Init fbm config with fixed message size
-            _replicationClientConfig = FBMDataCacheExtensions.GetDefaultConfig(
+            FBMClientConfig clientConfig = FBMDataCacheExtensions.GetDefaultConfig(
                 (plugin as ObjectCacheServerEntry)!.ListenerHeap,
                 MAX_MESSAGE_SIZE,
                 debugLog: plugin.IsDebug() ? plugin.Log : null
             );
+
+            //Init ws fallback factory and client factory
+            FBMFallbackClientWsFactory wsFactory = new();
+            _clientFactory = new(in clientConfig, wsFactory);
 
             _plugin = plugin;
             _isDebug = plugin.IsDebug();
@@ -149,7 +153,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
             _ = newPeer ?? throw new ArgumentNullException(nameof(newPeer));
 
             //Setup client 
-            FBMClient client = new(_replicationClientConfig);
+            FBMClient client = _clientFactory.CreateClient();
 
             //Add peer to monitor
             _peerAdapter.OnPeerListenerAttached(newPeer);

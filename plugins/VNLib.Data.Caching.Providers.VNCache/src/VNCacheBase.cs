@@ -41,8 +41,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
         protected VNCacheBase(VNCacheConfig config)
         {
             //Set default serializers
-            DefaultDeserializer = config.CacheObjectDeserializer ?? new JsonCacheObjectSerializer();
-            DefaultSerializer = config.CacheObjectSerializer ?? new JsonCacheObjectSerializer();
+            DefaultDeserializer = config.CacheObjectDeserializer ?? new JsonCacheObjectSerializer(256);
+            DefaultSerializer = config.CacheObjectSerializer ?? new JsonCacheObjectSerializer(256);
         }
 
         ///<inheritdoc/>

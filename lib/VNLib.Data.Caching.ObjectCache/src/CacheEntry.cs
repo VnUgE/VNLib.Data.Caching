@@ -191,10 +191,8 @@ namespace VNLib.Data.Caching
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly Span<byte> GetDataSegment()
         {
-            //Get the actual length of the segment
-            uint length = GetLength();
             //Get the segment from its begining offset and 
-            return _manager.GetSpan(_handle, DATA_SEGMENT_START, length);
+            return _manager.GetSpan(_handle, DATA_SEGMENT_START, GetLength());
         }
 
         /// <summary>

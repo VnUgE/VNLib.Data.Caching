@@ -45,7 +45,7 @@ namespace VNLib.Data.Caching
     public static class ClientExtensions
     {
 
-        private static readonly JsonCacheObjectSerializer DefaultSerializer = new();
+        private static readonly JsonCacheObjectSerializer DefaultSerializer = new(256);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void LogDebug(this FBMClient client, string message, params object?[] args)
@@ -192,7 +192,7 @@ namespace VNLib.Data.Caching
         /// <exception cref="InvalidResponseException"></exception>
         /// <exception cref="MessageTooLargeException"></exception>
         /// <exception cref="ObjectNotFoundException"></exception>
-        public async static Task AddOrUpdateObjectAsync<T>(this FBMClient client, string objectId, string? newId, ObjectDataReader<T> callback, T state, CancellationToken cancellationToken = default)
+        public static async Task AddOrUpdateObjectAsync<T>(this FBMClient client, string objectId, string? newId, ObjectDataReader<T> callback, T state, CancellationToken cancellationToken = default)
         {
             _ = client ?? throw new ArgumentNullException(nameof(client));
             _ = callback ?? throw new ArgumentNullException(nameof(callback));
@@ -306,7 +306,7 @@ namespace VNLib.Data.Caching
                     return deserialzer.Deserialize<T>(response.ResponseBody);
                 }
 
-                //Object  may not exist on the server yet
+                //Object may not exist on the server yet
                 if (status.Value.Equals(ResponseCodes.NotFound, StringComparison.Ordinal))
                 {
                     return default;

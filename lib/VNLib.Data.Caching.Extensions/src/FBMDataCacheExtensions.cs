@@ -88,7 +88,7 @@ namespace VNLib.Data.Caching.Extensions
             return adapter;
         }
 
-        private static readonly ConditionalWeakTable<FBMClient, CacheClientConfiguration> ClientCacheConfig = new();
+        private static readonly ConditionalWeakTable<FBMClientFactory, CacheClientConfiguration> ClientCacheConfig = new();
 
         /// <summary>
         /// Gets a <see cref="FBMClientConfig"/> preconfigured object caching
@@ -358,7 +358,7 @@ namespace VNLib.Data.Caching.Extensions
         /// </summary>
         /// <param name="client"></param>
         /// <returns>A fluent api configuration builder for the current client</returns>
-        public static CacheClientConfiguration GetCacheConfiguration(this FBMClient client) => ClientCacheConfig.GetOrCreateValue(client);
+        public static CacheClientConfiguration GetCacheConfiguration(this FBMClientFactory client) => ClientCacheConfig.GetOrCreateValue(client);
 
         /// <summary>
         /// Explicitly set the client cache configuration for the current client
@@ -366,7 +366,7 @@ namespace VNLib.Data.Caching.Extensions
         /// <param name="client"></param>
         /// <param name="config">The cache node configuration</param>
         /// <returns>The config instance</returns>
-        public static CacheClientConfiguration SetCacheConfiguration(this FBMClient client, CacheClientConfiguration config)
+        public static CacheClientConfiguration SetCacheConfiguration(this FBMClientFactory client, CacheClientConfiguration config)
         {
             ClientCacheConfig.AddOrUpdate(client, config);
             return config;
@@ -378,7 +378,7 @@ namespace VNLib.Data.Caching.Extensions
         /// <param name="client"></param>
         /// <param name="nodeConfig">The cache node configuration</param>
         /// <returns>The config instance</returns>
-        public static CacheNodeConfiguration SetCacheConfiguration(this FBMClient client, CacheNodeConfiguration nodeConfig)
+        public static CacheNodeConfiguration SetCacheConfiguration(this FBMClientFactory client, CacheNodeConfiguration nodeConfig)
         {
             ClientCacheConfig.AddOrUpdate(client, nodeConfig);
             return nodeConfig;
@@ -425,7 +425,7 @@ namespace VNLib.Data.Caching.Extensions
         /// <param name="client"></param>
         /// <param name="cancellation">A token to cancel the operation</param>
         /// <returns>A task that completes when all nodes have been discovered</returns>
-        public static Task DiscoverAvailableNodesAsync(this FBMClient client, CancellationToken cancellation = default)
+        public static Task DiscoverAvailableNodesAsync(this FBMClientFactory client, CancellationToken cancellation = default)
         {
             //Get stored config
             CacheClientConfiguration conf = ClientCacheConfig.GetOrCreateValue(client);
@@ -446,7 +446,7 @@ namespace VNLib.Data.Caching.Extensions
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="SecurityException"></exception>
         /// <exception cref="ObjectDisposedException"></exception>
-        public static async Task<CacheNodeAdvertisment> ConnectToRandomCacheAsync(this FBMClient client, CancellationToken cancellation = default)
+        public static async Task<CacheNodeAdvertisment> ConnectToRandomCacheAsync(this FBMClientFactory client, CancellationToken cancellation = default)
         {
             //Get stored config
             CacheClientConfiguration conf = ClientCacheConfig.GetOrCreateValue(client);
@@ -467,7 +467,7 @@ namespace VNLib.Data.Caching.Extensions
         /// <summary>
         /// Connects to the specified server on the configured cache client
         /// </summary>
-        /// <param name="client"></param>
+        /// <param name="factory"></param>
         /// <param name="server">The server to connect to</param>
         /// <param name="token">A token to cancel the operation</param>
         /// <returns>A task that resolves when the client is connected to the cache server</returns>
@@ -477,16 +477,28 @@ namespace VNLib.Data.Caching.Extensions
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="SecurityException"></exception>
         /// <exception cref="ObjectDisposedException"></exception>
-        public static Task ConnectToCacheAsync(this FBMClient client, CacheNodeAdvertisment server, CancellationToken token = default)
+        public static async Task<FBMClient> ConnectToCacheAsync(this FBMClientFactory factory, CacheNodeAdvertisment server, CancellationToken token = default)
         {
-            _ = client ?? throw new ArgumentNullException(nameof(client));
+            _ = factory ?? throw new ArgumentNullException(nameof(factory));
             _ = server ?? throw new ArgumentNullException(nameof(server));
             
             //Get stored config
-            CacheClientConfiguration conf = ClientCacheConfig.GetOrCreateValue(client);
+            CacheClientConfiguration conf = ClientCacheConfig.GetOrCreateValue(factory);
 
-            //Connect to server (no server id because client not replication server)
-            return ConnectToCacheAsync(client, conf, server, token);
+            //Create new client
+            FBMClient client = factory.CreateClient();
+
+            try
+            {
+                //Connect to server (no server id because client not replication server)
+                await ConnectToCacheAsync(client, conf, server, token);
+                return client;
+            }
+            catch
+            {
+                client.Dispose();
+                throw;
+            }
         }
 
         /// <summary>
@@ -549,19 +561,19 @@ namespace VNLib.Data.Caching.Extensions
             client.LogDebug("Server negotiation validated, connecting to server");
 
             //The client authorization header is the exact response
-            client.ClientSocket.Headers[HttpRequestHeader.Authorization] = response.Content!;
+            client.Headers[HttpRequestHeader.Authorization] = response.Content!;
 
             //See if the supplied config is for a cache node
             CacheNodeConfiguration? cnc = config as CacheNodeConfiguration;
 
             //Compute the signature of the upgrade token
-            client.ClientSocket.Headers[X_UPGRADE_SIG_HEADER] = config.AuthManager.GetBase64UpgradeSignature(response.Content, cnc != null);
+            client.Headers[X_UPGRADE_SIG_HEADER] = config.AuthManager.GetBase64UpgradeSignature(response.Content, cnc != null);
 
             //Check to see if adversize self is enabled
             if (cnc?.BroadcastAdverisment == true)
             {
                 //Set advertisment header
-                client.ClientSocket.Headers[X_NODE_DISCOVERY_HEADER] = GetAdvertismentHeader(cnc);
+                client.Headers[X_NODE_DISCOVERY_HEADER] = GetAdvertismentHeader(cnc);
             }
 
             //build ws uri from the connect endpoint

@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2022 Vaughn Nugent
+* Copyright (c) 2023 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -32,7 +32,7 @@ using VNLib.Net.Messaging.FBM.Client;
 namespace VNLib.Data.Caching
 {
     /// <summary>
-    /// Manages a <see cref="FBMClientWorkerBase"/> reconnect policy
+    /// Manages a <see cref="IStatefulConnection"/> reconnect policy
     /// </summary>
     public class ClientRetryManager<T> : VnDisposeable where T: IStatefulConnection
     {
@@ -62,6 +62,7 @@ namespace VNLib.Data.Caching
         /// Raised before client is to be reconnected
         /// </summary>
         public event Action<T>? OnBeforeReconnect;
+
         /// <summary>
         /// Raised when the client fails to reconnect. Should return a value that instructs the 
         /// manager to reconnect

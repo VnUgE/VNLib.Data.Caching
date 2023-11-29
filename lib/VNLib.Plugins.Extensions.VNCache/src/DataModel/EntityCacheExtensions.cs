@@ -107,15 +107,88 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="cache"></param>
+        /// <param name="bufferSize">The default serializer buffer size</param>
         /// <returns>The new <see cref="IEntityCache{T}"/> wrapper using json serialization</returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static IEntityCache<T> CreateJsonEntityCache<T>(this IGlobalCacheProvider cache) where T: class
+        public static IEntityCache<T> CreateJsonEntityCache<T>(this IGlobalCacheProvider cache, int bufferSize) where T: class
         {
             _ = cache ?? throw new ArgumentNullException(nameof(cache));
-            JsonCacheObjectSerializer json = new();
+            JsonCacheObjectSerializer json = new(bufferSize);
             return CreateEntityCache<T>(cache, json, json);
         }
 
+        /// <summary>
+        /// Attemts to recover an entity from cache if possible, if a miss occurs, the 
+        /// factory function is called to produce a value from a backing store. If the store 
+        /// returns a result it is writen back to the cache before this method returns
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="cache"></param>
+        /// <param name="id">The id of the entity to get or laod</param>
+        /// <param name="factory">The factory callback function to produce a value when a cache miss occurs</param>
+        /// <param name="cancellation">A token to cancel the operation</param>
+        /// <returns>A task that completes by returning the entity</returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static async Task<T?> GetOrLoadAsync<T>(this IEntityCache<T> cache, string id, Func<string, Task<T?>> factory, CancellationToken cancellation = default) where T : class
+        {
+            _ = cache ?? throw new ArgumentNullException(nameof(cache));
+            _ = id ?? throw new ArgumentNullException(nameof(id));
+            _ = factory ?? throw new ArgumentNullException(nameof(factory));
+
+            //try to load the value from cache
+            T? record = await cache.GetAsync(id, cancellation);
+
+            //If record was not found in cache, load it from the factory
+            if (record is null)
+            {
+                record = await factory(id);
+
+                //If new record found, write to cache
+                if (record is not null)
+                {
+                    await cache.UpsertAsync(id, record, cancellation);
+                }
+            }
+
+            return record;
+        }
+
+        /// <summary>
+        /// Attemts to recover an entity from cache if possible, if a miss occurs, the 
+        /// factory function is called to produce a value from a backing store. If the store 
+        /// returns a result it is writen back to the cache before this method returns
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="cache"></param>
+        /// <param name="id">The id of the entity to get or laod</param>
+        /// <param name="factory">The factory callback function to produce a value when a cache miss occurs</param>
+        /// <param name="cancellation">A token to cancel the operation</param>
+        /// <returns>A task that completes by returning the entity</returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static async Task<T?> GetOrLoadAsync<T>(this IEntityCache<T> cache, string id, Func<string, CancellationToken, Task<T?>> factory, CancellationToken cancellation = default) where T : class
+        {
+            _ = cache ?? throw new ArgumentNullException(nameof(cache));
+            _ = id ?? throw new ArgumentNullException(nameof(id));
+            _ = factory ?? throw new ArgumentNullException(nameof(factory));
+
+            //try to load the value from cache
+            T? record = await cache.GetAsync(id, cancellation);
+
+            //If record was not found in cache, load it from the factory
+            if (record is null)
+            {
+                record = await factory(id, cancellation);
+                
+                //If new record found, write to cache
+                if(record is not null)
+                {
+                    await cache.UpsertAsync(id, record, cancellation);
+                }
+            }
+
+            return record;           
+        } 
+      
         private sealed class EntityCacheImpl<T> : IEntityCache<T> where T : class
         {
             private readonly IGlobalCacheProvider _cacheProvider;

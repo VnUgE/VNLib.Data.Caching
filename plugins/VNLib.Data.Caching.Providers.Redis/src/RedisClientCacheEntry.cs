@@ -69,8 +69,8 @@ namespace VNLib.Data.Caching.Providers.Redis
         public RedisClientCacheEntry(PluginBase plugin, IConfigScope config)
         {
             _defaultHeap = MemoryUtil.Shared;
-            DefaultDeserializer = new JsonCacheObjectSerializer();
-            DefaultSerializer = new JsonCacheObjectSerializer();
+            DefaultDeserializer = new JsonCacheObjectSerializer(256);
+            DefaultSerializer = new JsonCacheObjectSerializer(256);
 
             ILogProvider redisLog = plugin.Log.CreateScope("REDIS");
 

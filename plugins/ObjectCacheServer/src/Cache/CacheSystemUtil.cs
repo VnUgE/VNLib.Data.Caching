@@ -25,10 +25,8 @@
 using System;
 using System.IO;
 using System.Text.Json;
-using System.Collections;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 
+using VNLib.Utils.Resources;
 using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
 
@@ -38,8 +36,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
     {
         const string PERSISTANT_ASM_CONFIF_KEY = "persistant_cache_asm";
         const string USER_CACHE_ASM_CONFIG_KEY = "custom_cache_impl_asm";
-        const string LOAD_METHOD_NAME = "OnRuntimeLoad";
-        const string TEARDOWN_METHOD_NAME = "OnSystemDetach";
+        const string INITIALIZE_METHOD_NAME = "OnInitializeForBucket";
+        const string LOAD_METHOD_NAME = "OnRuntimeLoad";        
 
         /// <summary>
         /// Loads the <see cref="IBlobCacheTable"/> implementation (dynamic or default) into the process
@@ -53,8 +51,12 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
         /// <exception cref="FileNotFoundException"></exception>
         public static IBlobCacheTable LoadMemoryCacheSystem(this PluginBase plugin, IConfigScope config, ICacheMemoryManagerFactory heap, CacheConfiguration cacheConf)
         {
+#pragma warning disable CA2000 // Dispose objects before losing scope
+
             //First, try to load persitant cache store
-            PersistantCacheManager? pCManager = GetPersistantStore(plugin, config);
+            IPersistantCacheStore? pCManager = GetPersistantStore(plugin, config);
+
+#pragma warning restore CA2000 // Dispose objects before losing scope
 
             IBlobCacheTable table;
 
@@ -64,46 +66,42 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
                 string asmName = customEl.GetString() ?? throw new FileNotFoundException("User defined a custom blob cache assembly but the file name was null");
 
                 //Return the runtime loaded table
-                table = LoadCustomMemCacheTable(plugin, asmName, pCManager);
+                table = plugin.CreateServiceExternal<IBlobCacheTable>(asmName);
+
+                //Try to get the load method and pass the persistant cache instance
+                ManagedLibrary.TryGetMethod<Action<PluginBase, IPersistantCacheStore?>>(table, LOAD_METHOD_NAME)?.Invoke(plugin, pCManager);
             }
             else
             {
                 //Default type
-                table = GetInternalBlobCache(heap, cacheConf, pCManager);
+                table = new BlobCacheTable(cacheConf.BucketCount, cacheConf.MaxCacheEntries, heap, pCManager);
             }
 
-            //Initialize the subsystem from the cache table
-            pCManager?.InitializeSubsystem(table);
+            if(pCManager != null)
+            {
+                //Initialize the subsystem from the cache table
+                InitializeSubsystem(pCManager, table);
+            }
 
             return table;
         }
 
-        private static IBlobCacheTable GetInternalBlobCache(ICacheMemoryManagerFactory heap, CacheConfiguration config, IPersistantCacheStore? store)
+        private static void InitializeSubsystem(IPersistantCacheStore store, IBlobCacheTable table)
         {
-            return new BlobCacheTable(config.BucketCount, config.MaxCacheEntries, heap, store);
+            //Try to get the Initialize method
+            Action<uint>? initMethod = ManagedLibrary.TryGetMethod<Action<uint>>(store, INITIALIZE_METHOD_NAME);
+
+            if(initMethod != null)
+            {
+                //Itterate all buckets
+                foreach (IBlobCacheBucket bucket in table)
+                {
+                    initMethod.Invoke(bucket.Id);
+                }
+            }
         }
 
-        private static IBlobCacheTable LoadCustomMemCacheTable(PluginBase plugin, string asmName, IPersistantCacheStore? store)
-        {
-            //Load the custom assembly
-            AssemblyLoader<IBlobCacheTable> customTable = plugin.LoadAssembly<IBlobCacheTable>(asmName);
-
-            try
-            {
-                //Try get onload method and pass the persistant cache instance
-                Action<PluginBase, IPersistantCacheStore?>? onLoad = customTable.TryGetMethod<Action<PluginBase, IPersistantCacheStore?>>(LOAD_METHOD_NAME);
-                onLoad?.Invoke(plugin, store);
-            }
-            catch
-            {
-                customTable.Dispose();
-                throw;
-            }
-
-            return new RuntimeBlobCacheTable(customTable);
-        }
-
-        private static PersistantCacheManager? GetPersistantStore(PluginBase plugin, IConfigScope config)
+        private static IPersistantCacheStore? GetPersistantStore(PluginBase plugin, IConfigScope config)
         {
             //Get the persistant assembly 
             if (!config.TryGetValue(PERSISTANT_ASM_CONFIF_KEY, out JsonElement asmEl))
@@ -112,130 +110,14 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
             }
 
             string? asmName = asmEl.GetString();
-            if (asmName == null)
+            if (string.IsNullOrWhiteSpace(asmName))
             {
                 return null;
             }
 
-            //Load the dynamic assembly into the alc
-            AssemblyLoader<IPersistantCacheStore> loader = plugin.LoadAssembly<IPersistantCacheStore>(asmName);
-            try
-            {
-                //Call the OnLoad method
-                Action<PluginBase, IConfigScope>? loadMethod = loader.TryGetMethod<Action<PluginBase, IConfigScope>>(LOAD_METHOD_NAME);
-
-                loadMethod?.Invoke(plugin, config);
-            }
-            catch
-            {
-                loader.Dispose();
-                throw;
-            }
-
             //Return the 
-            return new(loader);
+            return plugin.CreateServiceExternal<IPersistantCacheStore>(asmName);
         }
-
-
-        private sealed class RuntimeBlobCacheTable : IBlobCacheTable
-        {
-
-            private readonly IBlobCacheTable _table;
-            private readonly Action? OnDetatch;
-
-            public RuntimeBlobCacheTable(AssemblyLoader<IBlobCacheTable> loader)
-            {
-                OnDetatch = loader.TryGetMethod<Action>(TEARDOWN_METHOD_NAME);
-                _table = loader.Resource;
-            }
-
-            public void Dispose()
-            {
-                //We can let the loader dispose the cache table, but we can notify of detatch
-                OnDetatch?.Invoke();
-            }
-
-
-            ///<inheritdoc/>
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            IBlobCacheBucket IBlobCacheTable.GetBucket(ReadOnlySpan<char> objectId) => _table.GetBucket(objectId);
-
-            ///<inheritdoc/>
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public IEnumerator<IBlobCacheBucket> GetEnumerator() => _table.GetEnumerator();
-
-            ///<inheritdoc/>
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_table).GetEnumerator();
-        }
-
-        internal sealed class PersistantCacheManager : IPersistantCacheStore
-        {
-            const string INITIALIZE_METHOD_NAME = "OnInitializeForBucket";
-
-
-            /*
-             * Our referrence can be technically unloaded, but so will 
-             * this instance, since its loaded into the current ALC, so 
-             * this referrence may exist for the lifetime of this instance.
-             * 
-             * It also implements IDisposable, which the assembly loader class
-             * will call when this plugin is unloaded, we dont need to call
-             * it here, but we can signal a detach.
-             * 
-             * Since the store implements IDisposable, its likely going to 
-             * check for dispose on each call, so we don't need to add
-             * and additional disposed check since the method calls must be fast.
-             */
-
-            private readonly IPersistantCacheStore store;
-
-            private readonly Action<uint>? InitMethod;
-            private readonly Action? OnServiceDetatch;
-
-            public PersistantCacheManager(AssemblyLoader<IPersistantCacheStore> loader)
-            {
-                //Try to get the Initialize method
-                InitMethod = loader.TryGetMethod<Action<uint>>(INITIALIZE_METHOD_NAME);
-
-                //Get the optional detatch method
-                OnServiceDetatch = loader.TryGetMethod<Action>(TEARDOWN_METHOD_NAME);
-
-                store = loader.Resource;
-            }
-
-            /// <summary>
-            /// Optionally initializes the backing store by publishing the table's bucket 
-            /// id's so it's made aware of the memory cache bucket system.
-            /// </summary>
-            /// <param name="table">The table containing buckets to publish</param>
-            public void InitializeSubsystem(IBlobCacheTable table)
-            {
-                //Itterate all buckets
-                foreach (IBlobCacheBucket bucket in table)
-                {
-                    InitMethod?.Invoke(bucket.Id);
-                }
-            }
-
-            void IDisposable.Dispose()
-            {
-                //Assembly loader will dispose the type, we can just signal a detach
-
-                OnServiceDetatch?.Invoke();
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            bool IPersistantCacheStore.OnCacheMiss(uint bucketId, string key, IMemoryCacheEntryFactory factory, out CacheEntry entry)
-            {
-                return store.OnCacheMiss(bucketId, key, factory, out entry);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            void IPersistantCacheStore.OnEntryDeleted(uint bucketId, string key) => store.OnEntryDeleted(bucketId, key);
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            void IPersistantCacheStore.OnEntryEvicted(uint bucketId, string key, in CacheEntry entry) => store.OnEntryEvicted(bucketId, key, in entry);
-        }
+        
     }
 }

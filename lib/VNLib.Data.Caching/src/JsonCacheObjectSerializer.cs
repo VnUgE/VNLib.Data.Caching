@@ -23,11 +23,12 @@
 */
 
 using System;
+
+using System.IO;
 using System.Buffers;
+using System.Threading;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-
-using VNLib.Utils.Memory.Caching;
 
 namespace VNLib.Data.Caching
 {
@@ -37,8 +38,7 @@ namespace VNLib.Data.Caching
     /// </summary>
     public class JsonCacheObjectSerializer : ICacheObjectSerializer, ICacheObjectDeserializer
     {
-        //Create threadlocal writer for attempted lock-free writer reuse
-        private static readonly ObjectRental<ReusableJsonWriter> JsonWriterPool = ObjectRental.CreateThreadLocal<ReusableJsonWriter>();
+        private static readonly ThreadLocal<Utf8JsonWriter> _writer = new(static () => new(Stream.Null));
 
         private readonly JsonSerializerOptions? _options;
 
@@ -46,16 +46,13 @@ namespace VNLib.Data.Caching
         /// Initializes a new <see cref="JsonCacheObjectSerializer"/>
         /// </summary>
         /// <param name="options">JSON serialization/deserialization options</param>
-        public JsonCacheObjectSerializer(JsonSerializerOptions options)
-        {
-            _options = options;
-        }
+        public JsonCacheObjectSerializer(JsonSerializerOptions options) => _options = options;
 
         /// <summary>
         /// Initializes a new <see cref="JsonCacheObjectSerializer"/> using 
         /// the default serialization rules
         /// </summary>
-        public JsonCacheObjectSerializer()
+        public JsonCacheObjectSerializer(int bufferSize)
         {
             //Configure default serialzation options
             _options = new()
@@ -68,9 +65,7 @@ namespace VNLib.Data.Caching
                 IgnoreReadOnlyFields = true,
                 PropertyNameCaseInsensitive = true,
                 IncludeFields = false,
-
-                //Use small buffers
-                DefaultBufferSize = 128
+                DefaultBufferSize = bufferSize
             };
         }
 
@@ -80,17 +75,23 @@ namespace VNLib.Data.Caching
         ///<inheritdoc/>
         public virtual void Serialize<T>(T obj, IBufferWriter<byte> finiteWriter)
         {
-            //Rent new json writer
-            ReusableJsonWriter writer = JsonWriterPool.Rent();
+            //Read thread-local writer
+            Utf8JsonWriter localWriter = _writer.Value!;
 
+            //Init the writer with the new buffer writer
+            localWriter.Reset(finiteWriter);
             try
             {
-                //Serialize the message
-                writer.Serialize(finiteWriter, obj, _options);
+                //Serialize message
+                JsonSerializer.Serialize(localWriter, obj, _options);
+
+                //Flush writer to underlying buffer
+                localWriter.Flush();
             }
             finally
             {
-                JsonWriterPool.Return(writer);
+                //Unlink the writer
+                localWriter.Reset(Stream.Null);
             }
         }
     }

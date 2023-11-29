@@ -100,7 +100,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
             _memCache = new BlobCacheTable(memCache.TableSize, memCache.BucketSize, factory, null);
 
             //If backing store is a VnCacheClient, steal it's buffer heap
-            _bufferHeap = backingStore is FBMCacheClient client && client.Client.Config.MemoryManager.TryGetHeap(out IUnmangedHeap? heap) ? heap : MemoryUtil.Shared;
+            _bufferHeap = backingStore is FBMCacheClient client ? client.BufferHeap : MemoryUtil.Shared;
 
             _cacheConfig = memCache;
             _backing = backingStore;

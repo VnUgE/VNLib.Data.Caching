@@ -69,6 +69,12 @@ namespace VNLib.Data.Caching.Providers.VNCache
         internal TimeSpan RequestTimeout => TimeSpan.FromSeconds(RequestTimeoutSeconds!.Value);
 
         /// <summary>
+        /// The time in milliseconds for the initial node delay
+        /// </summary>
+        [JsonPropertyName("intial_delay_ms")]
+        public uint? InitialNodeDelay { get; set; }
+
+        /// <summary>
         /// The initial peers to connect to
         /// </summary>
         [JsonPropertyName("initial_nodes")]
