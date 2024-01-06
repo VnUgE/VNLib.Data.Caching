@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>VNLib.Data.Caching</RootNamespace>
     <AssemblyName>VNLib.Data.Caching</AssemblyName>
     <Nullable>enable</Nullable>
@@ -15,7 +15,7 @@
     <Company>Vaughn Nugent</Company>
     <Product>VNLib FBM Data caching extension library</Product>
     <Description>Provides constants and extensions for a key-value data caching protocol layer atop the Fixed Buffer Messaging protocol to work VNCache servers. Provides rapid cache development</Description>
-    <Copyright>Copyright © 2023 Vaughn Nugent</Copyright>
+    <Copyright>Copyright © 2024 Vaughn Nugent</Copyright>
     <PackageProjectUrl>https://www.vaughnnugent.com/resources/software/modules/VNLib.Data.Caching</PackageProjectUrl>
     <RepositoryUrl>https://github.com/VnUgE/VNLib.Data.Caching/tree/master/lib/VNLib.Data.Caching</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>

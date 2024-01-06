@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2022 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -23,7 +23,7 @@
 */
 
 using System;
-using System.Runtime.Serialization;
+
 
 using VNLib.Net.Messaging.FBM;
 
@@ -36,15 +36,12 @@ namespace VNLib.Data.Caching.Exceptions
     {
         ///<inheritdoc/>
         public MessageTooLargeException()
-        {}
+        { }
         ///<inheritdoc/>
         public MessageTooLargeException(string message) : base(message)
-        {}
+        { }
         ///<inheritdoc/>
         public MessageTooLargeException(string message, Exception innerException) : base(message, innerException)
-        {}
-        ///<inheritdoc/>
-        protected MessageTooLargeException(SerializationInfo info, StreamingContext context) : base(info, context)
-        {}
+        { }
     }
 }
