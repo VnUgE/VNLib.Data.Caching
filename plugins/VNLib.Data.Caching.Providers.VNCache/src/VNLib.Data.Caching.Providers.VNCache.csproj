@@ -46,7 +46,7 @@
   </ItemGroup>
 
   <Target Condition="'$(BuildingInsideVisualStudio)' == true" Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="start xcopy &quot;$(TargetDir)&quot; &quot;..\..\..\..\..\devplugins\runtimeassets\$(TargetName)&quot; /E /Y /R" />
+    <Exec Command="start xcopy &quot;$(TargetDir)&quot; &quot;$(SolutionDir)devplugins\RuntimeAssets\$(TargetName)&quot; /E /Y /R" />
   </Target>
 
 </Project>
