@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.Redis
@@ -328,10 +328,7 @@ namespace VNLib.Data.Caching.Providers.Redis
 
             public void Advance(int count)
             {
-                if(count < 0)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(count));
-                }
+                ArgumentOutOfRangeException.ThrowIfNegative(count);
                 _position += count;
             }
 
