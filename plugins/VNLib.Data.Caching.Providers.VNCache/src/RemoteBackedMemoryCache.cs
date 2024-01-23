@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -83,8 +83,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
 
         public RemoteBackedMemoryCache(MemoryCacheConfig memCache, IGlobalCacheProvider backingStore, BucketLocalManagerFactory? factory):base(memCache)
         {
-            _ = memCache ?? throw new ArgumentNullException(nameof(memCache));
-            _ = backingStore ?? throw new ArgumentNullException(nameof(backingStore));
+            ArgumentNullException.ThrowIfNull(memCache);
+            ArgumentNullException.ThrowIfNull(backingStore);
 
             memCache.Validate();
 
@@ -166,9 +166,9 @@ namespace VNLib.Data.Caching.Providers.VNCache
         ///<inheritdoc/>
         public override async Task GetAsync<T>(string key, ObjectDataSet<T> setter, T state, CancellationToken cancellation)
         {
-            _ = key ?? throw new ArgumentNullException(nameof(key));
-            _ = setter ?? throw new ArgumentNullException(nameof(setter));
-
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
+            ArgumentNullException.ThrowIfNull(setter);
+     
             CheckConnected();
 
             IBlobCacheBucket bucket = _memCache.GetBucket(key);
@@ -220,7 +220,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public override async Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataReader<T> callback, T state, CancellationToken cancellation)
+        public override async Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataGet<T> callback, T state, CancellationToken cancellation)
         {
             CheckConnected();
 

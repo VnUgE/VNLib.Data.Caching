@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
@@ -144,14 +144,14 @@ namespace VNLib.Data.Caching.ObjectCache
             this IBlobCacheTable table,
             string objectId,
             string? alternateId,
-            ObjectDataReader<T> bodyData,
+            ObjectDataGet<T> bodyData,
             T state,
             DateTime time,
             CancellationToken cancellation = default)
         {
-
-            _ = table ?? throw new ArgumentNullException(nameof(table));
-            _ = bodyData ?? throw new ArgumentNullException(nameof(bodyData));
+            ArgumentNullException.ThrowIfNull(table);
+            ArgumentNullException.ThrowIfNull(bodyData);
+            ArgumentException.ThrowIfNullOrWhiteSpace(objectId);
 
             //See if an id change is required
             if (string.IsNullOrWhiteSpace(alternateId))

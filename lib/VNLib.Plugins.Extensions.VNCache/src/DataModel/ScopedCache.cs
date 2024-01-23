@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Plugins.Extensions.VNCache
@@ -65,7 +65,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         public abstract Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation);
 
         ///<inheritdoc/>
-        public abstract Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataReader<T> callback, T state, CancellationToken cancellation);
+        public abstract Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataGet<T> callback, T state, CancellationToken cancellation);
 
         ///<inheritdoc/>
         public abstract object GetUnderlyingStore();

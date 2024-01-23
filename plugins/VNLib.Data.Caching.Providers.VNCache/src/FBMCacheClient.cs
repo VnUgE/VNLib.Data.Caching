@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -317,7 +317,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public override Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataReader<T> callback, T state, CancellationToken cancellation)
+        public override Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataGet<T> callback, T state, CancellationToken cancellation)
         {
             return !IsConnected
             ? throw new InvalidOperationException("The underlying client is not connected to a cache node")

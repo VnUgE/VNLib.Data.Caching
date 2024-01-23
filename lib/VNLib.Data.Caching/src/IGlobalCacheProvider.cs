@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -23,6 +23,7 @@
 */
 
 using System;
+using System.Buffers;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -39,12 +40,47 @@ namespace VNLib.Data.Caching
     public delegate void ObjectDataSet<T>(T state, ReadOnlySpan<byte> objectData);
 
     /// <summary>
-    /// A delegate method that will get the raw objet data from a state object
+    /// A delegate method that will get the raw object data from a state object
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="state">The state object passed to the caller</param>
     /// <returns>The raw object data to store in cache</returns>
-    public delegate ReadOnlySpan<byte> ObjectDataReader<T>(T state);
+    public delegate ReadOnlySpan<byte> ObjectDataGet<T>(T state);
+
+    /// <summary>
+    /// A delegate method that will write the raw object data to the supplied
+    /// data buffer
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="state">The state object passed to the caller</param>
+    /// <param name="finiteWriter">The finite sized buffer writer use to write object data to</param>
+    public delegate void ObjectDataReader<T>(T state, IBufferWriter<byte> finiteWriter);
+
+    /// <summary>
+    /// A delegate method that will get an object from the raw object data
+    /// </summary>
+    /// <typeparam name="TObject"></typeparam>
+    /// <typeparam name="TState"></typeparam>
+    /// <param name="state">Optional user-state data</param>
+    /// <param name="data">The object data to compute the object result from</param>
+    /// <returns>The resultant object</returns>
+    public delegate TObject GetObjectFromData<TObject, TState>(TState state, ReadOnlySpan<byte> data);
+
+    /// <summary>
+    /// Internal structure used to store a callback and state for the 
+    /// a data read/get operation on a cache object
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="UserState">The user-state object to pass</param>
+    /// <param name="Getter">The data get callback function</param>
+    internal readonly record struct ObjectDataGetState<T>(T UserState, ObjectDataGet<T> Getter);
+
+    internal sealed class GetObjectState<T, TState>(TState State, GetObjectFromData<T, TState> Getter)
+    {
+        public T? Result;
+
+        public void ComputeResult(ReadOnlySpan<byte> data) => Result = Getter(State, data);
+    }
 
     /// <summary>
     /// A global cache provider interface
@@ -123,6 +159,6 @@ namespace VNLib.Data.Caching
         /// <param name="state">The callback state parameter</param>
         /// <param name="cancellation">A token to cancel the async operation</param>
         /// <returns>A task that completes when the update operation has compelted</returns>
-        Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataReader<T> callback, T state, CancellationToken cancellation);
+        Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataGet<T> callback, T state, CancellationToken cancellation);
     }
 }
