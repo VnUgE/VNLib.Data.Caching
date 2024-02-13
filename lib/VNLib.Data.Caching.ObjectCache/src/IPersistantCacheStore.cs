@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
@@ -54,20 +54,16 @@ namespace VNLib.Data.Caching.ObjectCache
         /// This method is called while the bucket lock is held. This call is maded
         /// during an <see cref="IBlobCache.Add(string, CacheEntry)"/> method call.
         /// </para>
-        /// <para>
-        /// The <see cref="IMemoryCacheEntryFactory"/> should be used to create the 
-        /// cache entry for the return value. Once this method returns, the caller owns the new <see cref="CacheEntry"/>
-        /// </para>
         /// </summary>
         /// <param name="key">The key identifying the entry to promot</param>
-        /// <param name="factory">The cache entry factory</param>
+        /// <param name="memManager">The cache table memory manager</param>
         /// <param name="bucketId">The id of the bucket requesting the operation</param>
         /// <param name="entry">The newly created entry when data is found</param>
         /// <returns>
         /// A value inidcating if the entry was successfully recovered from the persistant storage and 
         /// was successfully promoted.
         /// </returns>
-        bool OnCacheMiss(uint bucketId, string key, IMemoryCacheEntryFactory factory, out CacheEntry entry);
+        bool OnCacheMiss(uint bucketId, string key, ICacheEntryMemoryManager memManager, out CacheEntry entry);
 
         /// <summary>
         /// Removes an entry from the backing store

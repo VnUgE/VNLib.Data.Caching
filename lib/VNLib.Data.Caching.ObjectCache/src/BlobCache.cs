@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
@@ -34,10 +34,10 @@ namespace VNLib.Data.Caching.ObjectCache
     /// <summary>
     /// A general purpose binary data storage
     /// </summary>
-    public sealed class BlobCache : LRUCache<string, CacheEntry>, IBlobCache, IMemoryCacheEntryFactory
+    public sealed class BlobCache : LRUCache<string, CacheEntry>, IBlobCache
     {
         private bool disposedValue;
-        private IPersistantCacheStore? _persistance;
+        private readonly IPersistantCacheStore? _persistance;
 
         ///<inheritdoc/>
         public override bool IsReadOnly { get; }
@@ -62,17 +62,12 @@ namespace VNLib.Data.Caching.ObjectCache
         public BlobCache(uint bucketId, int maxCapacity, ICacheEntryMemoryManager manager, IPersistantCacheStore? store)
             :base(maxCapacity, StringComparer.Ordinal)
         {
-            if(maxCapacity < 1)
-            {
-                throw new ArgumentException("The maxium capacity of the store must be a positive integer larger than 0", nameof(maxCapacity));   
-            }
+            ArgumentOutOfRangeException.ThrowIfLessThan(maxCapacity, 1);
+            ArgumentNullException.ThrowIfNull(manager);
 
             BucketId = bucketId;
-
             _persistance = store;
-
-            MemoryManager = manager ?? throw new ArgumentNullException(nameof(manager));
-
+            MemoryManager = manager;
             MaxCapacity = maxCapacity;
 
             //Update the lookup table size
@@ -88,11 +83,11 @@ namespace VNLib.Data.Caching.ObjectCache
                 return false;
             }
             //Use the persistant cache
-            return _persistance.OnCacheMiss(BucketId, key, this, out value);
+            return _persistance.OnCacheMiss(BucketId, key, MemoryManager, out value);
         }
 
         ///<inheritdoc/>
-        protected override void Evicted(ref KeyValuePair<string, CacheEntry> evicted)
+        protected override void Evicted(ref readonly KeyValuePair<string, CacheEntry> evicted)
         {
             try
             {
@@ -109,6 +104,8 @@ namespace VNLib.Data.Caching.ObjectCache
         ///<inheritdoc/>
         public bool TryChangeKey(string objectId, string newId, out CacheEntry entry)
         {
+            ObjectDisposedException.ThrowIf(disposedValue, this);
+
             //Try to get the node at the current key
             if (LookupTable.Remove(objectId, out LinkedListNode<KeyValuePair<string, CacheEntry>> ? node))
             {
@@ -137,6 +134,8 @@ namespace VNLib.Data.Caching.ObjectCache
         ///<inheritdoc/>
         public override bool Remove(string key)
         {
+            ObjectDisposedException.ThrowIf(disposedValue, this);
+
             //Remove from persistant store also
             _persistance?.OnEntryDeleted(BucketId, key);
 
@@ -161,39 +160,48 @@ namespace VNLib.Data.Caching.ObjectCache
         /// </summary>
         public override void Clear()
         {
-            //Start from first node
-            LinkedListNode<KeyValuePair<string, CacheEntry>>? node = List.First;
+            ObjectDisposedException.ThrowIf(disposedValue, this);
 
-            //Classic ll node itteration
-            while(node != null)
-            {
-                //Dispose the cache entry
-                node.ValueRef.Value.Dispose();
-                
-                //Move to next node
-                node = node.Next;
-            }
-           
-            //empty all cache entires in the store
-            base.Clear();
+            ClearInternal();
         }
 
         ///<inheritdoc/>
         public bool Remove(string objectId, out CacheEntry entry)
         {
+            ObjectDisposedException.ThrowIf(disposedValue, this);
+
             //Try to get the stored object
-            if(TryGetValue(objectId, out entry))
+            if (TryGetValue(objectId, out entry))
             {
                 //remove the entry and bypass the disposal
                 bool result = base.Remove(objectId);
 
-                Debug.Assert(result == true, "The cache entry was found in the table, but failed to remove");
+                Debug.Assert(result, "The cache entry was found in the table, but failed to remove");
 
                 return true;
             }
             
             entry = default;
             return false;
+        }
+
+        private void ClearInternal()
+        {
+            //Start from first node
+            LinkedListNode<KeyValuePair<string, CacheEntry>>? node = List.First;
+
+            //Classic ll node itteration
+            while (node != null)
+            {
+                //Dispose the cache entry
+                node.ValueRef.Value.Dispose();
+
+                //Move to next node
+                node = node.Next;
+            }
+
+            //empty all cache entires in the store
+            base.Clear();
         }
 
         ///<inheritdoc/>
@@ -203,7 +211,7 @@ namespace VNLib.Data.Caching.ObjectCache
             {
                 if (disposing)
                 {
-                    Clear();
+                    ClearInternal();
                 }
                 disposedValue = true;
             }
@@ -215,14 +223,6 @@ namespace VNLib.Data.Caching.ObjectCache
             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
-        }
-
-
-        ///<inheritdoc/>
-        CacheEntry IMemoryCacheEntryFactory.CreateEntry(ReadOnlySpan<byte> entryData)
-        {
-            //Create entry from the internal heap
-            return CacheEntry.Create(entryData, MemoryManager);
         }
     }
 }

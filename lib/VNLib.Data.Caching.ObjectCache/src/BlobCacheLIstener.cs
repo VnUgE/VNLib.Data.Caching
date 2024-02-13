@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
@@ -49,44 +49,36 @@ using static VNLib.Data.Caching.Constants;
 
 namespace VNLib.Data.Caching.ObjectCache
 {
-
     /// <summary>
     /// An <see cref="FBMListener"/> for key-value object data caching servers.
     /// </summary>
-    public class BlobCacheListener<T> : FBMListenerBase<T>, IDisposable
+    /// <remarks>
+    /// Initialzies a new <see cref="BlobCacheListener{T}"/>
+    /// </remarks>
+    /// <param name="cache">The cache table to work from</param>
+    /// <param name="queue">The event queue to publish changes to</param>
+    /// <param name="log">Writes error and debug logging information</param>
+    /// <param name="memoryManager">The heap to alloc FBM buffers and <see cref="CacheEntry"/> cache buffers from</param>
+    /// <exception cref="ArgumentNullException"></exception>
+    public class BlobCacheListener<T>(IBlobCacheTable cache, ICacheListenerEventQueue<T> queue, ILogProvider log, IFBMMemoryManager memoryManager) 
+        : FBMListenerBase<T>, IDisposable
     {
         private bool disposedValue;
 
         ///<inheritdoc/>
-        protected override ILogProvider Log { get; }
+        protected override ILogProvider Log { get; } = log;
         ///<inheritdoc/>
-        protected override FBMListener Listener { get; }
+        protected override FBMListener Listener { get; } = new(memoryManager);
 
         /// <summary>
         /// A queue that stores update and delete events
         /// </summary>
-        public ICacheListenerEventQueue<T> EventQueue { get; }
+        public ICacheListenerEventQueue<T> EventQueue { get; } = queue ?? throw new ArgumentNullException(nameof(queue));
 
         /// <summary>
         /// The Cache store to access data blobs
         /// </summary>
-        public IBlobCacheTable Cache { get; }
-
-        /// <summary>
-        /// Initialzies a new <see cref="BlobCacheListener{T}"/>
-        /// </summary>
-        /// <param name="cache">The cache table to work from</param>
-        /// <param name="queue">The event queue to publish changes to</param>
-        /// <param name="log">Writes error and debug logging information</param>
-        /// <param name="memoryManager">The heap to alloc FBM buffers and <see cref="CacheEntry"/> cache buffers from</param>
-        /// <exception cref="ArgumentNullException"></exception>
-        public BlobCacheListener(IBlobCacheTable cache, ICacheListenerEventQueue<T> queue, ILogProvider log, IFBMMemoryManager memoryManager)
-        {
-            Log = log;            
-            Cache = cache ?? throw new ArgumentNullException(nameof(cache));
-            EventQueue = queue ?? throw new ArgumentNullException(nameof(queue));
-            Listener = new(memoryManager);
-        }
+        public IBlobCacheTable Cache { get; } = cache ?? throw new ArgumentNullException(nameof(cache));
 
         ///<inheritdoc/>
         protected override async Task ProcessAsync(FBMContext context, T? userState, CancellationToken exitToken)
@@ -254,8 +246,7 @@ namespace VNLib.Data.Caching.ObjectCache
         {
             if (!disposedValue)
             {
-                Cache.Dispose();
-                
+                Cache.Dispose();                
                 disposedValue = true;
             }
         }

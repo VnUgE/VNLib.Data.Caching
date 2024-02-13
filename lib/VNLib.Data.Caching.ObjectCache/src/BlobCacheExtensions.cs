@@ -252,10 +252,26 @@ namespace VNLib.Data.Caching.ObjectCache
         /// <param name="objectId">The id of the object to delete</param>
         /// <param name="cancellation">A token to cancel the async lock await</param>
         /// <returns>A task that completes when the item has been deleted</returns>
-        public static async ValueTask<bool> DeleteObjectAsync(this IBlobCacheTable table, string objectId, CancellationToken cancellation = default)
+        public static ValueTask<bool> DeleteObjectAsync(this IBlobCacheTable table, string objectId, CancellationToken cancellation = default)
         {
+            ArgumentNullException.ThrowIfNull(table);
+
             //Try to get the bucket that the id should belong to
             IBlobCacheBucket bucket = table.GetBucket(objectId);
+
+            return DeleteObjectAsync(bucket, objectId, cancellation);
+        }
+
+        /// <summary>
+        /// Asynchronously deletes a previously stored item
+        /// </summary>
+        /// <param name="bucket"></param>
+        /// <param name="objectId">The id of the object to delete</param>
+        /// <param name="cancellation">A token to cancel the async lock await</param>
+        /// <returns>A task that completes when the item has been deleted</returns>
+        public static async ValueTask<bool> DeleteObjectAsync(this IBlobCacheBucket bucket, string objectId, CancellationToken cancellation = default)
+        {
+            ArgumentNullException.ThrowIfNull(bucket);
 
             //Wait for the bucket
             IBlobCache cache = await bucket.ManualWaitAsync(cancellation);
