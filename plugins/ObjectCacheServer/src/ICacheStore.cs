@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -38,7 +38,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         /// <param name="state">The state parameter to pass to the data callback</param>
         /// <param name="token">A token to cancel the async operation</param>
         /// <returns>A value task that represents the async operation</returns>
-        ValueTask AddOrUpdateBlobAsync<T>(string objectId, string? alternateId, ObjectDataReader<T> bodyData, T state, CancellationToken token = default);
+        ValueTask AddOrUpdateBlobAsync<T>(string objectId, string? alternateId, ObjectDataGet<T> bodyData, T state, CancellationToken token = default);
 
         /// <summary>
         /// Clears all items from the store

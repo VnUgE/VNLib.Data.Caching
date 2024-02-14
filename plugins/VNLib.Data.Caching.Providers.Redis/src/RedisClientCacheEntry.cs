@@ -211,8 +211,8 @@ namespace VNLib.Data.Caching.Providers.Redis
         ///<inheritdoc/>
         public async Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
         {
-            _ = key ?? throw new ArgumentNullException(nameof(key));
-            _ = serialzer ?? throw new ArgumentNullException(nameof(serialzer));
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
+            ArgumentNullException.ThrowIfNull(serialzer);
 
             //Alloc update buffer
             using AddOrUpdateBuffer buffer = new(_defaultHeap, InitialWriterBufferSize, false);
@@ -231,7 +231,7 @@ namespace VNLib.Data.Caching.Providers.Redis
         }
 
         ///<inheritdoc/>
-        public async Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataReader<T> callback, T state, CancellationToken cancellation)
+        public async Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataGet<T> callback, T state, CancellationToken cancellation)
         {
             /*
              * Because the redis database only allows ReadonlyMemory when 
@@ -253,7 +253,7 @@ namespace VNLib.Data.Caching.Providers.Redis
                 await _database.KeyRenameAsync(key, newKey);
             }
             
-            static IMemoryOwner<byte> AllocAndCopy(ObjectDataReader<T> callback, T state, IUnmangedHeap heap, ref int length)
+            static IMemoryOwner<byte> AllocAndCopy(ObjectDataGet<T> callback, T state, IUnmangedHeap heap, ref int length)
             {
                 //Get the buffer from the callback
                 ReadOnlySpan<byte> data = callback(state);
@@ -276,7 +276,8 @@ namespace VNLib.Data.Caching.Providers.Redis
         ///<inheritdoc/>
         public async Task<T?> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation)
         {
-            _ = deserializer ?? throw new ArgumentNullException(nameof(deserializer));
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
+            ArgumentNullException.ThrowIfNull(deserializer);
 
             //Try to get the value from the cache
             RedisValue value = await _database.StringGetAsync(key);
@@ -293,7 +294,8 @@ namespace VNLib.Data.Caching.Providers.Redis
         ///<inheritdoc/>
         public async Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation)
         {
-            _ = callback ?? throw new ArgumentNullException(nameof(callback));
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
+            ArgumentNullException.ThrowIfNull(callback);
 
             //Try to get the value from the cache
             RedisValue value = await _database.StringGetAsync(key);

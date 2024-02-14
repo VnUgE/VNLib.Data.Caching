@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -48,39 +48,73 @@ namespace VNLib.Data.Caching.Providers.VNCache.Clustering
 
         public static IClusterNodeIndex CreateIndex(CacheClientConfiguration config)
         {
-            //Create a named semaphore to ensure only one index is created per app domain
-            using Semaphore sm = new (1, 1, APP_DOMAIN_KEY, out _);
+            /* TEMPORARY: 
+             * Named semaphores are only supported on Windows, which allowed synchronized communication between 
+             * plugins, but this is not supported on Linux. This will be replaced with a more robust solution
+             * in the future. For now they will just need to be separate instances.
+             * 
+             * Remember while plugins are in the same app-domain, they do not share an assembly 
+             * load context which means unless the default ALC contains the desired types, types won't unify
+             * so we have to use "ghetto" features to avoid interprocess communication, in the same process...
+             */
 
-            if (!sm.WaitOne(500))
+            if (OperatingSystem.IsWindows())
             {
-                throw new TimeoutException("Failed to access the Cluster index shared semaphore");
-            }
+                //Create a named semaphore to ensure only one index is created per app domain
+                using Semaphore sm = new (1, 1, APP_DOMAIN_KEY, out _);
 
-            try
-            {
-                //Try to get an existing index from the app domain
-                object? remoteIndex = AppDomain.CurrentDomain.GetData(APP_DOMAIN_KEY);
-                if (remoteIndex == null)
+                if (!sm.WaitOne(500))
                 {
-                    //Create a new index and store it in the app domain
-                    IClusterNodeIndex index = new LocalHandler(config);
-                    AppDomain.CurrentDomain.SetData(APP_DOMAIN_KEY, index);
-                    return index;
+                    throw new TimeoutException("Failed to access the Cluster index shared semaphore");
                 }
-                else
+
+                try
                 {
-                    //Use the existing index
-                    return new RemoteHandler(remoteIndex);
+                    //Try to get an existing index from the app domain global storage pool
+                    object? remoteIndex = AppDomain.CurrentDomain.GetData(APP_DOMAIN_KEY);
+                    if (remoteIndex == null)
+                    {
+                        //Create a new index and store it in the app domain
+                        IClusterNodeIndex index = new LocalHandler(config);
+                        AppDomain.CurrentDomain.SetData(APP_DOMAIN_KEY, index);
+                        return index;
+                    }
+                    else
+                    {
+                        //Use the existing index
+                        return new RemoteHandler(remoteIndex);
+                    }
+                }
+                finally
+                {
+                    sm.Release();
                 }
             }
-            finally
+            else
             {
-                sm.Release();
+                return new LocalHandler(config);
             }
         }
    
+        /*
+         * So a bit of explaination. 
+         * 
+         * Plugins don't share types. Each plugin will load this package into its own ALC. Which will
+         * cause n instances of the cluster indext manager. Which can cause unecessary http traffic 
+         * building the cluster index multiple times. In an attemt to avoid this, I try to share a single
+         * cluster index instance across all plugins in the same app domain. 
+         * 
+         * To do this a local handler instance is loaded into whichever plugin accuires the named semaphore
+         * first, and then the instance is stored in the app domain global storage pool. If its found,
+         * then other plugins will use the remote handler to access the index.
+         * 
+         * The remote handler, attempts to use reflection to get function delegates and call the local 
+         * handler functions via reflection. 
+         * 
+         * Unless VNLib.Core supports a new way to safley share types across ALCs, this is my solution.
+         */
 
-        record class LocalHandler(CacheClientConfiguration Config) : IClusterNodeIndex, IIntervalScheduleable
+        sealed class LocalHandler(CacheClientConfiguration Config) : IClusterNodeIndex, IIntervalScheduleable
         {
             private Task _currentUpdate = Task.CompletedTask;
 
@@ -115,18 +149,11 @@ namespace VNLib.Data.Caching.Providers.VNCache.Clustering
             }
         }
 
-        class RemoteHandler : IClusterNodeIndex
+        sealed class RemoteHandler(object RemoteIndex) : IClusterNodeIndex
         {
-            private readonly Func<string?> _remoteSerializer;
-            private readonly Func<CancellationToken, Task> _waitTask;
+            private readonly Func<string?> _remoteSerializer = ManagedLibrary.GetMethod<Func<string?>>(RemoteIndex, nameof(LocalHandler.SerializeNextNode), BindingFlags.NonPublic);
 
-            public RemoteHandler(object RemoteIndex)
-            {
-                //get the serializer method
-                _remoteSerializer = ManagedLibrary.GetMethod<Func<string?>>(RemoteIndex, nameof(LocalHandler.SerializeNextNode), BindingFlags.NonPublic);
-                //get the wait task method
-                _waitTask = ManagedLibrary.GetMethod<Func<CancellationToken, Task>>(RemoteIndex, nameof(WaitForDiscoveryAsync), BindingFlags.Public);
-            }
+            private readonly Func<CancellationToken, Task> _waitTask = ManagedLibrary.GetMethod<Func<CancellationToken, Task>>(RemoteIndex, nameof(WaitForDiscoveryAsync), BindingFlags.Public);
 
             ///<inheritdoc/>
             public CacheNodeAdvertisment? GetNextNode()

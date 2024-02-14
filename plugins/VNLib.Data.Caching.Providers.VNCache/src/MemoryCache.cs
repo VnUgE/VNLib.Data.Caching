@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -192,7 +192,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public override Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataReader<T> callback, T state, CancellationToken cancellation)
+        public override Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataGet<T> callback, T state, CancellationToken cancellation)
         {
             //Update object data
             return _memCache.AddOrUpdateObjectAsync(key, newKey, callback, state, default, cancellation).AsTask();

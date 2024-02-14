@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Plugins.Extensions.VNCache
@@ -112,26 +112,19 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// <exception cref="ArgumentNullException"></exception>
         public static ScopedCache GetPrefixedCache(this IGlobalCacheProvider cache, string prefix, HashAlg digest = HashAlg.SHA1, HashEncodingMode encoding = HashEncodingMode.Base64)
         {
-            _ = cache ?? throw new ArgumentNullException(nameof(cache));
-            _ = prefix ?? throw new ArgumentNullException(nameof(prefix));
+            ArgumentNullException.ThrowIfNull(cache);
+            ArgumentException.ThrowIfNullOrEmpty(prefix);
             //Create simple cache key generator
             SimpleCacheKeyImpl keyProv = new(prefix, digest, encoding);
             //Create the scoped cache from the simple provider
             return cache.GetScopedCache(keyProv);
         }
 
-        private sealed class SimpleCacheKeyImpl : ICacheKeyGenerator
+        private sealed class SimpleCacheKeyImpl(string prefix, HashAlg digest, HashEncodingMode encoding) : ICacheKeyGenerator
         {
-            private readonly string Prefix;
-            private readonly HashAlg Digest;
-            private readonly HashEncodingMode Encoding;
-
-            public SimpleCacheKeyImpl(string prefix, HashAlg digest, HashEncodingMode encoding)
-            {
-                Prefix = prefix;
-                Digest = digest;
-                Encoding = encoding;
-            }
+            private readonly string Prefix = prefix;
+            private readonly HashAlg Digest = digest;
+            private readonly HashEncodingMode Encoding = encoding;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private int ComputeBufferSize(string id) => id.Length + Prefix.Length;

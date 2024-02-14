@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Plugins.Extensions.VNCache
@@ -164,12 +164,13 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         /// <param name="factory">The factory callback function to produce a value when a cache miss occurs</param>
         /// <param name="cancellation">A token to cancel the operation</param>
         /// <returns>A task that completes by returning the entity</returns>
+        /// <exception cref="ArgumentException"></exception>
         /// <exception cref="ArgumentNullException"></exception>
         public static async Task<T?> GetOrLoadAsync<T>(this IEntityCache<T> cache, string id, Func<string, CancellationToken, Task<T?>> factory, CancellationToken cancellation = default) where T : class
         {
-            _ = cache ?? throw new ArgumentNullException(nameof(cache));
-            _ = id ?? throw new ArgumentNullException(nameof(id));
-            _ = factory ?? throw new ArgumentNullException(nameof(factory));
+            ArgumentNullException.ThrowIfNull(cache);
+            ArgumentNullException.ThrowIfNull(factory);
+            ArgumentException.ThrowIfNullOrWhiteSpace(id);
 
             //try to load the value from cache
             T? record = await cache.GetAsync(id, cancellation);
@@ -241,7 +242,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
             ///<inheritdoc/>
             public override Task<bool> DeleteAsync(string key, CancellationToken cancellation)
             {
-                _ = key ?? throw new ArgumentNullException(nameof(key));
+                ArgumentException.ThrowIfNullOrWhiteSpace(key);
                 //Compute the key for the id
                 string scoped = KeyGen.ComputedKey(key);
                 return Cache.DeleteAsync(scoped, cancellation);
@@ -250,7 +251,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
             ///<inheritdoc/>
             public override Task<T> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation)
             {
-                _ = key ?? throw new ArgumentNullException(nameof(key));
+                ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
                 //Compute the key for the id
                 string scoped = KeyGen.ComputedKey(key);
@@ -261,7 +262,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
             ///<inheritdoc/>
             public override Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
             {
-                _ = key ?? throw new ArgumentNullException(nameof(key));
+                ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
                 //Compute primary key from id
                 string primary = KeyGen.ComputedKey(key);
@@ -275,7 +276,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
             ///<inheritdoc/>
             public override Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation)
             {
-                _ = key ?? throw new ArgumentNullException(nameof(key));
+                ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
                 //Compute the key for the id
                 string scoped = KeyGen.ComputedKey(key);
@@ -284,9 +285,9 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
             }
 
             ///<inheritdoc/>
-            public override Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataReader<T> callback, T state, CancellationToken cancellation)
+            public override Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataGet<T> callback, T state, CancellationToken cancellation)
             {
-                _ = key ?? throw new ArgumentNullException(nameof(key));
+                ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
                 //Compute primary key from id
                 string primary = KeyGen.ComputedKey(key);

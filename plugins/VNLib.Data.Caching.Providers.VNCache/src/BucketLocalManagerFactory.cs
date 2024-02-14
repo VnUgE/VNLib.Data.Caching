@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -37,6 +37,22 @@ using VNLib.Plugins.Extensions.Loading;
 
 namespace VNLib.Data.Caching.Providers.VNCache
 {
+    /*
+     * How it works.
+     * 
+     * The built-in object cache stores allow for a memory manager to be specified for 
+     * each bucket. Since all operations on buckets are mutually exclusive, we can 
+     * use a single heap for each bucket to get a little more performance on memory
+     * operations since no locking is required.
+     * 
+     * This class may be called by a dependency injection container, or directly 
+     * created calling the Create function. Configuration may specify allocation
+     * flags, currently only the zero all flag is supported.
+     * 
+     * By default we just use the process global heap configuration to inizalize new 
+     * private heap instances.
+     */
+
     [ConfigurationName("memory_manager", Required = false)]
     internal sealed class BucketLocalManagerFactory : VnDisposeable, ICacheMemoryManagerFactory
     {
@@ -47,9 +63,9 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public ICacheEntryMemoryManager CreateForBucket(uint bucketId)
         {
             //Init a new heap for a individual bucket
-            IUnmangedHeap localHeap = MemoryUtil.InitializeNewHeapForProcess();
+            IUnmangedHeap localHeap = MemoryUtil.InitializeNewHeapForProcess(_zeroAll);
 
-            BucketLocalManager manager = new (localHeap, bucketId, _zeroAll);
+            BucketLocalManager manager = new (localHeap, bucketId);
             _managers.AddLast(manager);
 
             return manager;
@@ -97,16 +113,16 @@ namespace VNLib.Data.Caching.Providers.VNCache
          * to get a little more performance on memory operations
          */
 
-        private sealed record class BucketLocalManager(IUnmangedHeap Heap, uint BucketId, bool Zero) : ICacheEntryMemoryManager
+        private sealed record class BucketLocalManager(IUnmangedHeap Heap, uint BucketId) : ICacheEntryMemoryManager
         {
 
             ///<inheritdoc/>
-            public object AllocHandle(uint size) => Heap.Alloc<byte>(size, Zero);
+            public object AllocHandle(uint size) => Heap.Alloc<byte>(size, false);
 
             ///<inheritdoc/>
             public void FreeHandle(object handle)
             {
-                _ = handle ?? throw new ArgumentNullException(nameof(handle));
+                ArgumentNullException.ThrowIfNull(handle);
                 MemoryHandle<byte> _handle = Unsafe.As<object, MemoryHandle<byte>>(ref handle);
 
                 //Free the handle
@@ -116,7 +132,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
             ///<inheritdoc/>
             public uint GetHandleSize(object handle)
             {
-                _ = handle ?? throw new ArgumentNullException(nameof(handle));
+                ArgumentNullException.ThrowIfNull(handle);
                 MemoryHandle<byte> _handle = Unsafe.As<object, MemoryHandle<byte>>(ref handle);
 
                 return (uint)_handle.Length;
@@ -125,7 +141,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
             ///<inheritdoc/>
             public Span<byte> GetSpan(object handle, uint offset, uint length)
             {
-                _ = handle ?? throw new ArgumentNullException(nameof(handle));
+                ArgumentNullException.ThrowIfNull(handle);
                 MemoryHandle<byte> _handle = Unsafe.As<object, MemoryHandle<byte>>(ref handle);
 
                 return _handle.GetOffsetSpan(offset, checked((int)length));
@@ -134,7 +150,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
             ///<inheritdoc/>
             public MemoryHandle PinHandle(object handle, int offset)
             {
-                _ = handle ?? throw new ArgumentNullException(nameof(handle));
+                ArgumentNullException.ThrowIfNull(handle);
                 MemoryHandle<byte> _handle = Unsafe.As<object, MemoryHandle<byte>>(ref handle);
 
                 //Pin the handle
@@ -144,7 +160,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
             ///<inheritdoc/>
             public void ResizeHandle(object handle, uint newSize)
             {
-                _ = handle ?? throw new ArgumentNullException(nameof(handle));
+                ArgumentNullException.ThrowIfNull(handle);
                 MemoryHandle<byte> _handle = Unsafe.As<object, MemoryHandle<byte>>(ref handle);
 
                 //Resize the handle

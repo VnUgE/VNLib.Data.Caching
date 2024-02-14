@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -26,7 +26,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-#pragma warning disable CA1062 // Validate arguments of public methods
+using VNLib.Net.Messaging.FBM;
+using VNLib.Data.Caching.Exceptions;
 
 namespace VNLib.Data.Caching
 {
@@ -46,6 +47,7 @@ namespace VNLib.Data.Caching
         /// <returns>A task that complets when the object data has been written to the data buffer</returns>
         public static Task GetAsync(this IGlobalCacheProvider cache, string key, IObjectData rawData, CancellationToken cancellation)
         {
+            ArgumentNullException.ThrowIfNull(cache);
             return cache.GetAsync(key, static (cd, data) => cd.SetData(data), rawData, cancellation);
         }
 
@@ -61,6 +63,7 @@ namespace VNLib.Data.Caching
         /// <returns>A task that completes when the update operation has compelted</returns>
         public static Task AddOrUpdateAsync(this IGlobalCacheProvider cache, string key, string? newKey, IObjectData rawData, CancellationToken cancellation)
         {
+            ArgumentNullException.ThrowIfNull(cache);
             return cache.AddOrUpdateAsync(key, newKey, static cd => cd.GetData(), rawData, cancellation);
         }
 
@@ -76,8 +79,47 @@ namespace VNLib.Data.Caching
         /// <returns>A task that completes when the update operation has compelted</returns>
         public static Task AddOrUpdateAsync(this IGlobalCacheProvider cache, string key, string? newKey, ReadOnlyMemory<byte> rawData, CancellationToken cancellation)
         {
+            ArgumentNullException.ThrowIfNull(cache);
             return cache.AddOrUpdateAsync(key, newKey, static cd => cd.Span, rawData, cancellation);
         }
+
+        /// <summary>
+        /// Gets an object from the server if it exists
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="TState"></typeparam>
+        /// <param name="cache"></param>
+        /// <param name="objectId">The id of the object to get</param>
+        /// <param name="cancellationToken">A token to cancel the operation</param>
+        /// <param name="getter">A callback function that computes an object result from binary data</param>
+        /// <param name="state">A user-state parameter to be passed back to the callback function</param>
+        /// <returns>A task that completes to return the results of the response payload</returns>
+        /// <exception cref="ArgumentException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="InvalidStatusException"></exception>
+        /// <exception cref="ObjectDisposedException"></exception>
+        /// <exception cref="InvalidResponseException"></exception>
+        public static async Task<T?> GetAsync<T, TState>(
+            this IGlobalCacheProvider cache,
+            string objectId,
+            GetObjectFromData<T, TState> getter,
+            TState state,
+            CancellationToken cancellationToken = default
+            )
+        {
+            ArgumentNullException.ThrowIfNull(cache);
+            ArgumentNullException.ThrowIfNull(getter);
+
+            //Get state will store the object result if successfull get operation
+            GetObjectState<T, TState> st = new(state, getter);
+
+            //Get the object, if successfull, compute the result
+            await cache.GetAsync(objectId, static (s, d) => s.ComputeResult(d), st, cancellationToken);
+
+            //If the get operation failed, return a default value
+            return st.Result;
+        }
+
 
         /// <summary>
         /// Asynchronously gets a value from the backing cache store
@@ -89,6 +131,7 @@ namespace VNLib.Data.Caching
         /// <returns>The value if found, or null if it does not exist in the store</returns>
         public static Task<T?> GetAsync<T>(this IGlobalCacheProvider cache, string key, CancellationToken cancellation)
         {
+            ArgumentNullException.ThrowIfNull(cache);
             return cache.GetAsync<T>(key, cache.DefaultDeserializer, cancellation);
         }
 
@@ -104,6 +147,7 @@ namespace VNLib.Data.Caching
         /// <returns>A task that completes when the update operation has compelted</returns>
         public static Task AddOrUpdateAsync<T>(this IGlobalCacheProvider cache, string key, string? newKey, T value, CancellationToken cancellation)
         {
+            ArgumentNullException.ThrowIfNull(cache);
             return cache.AddOrUpdateAsync(key, newKey, value, cache.DefaultSerializer, cancellation);
         }
     }
