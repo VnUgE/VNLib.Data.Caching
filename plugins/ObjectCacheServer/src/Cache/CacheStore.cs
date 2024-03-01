@@ -39,19 +39,14 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
      */
 
     [ConfigurationName("cache")]
-    internal sealed class CacheStore : ICacheStore, IDisposable
+    internal sealed class CacheStore(PluginBase plugin, IConfigScope config) : ICacheStore, IDisposable
     {
+
         /// <summary>
         /// Gets the underlying cache listener
         /// </summary>
-        public BlobCacheListener<IPeerEventQueue> Listener { get; }
+        public BlobCacheListener<IPeerEventQueue> Listener { get; } = InitializeCache((ObjectCacheServerEntry)plugin, config);
 
-
-        public CacheStore(PluginBase plugin, IConfigScope config)
-        {
-            //Init cache
-            Listener = InitializeCache((ObjectCacheServerEntry)plugin, config);
-        }
 
         ///<inheritdoc/>
         ValueTask ICacheStore.AddOrUpdateBlobAsync<T>(string objectId, string? alternateId, ObjectDataGet<T> bodyData, T state, CancellationToken token)

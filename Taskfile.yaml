@@ -68,7 +68,6 @@ tasks:
   clean:
     dir: '{{.USER_WORKING_DIR}}'
     cmds:
-     - cmd: powershell Remove-Item -Recurse './bin'
-       ignore_error: true
-     - cmd: powershell Remove-Item -Recurse './obj'
+     - for: ['./bin', './obj']
+       cmd: powershell Remove-Item -Recurse '{{.ITEM}}'
        ignore_error: true

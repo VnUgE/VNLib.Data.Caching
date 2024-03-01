@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Plugins.Extensions.VNCache
@@ -24,6 +24,7 @@
 
 
 using System;
+using System.Linq;
 using System.Buffers;
 using System.Text.Json;
 using System.Collections.Generic;
@@ -34,6 +35,8 @@ using VNLib.Utils;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Extensions;
 using VNLib.Plugins.Extensions.Loading;
+using VNLib.Utils.Memory.Diagnostics;
+using VNLib.Utils.Logging;
 
 /*
  * How bucket local memory works:
@@ -53,12 +56,21 @@ namespace VNLib.Data.Caching.ObjectCache.Server
     {
         private readonly LinkedList<BucketLocalManager> _managers = new ();
         private readonly bool _zeroAll;
+        private readonly bool _enableHeapTracking;
+        private readonly ILogProvider _statsLogger;
 
         ///<inheritdoc/>
         public ICacheEntryMemoryManager CreateForBucket(uint bucketId)
         {
             //Init a new heap for the individual bucket
             IUnmangedHeap localHeap = MemoryUtil.InitializeNewHeapForProcess();
+
+            if (_enableHeapTracking)
+            {
+#pragma warning disable CA2000 // Dispose objects before losing scope
+                localHeap = new TrackedHeapWrapper(localHeap, true);
+#pragma warning restore CA2000 // Dispose objects before losing scope
+            }
 
             BucketLocalManager manager = new (localHeap, bucketId, _zeroAll);
             _managers.AddLast(manager);
@@ -74,11 +86,31 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             if (config != null)
             {
                 //Try to get the zero all flag
-                if (config.TryGetValue("zero_all", out JsonElement zeroEl))
-                {
-                    _zeroAll = zeroEl.GetBoolean();
-                }
+                _zeroAll = config.TryGetValue("zero_all", out JsonElement zeroEl) && zeroEl.GetBoolean();
+
+                //Get the heap tracking flag
+                _enableHeapTracking = config.TryGetValue("diag_mem", out JsonElement trackEl) && trackEl.GetBoolean();
             }
+
+            _statsLogger = plugin.Log.CreateScope("Cache MemStats");
+        }
+
+        public void LogHeapStats()
+        {
+            //If tracking is not enabled, the heap instances stored by the managers will not be tracked, and the cast in the code below will fail
+            if (!_enableHeapTracking)
+            {
+                return;
+            }
+
+            string[] statsPerHeap = _managers.Select(hm =>
+            {
+                HeapStatistics stats = (hm.Heap as TrackedHeapWrapper)!.GetCurrentStats();
+                return $"\tBucket {hm.BucketId}: Current {stats.AllocatedBytes / 1024}kB, Blocks {stats.AllocatedBlocks}, Max size {stats.MaxHeapSize / 1024}kB";
+
+            }).ToArray();
+
+            _statsLogger.Debug("Priting memory statistics for cache memory manager: {hm}\n{stats}", GetHashCode(), statsPerHeap);
         }
 
         protected override void Free()
@@ -104,7 +136,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             ///<inheritdoc/>
             public void FreeHandle(object handle)
             {
-                _ = handle ?? throw new ArgumentNullException(nameof(handle));
+                ArgumentNullException.ThrowIfNull(handle);
                 MemoryHandle<byte> _handle = Unsafe.As<object, MemoryHandle<byte>>(ref handle);
 
                 //Free the handle
@@ -114,7 +146,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             ///<inheritdoc/>
             public uint GetHandleSize(object handle)
             {
-                _ = handle ?? throw new ArgumentNullException(nameof(handle));
+                ArgumentNullException.ThrowIfNull(handle);
                 MemoryHandle<byte> _handle = Unsafe.As<object, MemoryHandle<byte>>(ref handle);
 
                 return (uint)_handle.Length;
@@ -123,7 +155,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             ///<inheritdoc/>
             public Span<byte> GetSpan(object handle, uint offset, uint length)
             {
-                _ = handle ?? throw new ArgumentNullException(nameof(handle));
+                ArgumentNullException.ThrowIfNull(handle);
                 MemoryHandle<byte> _handle = Unsafe.As<object, MemoryHandle<byte>>(ref handle);
 
                 return _handle.GetOffsetSpan(offset, checked((int)length));
@@ -132,7 +164,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             ///<inheritdoc/>
             public MemoryHandle PinHandle(object handle, int offset)
             {
-                _ = handle ?? throw new ArgumentNullException(nameof(handle));
+                ArgumentNullException.ThrowIfNull(handle);
                 MemoryHandle<byte> _handle = Unsafe.As<object, MemoryHandle<byte>>(ref handle);
 
                 //Pin the handle
@@ -142,7 +174,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             ///<inheritdoc/>
             public void ResizeHandle(object handle, uint newSize)
             {
-                _ = handle ?? throw new ArgumentNullException(nameof(handle));
+                ArgumentNullException.ThrowIfNull(handle);
                 MemoryHandle<byte> _handle = Unsafe.As<object, MemoryHandle<byte>>(ref handle);
 
                 //Resize the handle
