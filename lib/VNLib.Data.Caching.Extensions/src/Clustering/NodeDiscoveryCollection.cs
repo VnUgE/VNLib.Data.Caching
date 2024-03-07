@@ -1,12 +1,12 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Extensions
 * File: NodeDiscoveryCollection.cs 
 *
-* NodeDiscoveryCollection.cs is part of VNLib.Data.Caching.Extensions which is part of the larger 
-* VNLib collection of libraries and utilities.
+* NodeDiscoveryCollection.cs is part of VNLib.Data.Caching.Extensions which is part 
+* of the larger VNLib collection of libraries and utilities.
 *
 * VNLib.Data.Caching.Extensions is free software: you can redistribute it and/or modify 
 * it under the terms of the GNU Affero General Public License as 
@@ -26,24 +26,18 @@ using System;
 using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+
+using VNLib.Utils.Extensions;
 
 namespace VNLib.Data.Caching.Extensions.Clustering
 {
     /// <summary>
     /// Represents a collection of available cache nodes from a discovery process
     /// </summary>
-    public sealed class NodeDiscoveryCollection : INodeDiscoveryCollection
+    public sealed class NodeDiscoveryCollection(StrongBox<string?>? selfId) : INodeDiscoveryCollection
     {
-        private string? _selfId;
-        private LinkedList<CacheNodeAdvertisment> _peers;
-
-        /// <summary>
-        /// Initializes a new empty <see cref="NodeDiscoveryCollection"/>
-        /// </summary>
-        public NodeDiscoveryCollection()
-        {
-            _peers = new();
-        }
+        private LinkedList<CacheNodeAdvertisment> _peers = new();
 
         /// <summary>
         /// Manually adds nodes to the collection that were not discovered through the discovery process
@@ -62,39 +56,34 @@ namespace VNLib.Data.Caching.Extensions.Clustering
         }
 
         /// <summary>
-        /// Sets the id of the current node, so it can be excluded from discovery
+        /// Removes a vector of nodes from the internal collection
         /// </summary>
-        /// <param name="selfId">The id of the current node to exclude</param>
-        public void SetSelfId(string? selfId) => _selfId = selfId;
+        /// <param name="nodes">The vector containg nodes to remove from the collection</param>
+        public void RemoveManualNodes(IEnumerable<CacheNodeAdvertisment> nodes) => nodes.ForEach(n => _peers.Remove(n));
 
         ///<inheritdoc/>
-        public INodeDiscoveryEnumerator BeginDiscovery()
-        {
-            return new NodeEnumerator(new(), _selfId);
-        }
+        public INodeDiscoveryEnumerator BeginDiscovery() => new NodeEnumerator(new(), selfId?.Value);
 
         ///<inheritdoc/>
         public INodeDiscoveryEnumerator BeginDiscovery(IEnumerable<CacheNodeAdvertisment> initialPeers)
         {
+            ArgumentNullException.ThrowIfNull(initialPeers);
+
             //Init new enumerator with the initial peers
-            return new NodeEnumerator(new(initialPeers), _selfId);
+            return new NodeEnumerator(new(initialPeers), selfId?.Value);
         }
 
         ///<inheritdoc/>
         public void CompleteDiscovery(INodeDiscoveryEnumerator enumerator)
         {
-            _ = enumerator ?? throw new ArgumentNullException(nameof(enumerator));
+            ArgumentNullException.ThrowIfNull(enumerator);  
 
             //Capture all nodes from the enumerator and store them as our current peers
             _peers = (enumerator as NodeEnumerator)!.Peers;
         }
 
         ///<inheritdoc/>
-        public CacheNodeAdvertisment[] GetAllNodes()
-        {
-            //Capture all current peers
-            return _peers.ToArray();
-        }
+        public CacheNodeAdvertisment[] GetAllNodes() => _peers.ToArray();
 
         private sealed record class NodeEnumerator(LinkedList<CacheNodeAdvertisment> Peers, string? SelfNodeId) : INodeDiscoveryEnumerator
         {

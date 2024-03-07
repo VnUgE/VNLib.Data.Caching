@@ -46,7 +46,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Clustering
          * it in the app domain.
          */
 
-        public static IClusterNodeIndex CreateIndex(CacheClientConfiguration config)
+        public static IClusterNodeIndex CreateIndex(VNCacheClusterManager cluster)
         {
             /* TEMPORARY: 
              * Named semaphores are only supported on Windows, which allowed synchronized communication between 
@@ -75,7 +75,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Clustering
                     if (remoteIndex == null)
                     {
                         //Create a new index and store it in the app domain
-                        IClusterNodeIndex index = new LocalHandler(config);
+                        IClusterNodeIndex index = new LocalHandler(cluster);
                         AppDomain.CurrentDomain.SetData(APP_DOMAIN_KEY, index);
                         return index;
                     }
@@ -92,7 +92,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Clustering
             }
             else
             {
-                return new LocalHandler(config);
+                return new LocalHandler(cluster);
             }
         }
    
@@ -114,15 +114,15 @@ namespace VNLib.Data.Caching.Providers.VNCache.Clustering
          * Unless VNLib.Core supports a new way to safley share types across ALCs, this is my solution.
          */
 
-        sealed class LocalHandler(CacheClientConfiguration Config) : IClusterNodeIndex, IIntervalScheduleable
+        sealed class LocalHandler(VNCacheClusterManager cluster) : IClusterNodeIndex, IIntervalScheduleable
         {
             private Task _currentUpdate = Task.CompletedTask;
 
             ///<inheritdoc/>
             public CacheNodeAdvertisment? GetNextNode()
             {
-                //Get all nodes
-                CacheNodeAdvertisment[] ads = Config.NodeCollection.GetAllNodes();
+                //Get all discovered nodes
+                CacheNodeAdvertisment[] ads = cluster.DiscoveredNodes.GetAllNodes();
                 //Just get a random node from the collection for now
                 return ads.Length > 0 ? ads.SelectRandom() : null;
             }
@@ -134,7 +134,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Clustering
             public Task OnIntervalAsync(ILogProvider log, CancellationToken cancellationToken)
             {
                 //Run discovery operation and update the task
-                _currentUpdate = Config.DiscoverNodesAsync(cancellationToken);
+                _currentUpdate = cluster.DiscoverNodesAsync(cancellationToken);
                 return Task.CompletedTask;
             }
 

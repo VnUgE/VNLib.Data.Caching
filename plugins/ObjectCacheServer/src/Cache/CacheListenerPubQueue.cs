@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -50,11 +50,11 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
 
         private readonly AsyncQueue<ChangeEvent> _listenerQueue;
         private readonly ILogProvider _logProvider;
-        private readonly ICacheEventQueueManager _queueManager;
+        private readonly PeerEventQueueManager _queueManager;
 
         public CacheListenerPubQueue(PluginBase plugin)
         {
-            _queueManager = plugin.GetOrCreateSingleton<CacheEventQueueManager>();
+            _queueManager = plugin.GetOrCreateSingleton<PeerEventQueueManager>();
             _logProvider = plugin.Log.CreateScope(LOG_SCOPE_NAME);
 
             //Init local queue to store published events
@@ -110,10 +110,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
         }
 
         ///<inheritdoc/>
-        public bool IsEnabled([NotNullWhen(true)] IPeerEventQueue? userState)
-        {
-            return userState is IPeerEventQueue;
-        }
+        public bool IsEnabled([NotNullWhen(true)] IPeerEventQueue? userState) => userState is not null;
 
         ///<inheritdoc/>
         public void PublishEvent(ChangeEvent changeEvent)

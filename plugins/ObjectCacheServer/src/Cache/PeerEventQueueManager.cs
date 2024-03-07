@@ -1,11 +1,11 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
-* File: CacheEventQueueManager.cs 
+* File: PeerEventQueueManager.cs 
 *
-* CacheEventQueueManager.cs is part of ObjectCacheServer which is 
+* PeerEventQueueManager.cs is part of ObjectCacheServer which is 
 * part of the larger VNLib collection of libraries and utilities.
 *
 * ObjectCacheServer is free software: you can redistribute it and/or modify 
@@ -38,41 +38,37 @@ using VNLib.Plugins.Extensions.Loading.Events;
 
 namespace VNLib.Data.Caching.ObjectCache.Server.Cache
 {
-    internal sealed class CacheEventQueueManager : ICacheEventQueueManager, IDisposable, IIntervalScheduleable
+    internal sealed class PeerEventQueueManager : ICacheEventQueueManager, IIntervalScheduleable
     {
         private readonly int MaxQueueDepth;
 
-        private readonly object SubLock;
-        private readonly LinkedList<NodeQueue> Subscribers;
+        private readonly object SubLock = new();
+        private readonly LinkedList<PeerEventListenerQueue> Subscribers = [];
 
-        private readonly object StoreLock;
-        private readonly Dictionary<string, NodeQueue> QueueStore;
+        private readonly object StoreLock = new();
+        private readonly Dictionary<string, PeerEventListenerQueue> QueueStore = new(StringComparer.OrdinalIgnoreCase);
 
-
-        public CacheEventQueueManager(PluginBase plugin)
+        public PeerEventQueueManager(PluginBase plugin, NodeConfig config)
         {
-            //Get node config
-            NodeConfig config = plugin.GetOrCreateSingleton<NodeConfig>();
-
-            //Get max queue depth
             MaxQueueDepth = config.MaxQueueDepth;
 
             /*
-             * Schedule purge interval to clean up stale queues
-             */
+           * Schedule purge interval to clean up stale queues
+           */
             plugin.ScheduleInterval(this, config.EventQueuePurgeInterval);
-
-            SubLock = new();
-            Subscribers = new();
-
-            StoreLock = new();
-            QueueStore = new(StringComparer.OrdinalIgnoreCase);
+            
+            //Cleanup disposeables on unload
+            _ = plugin.RegisterForUnload(() =>
+            {
+                QueueStore.Clear();
+                Subscribers.Clear();
+            });
         }
 
         ///<inheritdoc/>
         public IPeerEventQueue Subscribe(ICachePeer peer)
         {
-            NodeQueue? nq;
+            PeerEventListenerQueue? nq;
 
             bool isNew = false;
 
@@ -82,13 +78,13 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
                 //Try to recover the queue for the node
                 if (!QueueStore.TryGetValue(peer.NodeId, out nq))
                 {
-                    //Create new queue
+                    //Create new queue since an existing queue was not found
                     nq = new(peer.NodeId, MaxQueueDepth);
                     QueueStore.Add(peer.NodeId, nq);
                     isNew = true;
                 }
 
-                //Increment listener count
+                //Increment listener count since a new listener has attached
                 nq.Listeners++;
             }
 
@@ -109,11 +105,20 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
         ///<inheritdoc/>
         public void Unsubscribe(ICachePeer peer)
         {
+            /*
+             * The reason I am not purging queues that no longer have listeners
+             * now is because it is possible that a listener needed to detach because of 
+             * a network issue and will be reconnecting shortly. If the node doesnt 
+             * come back before the next purge interval, it's events will be purged.
+             * 
+             * Point is: there is a reason for the garbage collection style purging
+             */
+
             //Detach a listener for a node
             lock (StoreLock)
             {
                 //Get the queue and decrement the listener count
-                NodeQueue nq = QueueStore[peer.NodeId];
+                PeerEventListenerQueue nq = QueueStore[peer.NodeId];
                 nq.Listeners--;
             }
         }
@@ -125,7 +130,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
             lock (SubLock)
             {
                 //Loop through ll the fast way
-                LinkedListNode<NodeQueue>? q = Subscribers.First;
+                LinkedListNode<PeerEventListenerQueue>? q = Subscribers.First;
 
                 while (q != null)
                 {
@@ -145,7 +150,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
             lock (SubLock)
             {
                 //Loop through ll the fast way
-                LinkedListNode<NodeQueue>? q = Subscribers.First;
+                LinkedListNode<PeerEventListenerQueue>? q = Subscribers.First;
 
                 while (q != null)
                 {
@@ -167,9 +172,9 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
                 lock (StoreLock)
                 {
                     //Get all stale queues (queues without listeners)
-                    NodeQueue[] staleQueues = QueueStore.Values.Where(static nq => nq.Listeners == 0).ToArray();
+                    PeerEventListenerQueue[] staleQueues = QueueStore.Values.Where(static nq => nq.Listeners == 0).ToArray();
 
-                    foreach (NodeQueue nq in staleQueues)
+                    foreach (PeerEventListenerQueue nq in staleQueues)
                     {
                         //Remove from store
                         QueueStore.Remove(nq.NodeId);
@@ -191,54 +196,39 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
             return Task.CompletedTask;
         }
 
-        void IDisposable.Dispose()
-        {
-            QueueStore.Clear();
-            Subscribers.Clear();
-        }
 
         /*
          * Holds queues for each node and keeps track of the number of listeners
          * attached to the queue
+         * 
+         * The role of this class is to store change events for a given peer node,
+         * and return them when the peer requests them. It also keeps track of the
+         * number of active listeners (server connections) to the queue.
          */
 
-        private sealed class NodeQueue : IPeerEventQueue
+        private sealed class PeerEventListenerQueue(string nodeId, int maxDepth) : IPeerEventQueue
         {
             public int Listeners;
 
-            public string NodeId { get; }
+            public string NodeId => nodeId;
 
-            public AsyncQueue<ChangeEvent> Queue { get; }
-
-            public NodeQueue(string nodeId, int maxDepth)
+            /*
+             * Create a bounded channel that acts as a lru and evicts 
+             * the oldest item when the queue is full
+             * 
+             * There will also only ever be a single thread writing events 
+             * to the queue
+             */
+            private readonly AsyncQueue<ChangeEvent> Queue = new(new BoundedChannelOptions(maxDepth)
             {
-                NodeId = nodeId;
+                AllowSynchronousContinuations = true,
+                SingleReader = false,
+                SingleWriter = true,
+                //Drop oldest item in queue if full
+                FullMode = BoundedChannelFullMode.DropOldest,
+            });
 
-                /*
-                 * Create a bounded channel that acts as a lru and evicts 
-                 * the oldest item when the queue is full
-                 * 
-                 * There will also only ever be a single thread writing events 
-                 * to the queue
-                 */
-
-                BoundedChannelOptions queueOptions = new(maxDepth)
-                {
-                    AllowSynchronousContinuations = true,
-                    SingleReader = false,
-                    SingleWriter = true,
-                    //Drop oldest item in queue if full
-                    FullMode = BoundedChannelFullMode.DropOldest,
-                };
-
-                //Init queue/channel
-                Queue = new(queueOptions);
-            }
-
-            public void PublishChange(ChangeEvent change)
-            {
-                Queue.TryEnque(change);
-            }
+            public void PublishChange(ChangeEvent change) => Queue.TryEnque(change);
 
             public void PublishChanges(Span<ChangeEvent> changes)
             {
@@ -249,16 +239,10 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
             }
 
             ///<inheritdoc/>
-            public ValueTask<ChangeEvent> DequeueAsync(CancellationToken cancellation)
-            {
-                return Queue.DequeueAsync(cancellation);
-            }
+            public ValueTask<ChangeEvent> DequeueAsync(CancellationToken cancellation) => Queue.DequeueAsync(cancellation);
 
             ///<inheritdoc/>
-            public bool TryDequeue(out ChangeEvent change)
-            {
-                return Queue.TryDequeue(out change);
-            }
+            public bool TryDequeue(out ChangeEvent change) => Queue.TryDequeue(out change);
         }
     }
 }

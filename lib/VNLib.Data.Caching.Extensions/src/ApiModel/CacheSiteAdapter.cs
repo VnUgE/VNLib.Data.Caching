@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Extensions
@@ -22,6 +22,7 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
+using System;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -39,6 +40,22 @@ namespace VNLib.Data.Caching.Extensions.ApiModel
     /// </summary>
     internal sealed class CacheSiteAdapter : RestSiteAdapterBase
     {
+        /*
+         * Lazy to defer errors for debuggong
+         */
+        private static readonly Lazy<CacheSiteAdapter> _lazy = new(() => ConfigureAdapter(2));
+
+        internal static CacheSiteAdapter Instance => _lazy.Value;
+
+        private static CacheSiteAdapter ConfigureAdapter(int maxClients)
+        {
+            CacheSiteAdapter adapter = new(maxClients);
+            //Configure the site endpoints
+            adapter.BuildEndpoints(ServiceEndpoints.Definition);
+            return adapter;
+        }
+
+
         protected override RestClientPool Pool { get; }
 
         public CacheSiteAdapter(int maxClients)

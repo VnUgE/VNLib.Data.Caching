@@ -33,11 +33,10 @@ using System.Runtime.CompilerServices;
 using VNLib.Plugins;
 using VNLib.Utils;
 using VNLib.Utils.Memory;
-using VNLib.Utils.Extensions;
-using VNLib.Plugins.Extensions.Loading;
 using VNLib.Utils.Memory.Diagnostics;
 using VNLib.Utils.Logging;
-
+using VNLib.Utils.Extensions;
+using VNLib.Plugins.Extensions.Loading;
 /*
  * How bucket local memory works:
  * 

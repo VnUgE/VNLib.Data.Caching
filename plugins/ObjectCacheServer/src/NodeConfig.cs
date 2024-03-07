@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -66,6 +66,12 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         /// </summary>
         public uint MaxPeerConnections { get; } = 10;
 
+        /// <summary>
+        /// The maxium number of concurrent client connections to allow
+        /// before rejecting new connections
+        /// </summary>
+        public uint MaxConcurrentConnections { get; }
+
         public NodeConfig(PluginBase plugin, IConfigScope config)
         { 
             //Get the port of the primary webserver
@@ -92,32 +98,23 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             //Init key store
             KeyStore = new(plugin);
 
-
-            DiscoveryInterval = config["discovery_interval_sec"].GetTimeSpan(TimeParseType.Seconds);
-
-            //Get the event queue purge interval
-            EventQueuePurgeInterval = config["queue_purge_interval_sec"].GetTimeSpan(TimeParseType.Seconds);
-
-            //Get the max queue depth
-            MaxQueueDepth = (int)config["max_queue_depth"].GetUInt32();
-
-
-            //Get the connect path
-            ConnectPath = config["connect_path"].GetString() ?? throw new KeyNotFoundException("Missing required key 'connect_path' in cluster config");
-
-            //Get the verify ip setting
-            VerifyIp = config["verify_ip"].GetBoolean();
+            DiscoveryInterval = config.GetRequiredProperty("discovery_interval_sec", p => p.GetTimeSpan(TimeParseType.Seconds));
+            EventQueuePurgeInterval = config.GetRequiredProperty("queue_purge_interval_sec", p => p.GetTimeSpan(TimeParseType.Seconds));           
+            MaxQueueDepth = (int)config.GetRequiredProperty("max_queue_depth", p => p.GetUInt32());          
+            ConnectPath = config.GetRequiredProperty("connect_path", p => p.GetString()!);           
+            VerifyIp = config.GetRequiredProperty("verify_ip", p => p.GetBoolean());
+            WellKnownPath = config.GetValueOrDefault("well_known_path", p => p.GetString()!, DefaultPath);
+            MaxPeerConnections = config.GetValueOrDefault("max_peers", p => p.GetUInt32(), 10u);
 
             Uri connectEp = BuildUri(usingTls, hostname, port, ConnectPath);
             Uri? discoveryEp = null;
 
-            Config = new();
-
             //Setup cache node config
-            Config.WithCacheEndpoint(connectEp)
-                    .WithNodeId(nodeId)
-                    .WithAuthenticator(KeyStore)
-                    .WithTls(usingTls);
+            (Config = new())
+                .WithCacheEndpoint(connectEp)
+                .WithNodeId(nodeId)
+                .WithAuthenticator(KeyStore)
+                .WithTls(usingTls);
 
             //Get the discovery path (optional)
             if (config.TryGetValue("discovery_path", out JsonElement discoveryPathEl))
@@ -131,20 +128,6 @@ namespace VNLib.Data.Caching.ObjectCache.Server
                     discoveryEp = BuildUri(usingTls, hostname, port, DiscoveryPath);
                     Config.EnableAdvertisment(discoveryEp);
                 }
-            }
-
-            //Allow custom well-known path
-            if(config.TryGetValue("well_known_path", out JsonElement wkEl))
-            {
-                WellKnownPath = wkEl.GetString() ?? DefaultPath;
-            }
-            //Default if not set
-            WellKnownPath ??= DefaultPath;
-
-            //Get the max peer connections
-            if (config.TryGetValue("max_peers", out JsonElement maxPeerEl))
-            {
-                MaxPeerConnections = maxPeerEl.GetUInt32();
             }
 
             const string CacheConfigTemplate =

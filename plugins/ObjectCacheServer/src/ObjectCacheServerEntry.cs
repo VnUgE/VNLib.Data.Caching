@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -23,13 +23,10 @@
 */
 
 using System;
-using System.Threading;
 using System.Collections.Generic;
 
 using VNLib.Plugins;
-using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
-using VNLib.Utils.Memory.Diagnostics;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Plugins.Extensions.Loading.Routing;
 
@@ -42,39 +39,15 @@ namespace VNLib.Data.Caching.ObjectCache.Server
     public sealed class ObjectCacheServerEntry : PluginBase
     {
         public override string PluginName => "ObjectCache.Service";
-
-        private readonly Lazy<IUnmangedHeap> _cacheHeap;
-
-        internal IUnmangedHeap ListenerHeap => _cacheHeap.Value;
-
-        public ObjectCacheServerEntry()
-        {
-            //Init heap
-            _cacheHeap = new Lazy<IUnmangedHeap>(InitializeHeap, LazyThreadSafetyMode.PublicationOnly);
-        }
-
-        internal IUnmangedHeap InitializeHeap()
-        {
-            //Create default heap
-            IUnmangedHeap _heap = MemoryUtil.InitializeNewHeapForProcess();
-            try
-            {
-                //If the plugin is in debug mode enable heap tracking
-                return this.IsDebug() ? new TrackedHeapWrapper(_heap, true) : _heap;
-            }
-            catch
-            {
-                _heap.Dispose();
-                throw;
-            }
-        }
+      
 
         protected override void OnLoad()
         {
             try
             {
-                //Get the node configuration first
-                NodeConfig config = this.GetOrCreateSingleton<NodeConfig>();
+                //Initialize the cache node builder
+                ObjectCacheSystemState builder = this.GetOrCreateSingleton<ObjectCacheSystemState>();
+                builder.Initialize();
 
                 //Route well-known endpoint
                 this.Route<WellKnownEndpoint>();
@@ -86,7 +59,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
                 _ = this.GetOrCreateSingleton<CacheNodeReplicationMaanger>();
 
                 //Setup discovery endpoint
-                if(!string.IsNullOrWhiteSpace(config.DiscoveryPath))
+                if(!string.IsNullOrWhiteSpace(builder.Configuration.DiscoveryPath))
                 {
                     this.Route<PeerDiscoveryEndpoint>();
                 }               
@@ -101,12 +74,6 @@ namespace VNLib.Data.Caching.ObjectCache.Server
 
         protected override void OnUnLoad()
         {
-            //dispose heap if initialized
-            if(_cacheHeap.IsValueCreated)
-            {
-                _cacheHeap.Value.Dispose();
-            }
-
             Log.Information("Plugin unloaded");
         }
 

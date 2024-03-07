@@ -1,12 +1,12 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
-* File: CacheConfiguration.cs 
+* File: CacheMemoryConfiguration.cs 
 *
-* CacheConfiguration.cs is part of ObjectCacheServer which is part of the larger 
-* VNLib collection of libraries and utilities.
+* CacheMemoryConfiguration.cs is part of ObjectCacheServer which 
+* is part of the larger VNLib collection of libraries and utilities.
 *
 * ObjectCacheServer is free software: you can redistribute it and/or modify 
 * it under the terms of the GNU Affero General Public License as 
@@ -26,7 +26,7 @@ using System.Text.Json.Serialization;
 
 namespace VNLib.Data.Caching.ObjectCache.Server.Cache
 {
-    internal sealed class CacheConfiguration
+    internal sealed class CacheMemoryConfiguration
     {
         [JsonPropertyName("buffer_recv_max")]
         public int MaxRecvBufferSize { get; set; } = 1000 * 1024;
@@ -36,6 +36,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
 
         [JsonPropertyName("buffer_header_max")]
         public int MaxHeaderBufferSize { get; set; } = 2 * 1024;
+
         [JsonPropertyName("buffer_header_min")]
         public int MinHeaderBufferSize { get; set; } = 128;
 
@@ -49,5 +50,9 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
 
         [JsonPropertyName("buckets")]
         public uint BucketCount { get; set; } = 10;
+
+
+        [JsonPropertyName("memory_lib_path")]
+        public string? ExternLibPath { get; set; }
     }
 }

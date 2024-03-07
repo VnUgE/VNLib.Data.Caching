@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -59,7 +59,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
         public WellKnownEndpoint(PluginBase plugin)
         {
             //Get the node config
-            NodeConfig nodeConfig = plugin.GetOrCreateSingleton<NodeConfig>();
+            NodeConfig nodeConfig = plugin.GetOrCreateSingleton<ObjectCacheSystemState>().Configuration;
 
             //serialize the config, discovery may not be enabled
             _advertisment = nodeConfig.Config.Advertisment;

@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -45,7 +45,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
         public bool IsPeer { get; set; }
     }
 
-    internal sealed class CacheNegotationManager
+    internal sealed class CacheNegotationManager(PluginBase plugin)
     {
         /*
          * Cache keys are centralized and may be shared between all cache server nodes. This means
@@ -64,21 +64,13 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
 
         private static readonly TimeSpan AuthTokenExpiration = TimeSpan.FromSeconds(30);
 
-        private readonly string AudienceLocalServerId;
-        private readonly NodeConfig _nodeConfig;      
-        private readonly CacheConfiguration _cacheConfig;
+        private readonly string AudienceLocalServerId = Guid.NewGuid().ToString("N");
 
-        public CacheNegotationManager(PluginBase plugin)
-        {
-            //Get node configuration
-            _nodeConfig = plugin.GetOrCreateSingleton<NodeConfig>();
+        private readonly ObjectCacheSystemState _sysState = plugin.GetOrCreateSingleton<ObjectCacheSystemState>();
 
-            //Get the cache store configuration
-            _cacheConfig = plugin.GetConfigForType<CacheStore>().Deserialze<CacheConfiguration>();
+        private NodeConfig NodeConfig => _sysState.Configuration;
 
-            AudienceLocalServerId = Guid.NewGuid().ToString("N");
-        }
-      
+        private CacheMemoryConfiguration CacheConfig => _sysState.MemoryConfiguration;
 
         public bool IsClientNegotiationValid(string authToken, out ClientNegotiationState state)
         {
@@ -88,12 +80,12 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             using JsonWebToken jwt = JsonWebToken.Parse(authToken);
 
             //verify signature for client
-            if (_nodeConfig.KeyStore.VerifyJwt(jwt, false))
+            if (NodeConfig.KeyStore.VerifyJwt(jwt, false))
             {
                 //Validated as normal client
             }
             //May be signed by a cache server
-            else if (_nodeConfig.KeyStore.VerifyJwt(jwt, true))
+            else if (NodeConfig.KeyStore.VerifyJwt(jwt, true))
             {
                 //Set peer and verified flag since the another cache server signed the request
                 state.IsPeer = true;
@@ -117,12 +109,12 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             return true;
         }
 
-        public JsonWebToken ConfirmCLientNegotiation(ClientNegotiationState state, IPAddress clientIp, DateTimeOffset now)
+        public JsonWebToken ConfirmClientNegotiation(ClientNegotiationState state, IPAddress clientIp, DateTimeOffset now)
         {
             //Verified, now we can create an auth message with a short expiration
             JsonWebToken auth = new();
 
-            auth.WriteHeader(_nodeConfig.KeyStore.GetJwtHeader());
+            auth.WriteHeader(NodeConfig.KeyStore.GetJwtHeader());
             auth.InitPayloadClaim()
                 .AddClaim("aud", AudienceLocalServerId)
                 .AddClaim("iat", now.ToUnixTimeSeconds())
@@ -136,24 +128,29 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
                 //Set ip address
                 .AddClaim("ip", clientIp.ToString())
                 //Add negotiaion args
-                .AddClaim(FBMClient.REQ_HEAD_BUF_QUERY_ARG, _cacheConfig.MaxHeaderBufferSize)
-                .AddClaim(FBMClient.REQ_RECV_BUF_QUERY_ARG, _cacheConfig.MaxRecvBufferSize)
-                .AddClaim(FBMClient.REQ_MAX_MESS_QUERY_ARG, _cacheConfig.MaxMessageSize)
+                .AddClaim(FBMClient.REQ_HEAD_BUF_QUERY_ARG, CacheConfig.MaxHeaderBufferSize)
+                .AddClaim(FBMClient.REQ_RECV_BUF_QUERY_ARG, CacheConfig.MaxRecvBufferSize)
+                .AddClaim(FBMClient.REQ_MAX_MESS_QUERY_ARG, CacheConfig.MaxMessageSize)
                 .CommitClaims();
 
             //Sign the auth message from our private key
-            _nodeConfig.KeyStore.SignJwt(auth);
+            NodeConfig.KeyStore.SignJwt(auth);
 
             return auth;
         }
 
-        public bool ValidateUpgrade(string upgradeToken, string tokenSignature, DateTimeOffset now, IPAddress connectionIp, ref string? nodeId, ref bool isPeer)
+        public bool ValidateUpgrade(string? upgradeToken, string? tokenSignature, DateTimeOffset now, IPAddress connectionIp, ref string? nodeId, ref bool isPeer)
         {
+            if(string.IsNullOrWhiteSpace(upgradeToken) || string.IsNullOrWhiteSpace(tokenSignature))
+            {
+                return false;
+            }
+
             //Parse jwt
             using JsonWebToken jwt = JsonWebToken.Parse(upgradeToken);
 
             //verify signature against the cache public key, since this server must have signed it
-            if (!_nodeConfig.KeyStore.VerifyCachePeer(jwt))
+            if (!NodeConfig.KeyStore.VerifyCachePeer(jwt))
             {
                 return false;
             }
@@ -175,7 +172,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             }
 
             //Check node ip address matches if required
-            if (_nodeConfig.VerifyIp)
+            if (NodeConfig.VerifyIp)
             {
                 if (!doc.RootElement.TryGetProperty("ip", out JsonElement ipEl))
                 {
@@ -201,7 +198,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             }
 
             //Verify token signature against a fellow cache public key
-            return _nodeConfig.KeyStore.VerifyUpgradeToken(tokenSignature, upgradeToken, isPeer);
+            return NodeConfig.KeyStore.VerifyUpgradeToken(tokenSignature, upgradeToken, isPeer);
         }
     }
 }

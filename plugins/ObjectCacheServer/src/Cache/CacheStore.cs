@@ -26,32 +26,24 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-using VNLib.Utils.Logging;
-using VNLib.Net.Messaging.FBM;
-using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
 
 namespace VNLib.Data.Caching.ObjectCache.Server.Cache
 {
+
     /*
      * Implements the blob cache store, which is an abstraction around the blob cache listener.
      * This allows for publishing local events (say from other nodes) to keep caches in sync.
      */
 
     [ConfigurationName("cache")]
-    internal sealed class CacheStore(PluginBase plugin, IConfigScope config) : ICacheStore, IDisposable
+    internal sealed class CacheStore(IBlobCacheTable table) : ICacheStore
     {
-
-        /// <summary>
-        /// Gets the underlying cache listener
-        /// </summary>
-        public BlobCacheListener<IPeerEventQueue> Listener { get; } = InitializeCache((ObjectCacheServerEntry)plugin, config);
-
 
         ///<inheritdoc/>
         ValueTask ICacheStore.AddOrUpdateBlobAsync<T>(string objectId, string? alternateId, ObjectDataGet<T> bodyData, T state, CancellationToken token)
         {
-            return Listener.Cache.AddOrUpdateObjectAsync(objectId, alternateId, bodyData, state, default, token);
+            return table.AddOrUpdateObjectAsync(objectId, alternateId, bodyData, state, default, token);
         }
 
         ///<inheritdoc/>
@@ -63,64 +55,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
         ///<inheritdoc/>
         ValueTask<bool> ICacheStore.DeleteItemAsync(string id, CancellationToken token)
         {
-            return Listener.Cache.DeleteObjectAsync(id, token);
-        }
-
-        private static BlobCacheListener<IPeerEventQueue> InitializeCache(ObjectCacheServerEntry plugin, IConfigScope config)
-        {
-            const string CacheConfigTemplate =
-@"
-Cache Configuration:
-    Max memory: {max} Mb
-    Buckets: {bc}
-    Entries per-bucket: {mc}
-";
-
-            //Deserialize the cache config
-            CacheConfiguration cacheConf = config.Deserialze<CacheConfiguration>();
-
-            if (cacheConf.MaxCacheEntries < 2)
-            {
-                throw new ArgumentException("You must configure a 'max_cache' size larger than 1 item");
-            }
-
-            //Suggestion
-            if (cacheConf.MaxCacheEntries < 200)
-            {
-                plugin.Log.Information("Suggestion: You may want a larger cache size, you have less than 200 items in cache");
-            }
-
-            //calculate the max memory usage
-            ulong maxByteSize = cacheConf.MaxCacheEntries * (ulong)cacheConf.BucketCount * (ulong)cacheConf.MaxMessageSize;
-
-            //Log the cache config
-            plugin.Log.Information(CacheConfigTemplate,
-                maxByteSize / (1024 * 1000),
-                cacheConf.BucketCount,
-                cacheConf.MaxCacheEntries
-            );
-
-            //Get the event listener
-            ICacheListenerEventQueue<IPeerEventQueue> queue = plugin.GetOrCreateSingleton<CacheListenerPubQueue>();
-
-            //Get the memory manager
-            ICacheMemoryManagerFactory manager = plugin.GetOrCreateSingleton<BucketLocalManagerFactory>();
-
-            //Load the blob cache table system
-            IBlobCacheTable bc = plugin.LoadMemoryCacheSystem(config, manager, cacheConf);
-
-            FallbackFBMMemoryManager fbmMemManager = new(plugin.ListenerHeap);
-
-            //Endpoint only allows for a single reader
-            return new(bc, queue, plugin.Log, fbmMemManager);
-        }
-
-        /*
-         * Cleaned up by the plugin on exit
-         */
-        public void Dispose()
-        {
-            Listener.Dispose();
+            return table.DeleteObjectAsync(id, token);
         }
     }
 }

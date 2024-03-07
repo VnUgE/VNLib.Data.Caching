@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Extensions
@@ -28,7 +28,9 @@ using System.Collections.Generic;
 namespace VNLib.Data.Caching.Extensions.Clustering
 {
     /// <summary>
-    /// A custom enumerator for the node discovery process
+    /// A custom enumerator for the node discovery process. Simplifies the recursive processes
+    /// of discovering nodes in a cluster to a simple enumeration process. It allows for real-time
+    /// updates to the collection of discovered nodes as a union operation.
     /// </summary>
     public interface INodeDiscoveryEnumerator : IEnumerator<CacheNodeAdvertisment>
     {
