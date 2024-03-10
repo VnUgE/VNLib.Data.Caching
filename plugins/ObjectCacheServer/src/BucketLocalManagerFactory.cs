@@ -94,6 +94,15 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             _statsLogger = plugin.Log.CreateScope("Cache MemStats");
         }
 
+        protected override void Free()
+        {
+            //Free heaps on exit
+            foreach (BucketLocalManager manager in _managers)
+            {
+                manager.Heap.Dispose();
+            }
+        }
+
         public void LogHeapStats()
         {
             //If tracking is not enabled, the heap instances stored by the managers will not be tracked, and the cast in the code below will fail
@@ -109,16 +118,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
 
             }).ToArray();
 
-            _statsLogger.Debug("Priting memory statistics for cache memory manager: {hm}\n{stats}", GetHashCode(), statsPerHeap);
-        }
-
-        protected override void Free()
-        {
-            //Free heaps on exit
-            foreach (BucketLocalManager manager in _managers)
-            {
-                manager.Heap.Dispose();
-            }
+            _statsLogger.Debug("Memory statistics for cache memory manager: {hm}\n{stats}", GetHashCode(), statsPerHeap);
         }
 
         /*

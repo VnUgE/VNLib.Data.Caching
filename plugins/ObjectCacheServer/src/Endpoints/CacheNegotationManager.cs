@@ -62,13 +62,9 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
          * client could use trial and error to find the servers buffer configuration. 
          */
 
-        private static readonly TimeSpan AuthTokenExpiration = TimeSpan.FromSeconds(30);
-
         private readonly string AudienceLocalServerId = Guid.NewGuid().ToString("N");
 
         private readonly ObjectCacheSystemState _sysState = plugin.GetOrCreateSingleton<ObjectCacheSystemState>();
-
-        private NodeConfig NodeConfig => _sysState.Configuration;
 
         private CacheMemoryConfiguration CacheConfig => _sysState.MemoryConfiguration;
 
@@ -80,12 +76,12 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             using JsonWebToken jwt = JsonWebToken.Parse(authToken);
 
             //verify signature for client
-            if (NodeConfig.KeyStore.VerifyJwt(jwt, false))
+            if (_sysState.KeyStore.VerifyJwt(jwt, false))
             {
                 //Validated as normal client
             }
             //May be signed by a cache server
-            else if (NodeConfig.KeyStore.VerifyJwt(jwt, true))
+            else if (_sysState.KeyStore.VerifyJwt(jwt, true))
             {
                 //Set peer and verified flag since the another cache server signed the request
                 state.IsPeer = true;
@@ -114,11 +110,11 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             //Verified, now we can create an auth message with a short expiration
             JsonWebToken auth = new();
 
-            auth.WriteHeader(NodeConfig.KeyStore.GetJwtHeader());
+            auth.WriteHeader(_sysState.KeyStore.GetJwtHeader());
             auth.InitPayloadClaim()
                 .AddClaim("aud", AudienceLocalServerId)
                 .AddClaim("iat", now.ToUnixTimeSeconds())
-                .AddClaim("exp", now.Add(AuthTokenExpiration).ToUnixTimeSeconds())
+                .AddClaim("exp", now.Add(CacheConstants.ClientAuthTokenExpiration).ToUnixTimeSeconds())
                 .AddClaim("nonce", RandomHash.GetRandomBase32(8))
                 .AddClaim("chl", state.Challenge!)
                 //Set the ispeer flag if the request was signed by a cache server
@@ -134,7 +130,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
                 .CommitClaims();
 
             //Sign the auth message from our private key
-            NodeConfig.KeyStore.SignJwt(auth);
+            _sysState.KeyStore.SignJwt(auth);
 
             return auth;
         }
@@ -150,7 +146,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             using JsonWebToken jwt = JsonWebToken.Parse(upgradeToken);
 
             //verify signature against the cache public key, since this server must have signed it
-            if (!NodeConfig.KeyStore.VerifyCachePeer(jwt))
+            if (!_sysState.KeyStore.VerifyCachePeer(jwt))
             {
                 return false;
             }
@@ -172,7 +168,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             }
 
             //Check node ip address matches if required
-            if (NodeConfig.VerifyIp)
+            if (_sysState.ClusterConfig.VerifyIp)
             {
                 if (!doc.RootElement.TryGetProperty("ip", out JsonElement ipEl))
                 {
@@ -198,7 +194,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             }
 
             //Verify token signature against a fellow cache public key
-            return NodeConfig.KeyStore.VerifyUpgradeToken(tokenSignature, upgradeToken, isPeer);
+            return _sysState.KeyStore.VerifyUpgradeToken(tokenSignature, upgradeToken, isPeer);
         }
     }
 }

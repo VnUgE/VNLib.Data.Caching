@@ -59,13 +59,13 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
         public WellKnownEndpoint(PluginBase plugin)
         {
             //Get the node config
-            NodeConfig nodeConfig = plugin.GetOrCreateSingleton<ObjectCacheSystemState>().Configuration;
+            ObjectCacheSystemState conf = plugin.GetOrCreateSingleton<ObjectCacheSystemState>();
 
             //serialize the config, discovery may not be enabled
-            _advertisment = nodeConfig.Config.Advertisment;
-            _keyStore = nodeConfig.KeyStore;
+            _advertisment = conf.NodeConfig.Advertisment;
+            _keyStore = conf.KeyStore;
 
-            InitPathAndLog(nodeConfig.WellKnownPath, plugin.Log);
+            InitPathAndLog(conf.ClusterConfig.WellKnownPath, plugin.Log);
         }
 
         protected override VfReturnType Get(HttpEntity entity)

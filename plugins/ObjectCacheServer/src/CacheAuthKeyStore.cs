@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -34,16 +34,10 @@ using VNLib.Data.Caching.Extensions;
 
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
-    sealed record class CacheAuthKeyStore : ICacheAuthManager
+    sealed class CacheAuthKeyStore(PluginBase plugin) : ICacheAuthManager
     {
-        private readonly IAsyncLazy<ReadOnlyJsonWebKey> _clientPub;
-        private readonly IAsyncLazy<ReadOnlyJsonWebKey> _cachePriv;
-
-        public CacheAuthKeyStore(PluginBase plugin)
-        {
-            _clientPub = plugin.GetSecretAsync("client_public_key").ToLazy(r => r.GetJsonWebKey());
-            _cachePriv = plugin.GetSecretAsync("cache_private_key").ToLazy(r => r.GetJsonWebKey());
-        }
+        private readonly IAsyncLazy<ReadOnlyJsonWebKey> _clientPub = plugin.Secrets().GetSecretAsync("client_public_key").ToLazy(r => r.GetJsonWebKey());
+        private readonly IAsyncLazy<ReadOnlyJsonWebKey> _cachePriv = plugin.Secrets().GetSecretAsync("cache_private_key").ToLazy(r => r.GetJsonWebKey());
 
         ///<inheritdoc/>
         public IReadOnlyDictionary<string, string?> GetJwtHeader()

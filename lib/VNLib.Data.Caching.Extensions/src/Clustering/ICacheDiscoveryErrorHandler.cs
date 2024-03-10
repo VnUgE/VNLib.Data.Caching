@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Extensions
@@ -37,5 +37,12 @@ namespace VNLib.Data.Caching.Extensions.Clustering
         /// <param name="errorNode">The node that the error occured on</param>
         /// <param name="ex">The exception that caused the invocation</param>
         void OnDiscoveryError(CacheNodeAdvertisment errorNode, Exception ex);
+
+        /// <summary>
+        /// Invoked when an error occurs during the discovery process
+        /// </summary>
+        /// <param name="errorAddress">The server address that failed to connect</param>
+        /// <param name="ex">The exception that caused the invocation</param>
+        void OnDiscoveryError(Uri errorAddress, Exception ex);
     }
 }

@@ -404,9 +404,42 @@ namespace VNLib.Data.Caching.Providers.VNCache
 
         private sealed record class DiscoveryErrHAndler(ILogProvider Logger) : ICacheDiscoveryErrorHandler
         {
-            public void OnDiscoveryError(CacheNodeAdvertisment errorNode, Exception ex)
+            public void OnDiscoveryError(CacheNodeAdvertisment errorNode, Exception ex) 
+                => OnDiscoveryError(errorNode, ex);
+
+            public void OnDiscoveryError(Uri errorAddress, Exception ex) 
+                => OnDiscoveryError(ex, null, errorAddress);
+
+            public void OnDiscoveryError(Exception ex, CacheNodeAdvertisment? errorNode, Uri? address)
             {
-                Logger.Error("Failed to discover nodes from server {s} cause:\n{err}", errorNode?.NodeId, ex);
+                string node = errorNode?.NodeId ?? address?.ToString() ?? "unknown";
+
+                if(ex is HttpRequestException he)
+                {
+                    if(he.InnerException is SocketException se)
+                    {
+                        LogErrorException(se);
+                        return;
+                    }
+
+                    LogErrorException(he);
+                    return;
+                }
+
+                LogErrorException(ex);
+                return;
+
+                void LogErrorException(Exception ex)
+                {
+                    if(Logger.IsEnabled(LogLevel.Debug))
+                    {
+                        Logger.Error("Failed to discover nodes from server {s} cause:\n{err}", node, ex);
+                    }
+                    else
+                    {
+                        Logger.Error("Failed to discover nodes from server {s} cause:\n{err}", node, ex.Message);
+                    }
+                }
             }
         }
     }

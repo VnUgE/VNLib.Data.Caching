@@ -93,6 +93,12 @@ namespace VNLib.Data.Caching.Extensions
         /// <returns>An array of resolved nodes</returns>
         public async Task<CacheNodeAdvertisment[]> ResolveWellKnownAsync(CancellationToken cancellation)
         {
+            //Make sure at least one node defined
+            if (config?.WellKnownNodes == null || config.WellKnownNodes.Length == 0)
+            {
+                throw new ArgumentException("There must be at least one cache node defined in the client configuration");
+            }
+
             Task<CacheNodeAdvertisment?>[] initialAdds = new Task<CacheNodeAdvertisment?>[config.WellKnownNodes.Length];
 
             //Discover initial advertisments from well-known addresses
@@ -283,7 +289,7 @@ namespace VNLib.Data.Caching.Extensions
             catch (Exception ex) when (config.ErrorHandler != null)
             {
                 //Handle the error
-                config.ErrorHandler.OnDiscoveryError(null!, ex);
+                config.ErrorHandler.OnDiscoveryError(serverUri, ex);
                 return null;
             }
             catch (Exception ex)

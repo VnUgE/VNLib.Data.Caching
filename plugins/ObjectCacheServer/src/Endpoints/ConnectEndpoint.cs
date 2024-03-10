@@ -53,15 +53,12 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
 
     internal sealed class ConnectEndpoint : ResourceEndpointBase
     {
-        internal const string LOG_SCOPE_NAME = "CONEP";
-
-
         private readonly ObjectCacheSystemState _sysState;
 
         private PeerEventQueueManager PubSubManager => _sysState.PeerEventQueue;
         private CachePeerMonitor Peers => _sysState.PeerMonitor;
         private BlobCacheListener<IPeerEventQueue> Listener => _sysState.Listener;
-        private NodeConfig NodeConfiguration => _sysState.Configuration;
+        private ServerClusterConfig ClusterConfiguration => _sysState.ClusterConfig;
         
         private readonly CacheNegotationManager AuthManager;
 
@@ -89,7 +86,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             _sysState = plugin.GetOrCreateSingleton<ObjectCacheSystemState>();
 
             //Init from config and create a new log scope
-            InitPathAndLog(NodeConfiguration.ConnectPath, plugin.Log.CreateScope(LOG_SCOPE_NAME));
+            InitPathAndLog(ClusterConfiguration.ConnectPath, plugin.Log.CreateScope(CacheConstants.LogScopes.ConnectionEndpoint));
          
             //Get the auth manager
             AuthManager = plugin.GetOrCreateSingleton<CacheNegotationManager>();
@@ -158,7 +155,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
              * but malicious clients could cache a bunch of tokens and use them 
              * later, exhausting resources.
              */
-            if(_connectedClients >= NodeConfiguration.MaxConcurrentConnections)
+            if(_connectedClients >= ClusterConfiguration.MaxConcurrentConnections)
             {
                 return VirtualClose(entity, HttpStatusCode.ServiceUnavailable);
             }
@@ -187,7 +184,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
 
             if (isPeer)
             {
-                discoveryAd = NodeConfiguration.KeyStore.VerifyPeerAdvertisment(optionalDiscovery);
+                discoveryAd = _sysState.KeyStore.VerifyPeerAdvertisment(optionalDiscovery);
             }
 
             WsUserState state;

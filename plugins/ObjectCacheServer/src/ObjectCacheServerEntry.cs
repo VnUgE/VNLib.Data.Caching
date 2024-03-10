@@ -26,6 +26,7 @@ using System;
 using System.Collections.Generic;
 
 using VNLib.Plugins;
+using VNLib.Utils;
 using VNLib.Utils.Logging;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Plugins.Extensions.Loading.Routing;
@@ -39,15 +40,16 @@ namespace VNLib.Data.Caching.ObjectCache.Server
     public sealed class ObjectCacheServerEntry : PluginBase
     {
         public override string PluginName => "ObjectCache.Service";
-      
+
+        ObjectCacheSystemState? sysState;
 
         protected override void OnLoad()
         {
             try
             {
                 //Initialize the cache node builder
-                ObjectCacheSystemState builder = this.GetOrCreateSingleton<ObjectCacheSystemState>();
-                builder.Initialize();
+                sysState = this.GetOrCreateSingleton<ObjectCacheSystemState>();
+                sysState.Initialize();
 
                 //Route well-known endpoint
                 this.Route<WellKnownEndpoint>();
@@ -58,8 +60,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server
                 //We must initialize the replication manager
                 _ = this.GetOrCreateSingleton<CacheNodeReplicationMaanger>();
 
-                //Setup discovery endpoint
-                if(!string.IsNullOrWhiteSpace(builder.Configuration.DiscoveryPath))
+                //Setup discovery endpoint only if the user enabled clustering
+                if(!string.IsNullOrWhiteSpace(sysState.ClusterConfig.DiscoveryPath))
                 {
                     this.Route<PeerDiscoveryEndpoint>();
                 }               
@@ -79,7 +81,29 @@ namespace VNLib.Data.Caching.ObjectCache.Server
 
         protected override void ProcessHostCommand(string cmd)
         {
-            throw new NotImplementedException();
+            if(string.IsNullOrWhiteSpace(cmd))
+            {
+                return;
+            }
+
+            ArgumentList al = new(cmd.Split(" "));
+
+            if(al.Count == 0)
+            {
+                Log.Warn("Invalid command");
+                return;
+            }
+
+            switch (al[0].ToLower(null))
+            {
+                case "memstats":
+                    sysState?.LogMemoryStats();
+                    break;
+
+                default:
+                    Log.Warn("Invalid command");
+                    break;
+            }
         }
     }
 }

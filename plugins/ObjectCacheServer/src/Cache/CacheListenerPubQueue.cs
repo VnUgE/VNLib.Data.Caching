@@ -45,39 +45,33 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
 
     internal sealed class CacheListenerPubQueue : ICacheListenerEventQueue<IPeerEventQueue>, IAsyncBackgroundWork
     {
-        private const int MAX_LOCAL_QUEUE_ITEMS = 10000;
-        private const string LOG_SCOPE_NAME = "QUEUE";
-
         private readonly AsyncQueue<ChangeEvent> _listenerQueue;
         private readonly ILogProvider _logProvider;
         private readonly PeerEventQueueManager _queueManager;
 
-        public CacheListenerPubQueue(PluginBase plugin)
+        public CacheListenerPubQueue(PluginBase plugin, PeerEventQueueManager queueMan)
         {
-            _queueManager = plugin.GetOrCreateSingleton<PeerEventQueueManager>();
-            _logProvider = plugin.Log.CreateScope(LOG_SCOPE_NAME);
+            _queueManager = queueMan;
+            _logProvider = plugin.Log.CreateScope(CacheConstants.LogScopes.CacheListenerPubQueue);
 
             //Init local queue to store published events
-            _listenerQueue = new(new BoundedChannelOptions(MAX_LOCAL_QUEUE_ITEMS)
+            _listenerQueue = new(new BoundedChannelOptions(CacheConstants.CacheListenerChangeQueueSize)
             {
                 AllowSynchronousContinuations = true,
                 FullMode = BoundedChannelFullMode.DropOldest,
-                SingleReader = true,
+                SingleReader = true,    //Always a singe thread reading events 
                 SingleWriter = false,
             });
         }
 
         ///<inheritdoc/>
-        async Task IAsyncBackgroundWork.DoWorkAsync(ILogProvider pluginLog, CancellationToken exitToken)
+        async Task IAsyncBackgroundWork.DoWorkAsync(ILogProvider _, CancellationToken exitToken)
         {
             const int accumulatorSize = 64;
 
-            //Create scope
-            pluginLog = pluginLog.CreateScope(LOG_SCOPE_NAME);
-
             try
             {
-                pluginLog.Debug("Change queue worker listening for local cache changes");
+                _logProvider.Debug("Change queue worker listening for local cache changes");
 
                 //Accumulator for events
                 ChangeEvent[] accumulator = new ChangeEvent[accumulatorSize];
@@ -105,7 +99,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
             catch (OperationCanceledException)
             {
                 //Normal exit
-                pluginLog.Debug("Change queue listener worker exited");
+                _logProvider.Debug("Change queue listener worker exited");
             }
         }
 

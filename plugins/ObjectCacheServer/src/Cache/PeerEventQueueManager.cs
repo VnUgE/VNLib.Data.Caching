@@ -48,7 +48,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
         private readonly object StoreLock = new();
         private readonly Dictionary<string, PeerEventListenerQueue> QueueStore = new(StringComparer.OrdinalIgnoreCase);
 
-        public PeerEventQueueManager(PluginBase plugin, NodeConfig config)
+        public PeerEventQueueManager(PluginBase plugin, ServerClusterConfig config)
         {
             MaxQueueDepth = config.MaxQueueDepth;
 

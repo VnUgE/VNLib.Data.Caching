@@ -40,13 +40,11 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
 {
     internal sealed class PeerDiscoveryEndpoint : ResourceEndpointBase
     {
-        private readonly ObjectCacheSystemState SysState;
+        private readonly ObjectCacheSystemState _sysState;
 
-        private CacheAuthKeyStore KeyStore => SysState.Configuration.KeyStore;
+        private CacheAuthKeyStore KeyStore => _sysState.KeyStore;
 
-        private CachePeerMonitor PeerMonitor => SysState.PeerMonitor;
-
-        private CacheNodeConfiguration NodeConfig => SysState.Configuration.Config;
+        private CachePeerMonitor PeerMonitor => _sysState.PeerMonitor;
 
         ///<inheritdoc/>
         protected override ProtectionSettings EndpointProtectionSettings { get; } = new()
@@ -60,9 +58,9 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
 
         public PeerDiscoveryEndpoint(PluginBase plugin)
         {
-            SysState = plugin.GetOrCreateSingleton<ObjectCacheSystemState>();
+            _sysState = plugin.GetOrCreateSingleton<ObjectCacheSystemState>();
 
-            InitPathAndLog(SysState.Configuration.DiscoveryPath!, plugin.Log);
+            InitPathAndLog(_sysState.ClusterConfig.DiscoveryPath!, plugin.Log);
         }
 
         protected override VfReturnType Get(HttpEntity entity)
@@ -121,7 +119,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             response.WriteHeader(KeyStore.GetJwtHeader());
 
             response.InitPayloadClaim()
-                .AddClaim("iss", NodeConfig.NodeId)
+                .AddClaim("iss", _sysState.NodeConfig.NodeId)
                 //Audience is the requestor id
                 .AddClaim("sub", subject)
                 .AddClaim("iat", entity.RequestedTimeUtc.ToUnixTimeSeconds())

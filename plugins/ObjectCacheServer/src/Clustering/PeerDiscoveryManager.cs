@@ -40,21 +40,13 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
      * This class is responsible for resolving and discovering peer nodes in the cluster network.
      */
 
-    internal sealed class PeerDiscoveryManager(NodeConfig config, ILogProvider Log, bool IsDebug, bool HasWellKnown) : IAsyncBackgroundWork, ICachePeerAdapter
+    internal sealed class PeerDiscoveryManager(CacheNodeConfiguration config, ServerClusterConfig clusterConf, ILogProvider Log, bool IsDebug, bool HasWellKnown) 
+        : IAsyncBackgroundWork, ICachePeerAdapter
     {
-        internal const string LOG_SCOPE_NAME = "DISC";
-
-        /*
-         * The initial discovery delay. This allows for the server to initialize before
-         * starting the discovery process. This will probably be a shorter delay 
-         * than a usual discovery interval.
-         */
-        private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(15);
-        private static readonly TimeSpan WhenWellKnownResolveFailed = TimeSpan.FromSeconds(20);
 
         private readonly List<CacheNodeAdvertisment> _connectedPeers = [];
         private readonly CachePeerMonitor Monitor = new();
-        private readonly VNCacheClusterManager clusterMan = new(config.Config);
+        private readonly VNCacheClusterManager clusterMan = new(config);
 
         async Task IAsyncBackgroundWork.DoWorkAsync(ILogProvider pluginLog, CancellationToken exitToken)
         {
@@ -67,12 +59,11 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
             //Start the change listener 
             Task watcher = WatchForPeersAsync(exitToken);
 
-            Log.Information("Node discovery worker started, waiting for {idel} to start initial discovery", InitialDelay);
+            Log.Information("Node discovery worker started, waiting for {idel} to start initial discovery", CacheConstants.Delays.InitialDiscovery);
 
             try
-            {
-                //Wait for the initial delay
-                await Task.Delay(InitialDelay, exitToken);
+            {                
+                await Task.Delay(CacheConstants.Delays.InitialDiscovery, exitToken);
 
                 Log.Debug("Begining discovery loop");
 
@@ -87,19 +78,22 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
                             Log.Debug("Begining node discovery");
                         }
 
-                        //Resolve all known peers
+                       /*
+                        * On every loop we will need to resolve well-known servers incase they go down
+                        * or change. There probably should be some more advanced logic and caching here.
+                        */
                         CacheNodeAdvertisment[] wellKnown = await clusterMan.ResolveWellKnownAsync(exitToken);
                         wellKnownFailed = wellKnown.Length == 0;
 
                         //Use the monitor to get the initial peers
                         IEnumerable<CacheNodeAdvertisment> ads = GetMonitorAds();
 
-                        //Combine well-known with new connected peers
+                        //Combine well-known peers that are currently connected to this server
                         CacheNodeAdvertisment[] allAds = ads.Union(wellKnown).ToArray();
 
                         if (allAds.Length > 0)
                         {
-                            //Discover all known nodes
+                            //Build the discovery map from all the known nodes to find all known nodes in the entire cluster
                             await clusterMan.DiscoverNodesAsync(allAds, exitToken);
                         }
 
@@ -132,16 +126,16 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
                     {
                         if (IsDebug)
                         {
-                            Log.Debug("Well known node discovery failed, waiting for {idel} before retrying", WhenWellKnownResolveFailed);
+                            Log.Debug("Well known node discovery failed, waiting for {idel} before retrying", CacheConstants.Delays.WellKnownResolveFailed);
                         }
 
                         //Wait for shorter duration
-                        await Task.Delay(WhenWellKnownResolveFailed, exitToken);
+                        await Task.Delay(CacheConstants.Delays.WellKnownResolveFailed, exitToken);
                     }
                     else
                     {
                         //Delay the next discovery
-                        await Task.Delay(config.DiscoveryInterval, exitToken);
+                        await Task.Delay(clusterConf.DiscoveryInterval, exitToken);
                     }
                 }
             }
