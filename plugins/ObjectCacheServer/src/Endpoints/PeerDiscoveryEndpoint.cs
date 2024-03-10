@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -40,25 +40,27 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
 {
     internal sealed class PeerDiscoveryEndpoint : ResourceEndpointBase
     {
-        private readonly IPeerMonitor PeerMonitor;
-        private readonly NodeConfig Config;
+        private readonly ObjectCacheSystemState _sysState;
 
-        //Loosen up protection settings
+        private CacheAuthKeyStore KeyStore => _sysState.KeyStore;
+
+        private CachePeerMonitor PeerMonitor => _sysState.PeerMonitor;
+
         ///<inheritdoc/>
         protected override ProtectionSettings EndpointProtectionSettings { get; } = new()
         {
-            DisableSessionsRequired = true
+            /*
+             *  Sessions will not be used or required for this endpoint.
+             *  We should also assume the session system is not even loaded
+             */
+            DisableSessionsRequired = true 
         };
 
         public PeerDiscoveryEndpoint(PluginBase plugin)
         {
-            //Get the peer monitor
-            PeerMonitor = plugin.GetOrCreateSingleton<CachePeerMonitor>();
+            _sysState = plugin.GetOrCreateSingleton<ObjectCacheSystemState>();
 
-            //Get the node config
-            Config = plugin.GetOrCreateSingleton<NodeConfig>();
-
-            InitPathAndLog(Config.DiscoveryPath, plugin.Log);
+            InitPathAndLog(_sysState.ClusterConfig.DiscoveryPath!, plugin.Log);
         }
 
         protected override VfReturnType Get(HttpEntity entity)
@@ -68,35 +70,40 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
 
             if(string.IsNullOrWhiteSpace(authToken))
             {
-                entity.CloseResponse(HttpStatusCode.Unauthorized);
-                return VfReturnType.VirtualSkip;
+                return VirtualClose(entity, HttpStatusCode.Unauthorized);
             }
           
             string subject = string.Empty;
             string challenge = string.Empty;
 
-            //Parse auth token
-            using(JsonWebToken jwt = JsonWebToken.Parse(authToken))
+            try
             {
+                //Parse auth token
+                using JsonWebToken jwt = JsonWebToken.Parse(authToken);
+
                 //try to verify against cache node first
-                if (!Config.KeyStore.VerifyJwt(jwt, true))
+                if (!KeyStore.VerifyJwt(jwt, true))
                 {
                     //failed...
 
                     //try to verify against client key
-                    if (!Config.KeyStore.VerifyJwt(jwt, false))
+                    if (!KeyStore.VerifyJwt(jwt, false))
                     {
                         //invalid token
-                        entity.CloseResponse(HttpStatusCode.Unauthorized);
-                        return VfReturnType.VirtualSkip;
+                        return VirtualClose(entity, HttpStatusCode.Unauthorized);
                     }
                 }
 
                 using JsonDocument payload = jwt.GetPayload();
 
                 //Get client info to pass back
-                subject = payload.RootElement.TryGetProperty("sub", out JsonElement subEl) ? subEl.GetString() ?? string.Empty : string.Empty;                
+                subject = payload.RootElement.TryGetProperty("sub", out JsonElement subEl) ? subEl.GetString() ?? string.Empty : string.Empty;
                 challenge = payload.RootElement.GetProperty("chl").GetString() ?? string.Empty;
+            }
+            catch (FormatException)
+            {
+                //If tokens are invalid format, let the client know instead of a server error
+                return VfReturnType.BadRequest;
             }
 
             //Valid key, get peer list to send to client
@@ -109,10 +116,10 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             using JsonWebToken response = new();
             
             //set header from cache config
-            response.WriteHeader(Config.KeyStore.GetJwtHeader());
+            response.WriteHeader(KeyStore.GetJwtHeader());
 
             response.InitPayloadClaim()
-                .AddClaim("iss", Config.Config.NodeId)
+                .AddClaim("iss", _sysState.NodeConfig.NodeId)
                 //Audience is the requestor id
                 .AddClaim("sub", subject)
                 .AddClaim("iat", entity.RequestedTimeUtc.ToUnixTimeSeconds())
@@ -122,10 +129,9 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
                 .AddClaim("chl", challenge)
                 .CommitClaims();
 
-            //Sign the response
-            Config.KeyStore.SignJwt(response);
-            
-            //Send response to client
+        
+            KeyStore.SignJwt(response);
+        
             entity.CloseResponse(HttpStatusCode.OK, Net.Http.ContentType.Text, response.DataBuffer);
             return VfReturnType.VirtualSkip;
         }

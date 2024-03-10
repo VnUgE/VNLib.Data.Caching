@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
@@ -57,9 +57,9 @@ namespace VNLib.Data.Caching
         /// Pins the handle to the specified offset and returns a 
         /// <see cref="MemoryHandle"/> to the pinned memory block.
         /// </summary>
-        /// <param name="handle"></param>
-        /// <param name="offset"></param>
-        /// <returns></returns>
+        /// <param name="handle">A referrence to the existing handle</param>
+        /// <param name="offset">The number of bytes from the base to offset the returned pointer</param>
+        /// <returns>A memory handle pointing to the first byte in the segment given by the offset</returns>
         MemoryHandle PinHandle(object handle, int offset);
 
         /// <summary>

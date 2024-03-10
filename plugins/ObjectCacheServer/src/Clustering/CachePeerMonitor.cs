@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -29,7 +29,6 @@ using System.Collections.Generic;
 
 using VNLib.Utils;
 using VNLib.Utils.Extensions;
-using VNLib.Plugins;
 
 namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
 {
@@ -37,11 +36,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
     internal sealed class CachePeerMonitor : VnDisposeable, IPeerMonitor
     {
 
-        private readonly LinkedList<ICachePeer> peers = new();
+        private readonly List<ICachePeer> peers = new();
         private readonly ManualResetEvent newPeerTrigger = new (false);
-
-        public CachePeerMonitor(PluginBase plugin)
-        { }
 
         /// <summary>
         /// Waits for new peers to connect to the server
@@ -70,7 +66,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
             //When a peer is connected we can add it to the list so the replication manager can see it
             lock(peers)
             {
-                peers.AddLast(peer);
+                peers.Add(peer);
             }
 
             //Trigger monitor when change occurs
@@ -92,6 +88,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
 
         protected override void Free()
         {
+            peers.Clear();
             newPeerTrigger.Dispose();
         }
     }

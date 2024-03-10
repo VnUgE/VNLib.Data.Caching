@@ -14,8 +14,19 @@ vars:
   RELEASE_DIR: "./bin/release/{{.TARGET_FRAMEWORK}}/publish"
   SOURCE_OUT: "{{.USER_WORKING_DIR}}/bin/source"
 
+includes:
+  ci:
+    taskfile: server/taskfile.yaml
+    dir: server/    #must execute from the server directory
+    optional: true
+
 tasks:
   
+  #called by ci to build the output
+  build:
+    cmds:
+    - task: ci:build
+
   #when build succeeds, archive the output into a tgz 
   postbuild_success:
     dir: '{{.USER_WORKING_DIR}}'
@@ -33,6 +44,8 @@ tasks:
      #run post in release mode
      - task: postbuild
        vars: { BUILD_MODE: release }    
+
+     - task: ci:postbuild_success
 
 
   postbuild_failed:
@@ -68,6 +81,8 @@ tasks:
   clean:
     dir: '{{.USER_WORKING_DIR}}'
     cmds:
-     - for: ['./bin', './obj']
+     - for: [ 'bin/', 'obj/' ]
        cmd: powershell Remove-Item -Recurse '{{.ITEM}}'
        ignore_error: true
+
+     - task: ci:clean

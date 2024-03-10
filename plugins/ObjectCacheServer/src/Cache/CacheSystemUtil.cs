@@ -29,6 +29,7 @@ using System.Text.Json;
 using VNLib.Utils.Resources;
 using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
+using VNLib.Utils.Extensions;
 
 namespace VNLib.Data.Caching.ObjectCache.Server.Cache
 {
@@ -49,7 +50,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
         /// <param name="cacheConf">The cache configuration object</param>
         /// <returns>The loaded <see cref="IBlobCacheTable"/> implementation</returns>
         /// <exception cref="FileNotFoundException"></exception>
-        public static IBlobCacheTable LoadMemoryCacheSystem(this PluginBase plugin, IConfigScope config, ICacheMemoryManagerFactory heap, CacheConfiguration cacheConf)
+        public static IBlobCacheTable LoadMemoryCacheSystem(this PluginBase plugin, IConfigScope config, ICacheMemoryManagerFactory heap, CacheMemoryConfiguration cacheConf)
         {
 #pragma warning disable CA2000 // Dispose objects before losing scope
 
@@ -94,10 +95,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
             if(initMethod != null)
             {
                 //Itterate all buckets
-                foreach (IBlobCacheBucket bucket in table)
-                {
-                    initMethod.Invoke(bucket.Id);
-                }
+                table.ForEach(bucket => initMethod(bucket.Id));
             }
         }
 

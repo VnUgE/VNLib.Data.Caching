@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Extensions
@@ -37,14 +37,9 @@ namespace VNLib.Data.Caching.Extensions.Clustering
     public class CacheClientConfiguration
     {
         /// <summary>
-        /// Stores available cache servers to be used for discovery, and connections
-        /// </summary>
-        public INodeDiscoveryCollection NodeCollection { get; } = new NodeDiscoveryCollection();
-
-        /// <summary>
         /// The authentication manager to use for signing and verifying messages to and from the cache servers
         /// </summary>
-        public ICacheAuthManager AuthManager { get; private set; }
+        public ICacheAuthManager AuthManager { get; private set; } = null!;
 
         /// <summary>
         /// The error handler to use for handling errors that occur during the discovery process
@@ -89,7 +84,7 @@ namespace VNLib.Data.Caching.Extensions.Clustering
         public CacheClientConfiguration WithInitialPeers(IEnumerable<Uri> peers)
         {
             //Check null
-            _ = peers ?? throw new ArgumentNullException(nameof(peers));
+            ArgumentNullException.ThrowIfNull(peers);
 
             //Store peer array
             WellKnownNodes = peers.ToArray();

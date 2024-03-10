@@ -1,0 +1,193 @@
+# https://taskfile.dev
+
+#Inlcuded taskfile for object cache server that is used to produce
+#ci builds for standalone caching servers
+
+version: "3"
+
+vars:
+  BUILDS_URL: https://www.vaughnnugent.com/public/resources/software/builds
+  SCRIPT_DIR: '{{.TASKFILE_DIR}}'
+  BINARY_DIR: '{{.PROJECT_DIR}}/bin'        #binary dir is not available for dotnet plugis 
+
+includes:
+  install:
+    taskfile: install.taskfile.yaml
+    optional: true     
+
+  container:
+    dir: container  #always run from the container directory
+    taskfile: container/Taskfile.yaml
+    optional: true
+    vars:
+      BUILDS_URL: '{{.BUILDS_URL}}'
+      PACKAGE_FILE_NAME: "vncache-alpine3.19-oci.tgz"  #the name of the output package file
+
+tasks:
+# CLIENT-SIDE TASKS
+  default:
+    desc: "Runs the VNCache server"
+    cmds:
+    - task: run
+
+  run:
+    desc: "Runs the VNCache server"
+    silent: true
+    env: 
+      #server should detect the file extension and load the correct library
+      VNLIB_SHARED_HEAP_FILE_PATH: lib/libvn_rpmalloc  
+
+    cmds:   
+    - cmd: dotnet webserver/VNLib.WebServer.dll --config config/config.json --input-off --inline-scheduler {{.ARGS}}
+      #setup sever environment
+     
+
+  setup-debian:
+     desc: "Performs initial setup on Debian x64 based machines"
+     silent: true
+     cmds:
+     - apt update
+     - apt install -y dotnet-runtime-8.0 gcc cmake  
+     - task: setup
+     - echo "Setup complete" 
+ 
+  setup-fedora:
+     desc: "Performs initial setup on Fedora/Redhat x64 (dnf) based machines"
+     silent: true
+     cmds:
+     - dnf update
+     - dnf install -y dotnet-runtime-8.0 gcc cmake
+     - task: setup
+     - echo "Setup complete"
+ 
+  setup-alpine:
+     desc: "Performs initial setup on Alpine x64 based machines"
+     silent: true
+     cmds:
+     - apk update
+     - apk add --no-cache dotnet8-runtime gcc cmake
+     - task: setup
+     - echo "Setup complete"
+
+  setup:
+    cmds:
+    #build rpmalloc lib
+    - task: build-rpmalloc
+
+  build-rpmalloc:
+    internal: true
+    dir: 'lib/'
+    vars:
+      RPMALLOC_DIR: 'vnlib_rpmalloc'
+    cmds:
+      #build rpmalloc library
+     - cmd: cd vnlib_rpmalloc/ && task
+   
+     - cmd: cp vnlib_rpmalloc/build/libvn_rpmalloc.so libvn_rpmalloc.so
+       platforms: [ linux ]
+    
+     - cmd: cp vnlib_rpmalloc/build/libvn_rpmalloc.dylib libvn_rpmalloc.dylib
+       platforms: [ darwin ]
+
+     - cmd: powershell -Command "cp vnlib_rpmalloc/build/Release/vnlib_rpmalloc.dll libvn_rpmalloc.dll"
+       platforms: [ windows/amd64 ]
+
+# CI BUILD TASKS
+  build:
+    desc: "CI ONLY! DO NOT RUN"
+    cmds:
+    - task: install-plugins
+    - task: install-webserver
+    
+    #run container build last
+    - task: container:build
+
+  install-webserver:
+    internal: true
+    cmds:
+    - for: [ win-x64, linux-x64, osx-x64, linux-arm64 ]
+      task: create-env
+      vars: 
+        TARGET_OS: '{{.ITEM}}'
+
+  install-plugins:
+    internal: true
+    cmds:
+    - cmd: powershell -Command "mkdir lib -Force"
+      ignore_error: true
+
+    #copy the object-cache plugin output to the local plugins directory
+    - cmd: powershell -Command "cp -Recurse -Force {{.PROJECT_DIR}}/bin/Release/net8.0/publish/ plugins/{{.PROJECT_NAME}}/"
+    
+    #download rpmalloc
+    - task: install:install
+      vars:
+        PROJECT_NAME: 'vnlib_rpmalloc'
+        MODULE_NAME: "VNLib.Core"
+        FILE_NAME: "src.tgz"
+        DIR: './lib/vnlib_rpmalloc'
+
+  postbuild_success:
+    desc: "CI ONLY! DO NOT RUN"
+    cmds:
+    - for: [ win-x64, linux-x64, osx-x64, linux-arm64 ]
+      task: pack
+      vars: 
+        TARGET_OS: '{{.ITEM}}'
+
+    #cleanup unnecessary build files that clog up the pipeline
+    - for: [ build, plugins, lib ]
+      cmd: powershell -Command "rm -Recurse '{{.ITEM}}'"
+      ignore_error: true
+
+    - task: container:postbuild_success
+  
+  build-container:
+    internal: true
+    cmds:
+     - task: container:build
+    
+  #Creates a new webserver build environment for an operating system configuration
+  create-env:
+    internal: true
+    vars:
+      BUILD_DIR: './build/{{.TARGET_OS}}'
+    cmds:
+    #create dir for env
+    - cmd: powershell -Command "mkdir {{.BUILD_DIR}} -Force"
+      ignore_error: true
+    
+    #copy build files
+    - for: [ plugins, lib, config, taskfile.yaml ]
+      cmd: powershell -Command "cp -Recurse -Force {{.ITEM}} {{.BUILD_DIR}}"
+
+    - task: get-webserver
+      vars:
+        TARGET_OS: '{{.TARGET_OS}}'
+        BUILD_DIR: '{{.BUILD_DIR}}'
+
+  #fetches a copy of (the desired os version) VNLib.WebServer project and installs it into the build directory
+  get-webserver:
+    internal: true
+    cmds:
+    - task: install:install
+      vars:
+        PROJECT_NAME: 'VNLib.Webserver'
+        MODULE_NAME: "VNLib.Webserver"
+        FILE_NAME: "{{.TARGET_OS}}-release.tgz"
+        DIR: '{{.BUILD_DIR}}/webserver'
+ 
+  pack:
+    internal: true
+    cmds:
+    - cd build/{{.TARGET_OS}} && tar -czf '{{ .BINARY_DIR }}/{{ .TARGET_OS }}-release.tgz' .
+
+  clean:
+    desc: "CI ONLY! DO NOT RUN"
+    ignore_error: true
+    cmds:
+    - for: [ build/, bin/, plugins/, lib/]
+      cmd: powershell -Command "rm -Recurse -Force '{{.ITEM}}'"
+    
+    - task: container:clean 
+

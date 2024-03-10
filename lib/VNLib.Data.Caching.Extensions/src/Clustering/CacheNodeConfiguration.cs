@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Extensions
@@ -23,6 +23,7 @@
 */
 
 using System;
+using System.Runtime.CompilerServices;
 
 namespace VNLib.Data.Caching.Extensions.Clustering
 {
@@ -85,8 +86,14 @@ namespace VNLib.Data.Caching.Extensions.Clustering
             return this;
         }
 
+        internal StrongBox<string> NodeIdRef { get; } = new(string.Empty);
+
         ///<inheritdoc/>
-        public string NodeId { get; private set; } = null!;
+        public string NodeId
+        {
+            get => NodeIdRef.Value!;
+            private set => NodeIdRef.Value = value;
+        }       
 
         /// <summary>
         /// Specifies the current server's cluster node id. If this 
@@ -99,10 +106,6 @@ namespace VNLib.Data.Caching.Extensions.Clustering
         public CacheNodeConfiguration WithNodeId(string nodeId)
         {
             NodeId = nodeId ?? throw new ArgumentNullException(nameof(nodeId));
-
-            //Update the node id in the node collection
-            (NodeCollection as NodeDiscoveryCollection)!.SetSelfId(nodeId);
-
             return this;
         }
 

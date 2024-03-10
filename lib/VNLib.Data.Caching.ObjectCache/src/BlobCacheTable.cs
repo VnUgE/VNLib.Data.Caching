@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
@@ -66,12 +66,8 @@ namespace VNLib.Data.Caching.ObjectCache
         /// <exception cref="ArgumentException"></exception>
         public BlobCacheTable(uint tableSize, uint bucketSize, ICacheMemoryManagerFactory factory, IPersistantCacheStore? persistantCache)
         {
-            _ = factory ?? throw new ArgumentNullException(nameof(factory));
-
-            if(tableSize == 0)
-            {
-                throw new ArgumentException("Cache table must have atleast 1 bucket");
-            }
+            ArgumentNullException.ThrowIfNull(factory);
+            ArgumentOutOfRangeException.ThrowIfZero(tableSize);
 
             //Init bucket table
             _tableSize = tableSize;
@@ -106,10 +102,7 @@ namespace VNLib.Data.Caching.ObjectCache
 
         private uint FastGetBucketIndexFromId(ReadOnlySpan<char> objectId)
         {
-            if (objectId.Length < 4)
-            {
-                throw new ArgumentException("Object id must be larger than 3 characters");
-            }
+            ArgumentOutOfRangeException.ThrowIfLessThan(objectId.Length, 4, nameof(objectId));
 
             Span<byte> buffer = stackalloc byte[4];
 

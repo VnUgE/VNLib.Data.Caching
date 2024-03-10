@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -33,6 +33,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
     /// </summary>
     public class VnCacheClientConfig : VNCacheConfig
     {
+        const string DefaultWellKnownEndpoint = "/.well-known/vncache";
+
         /// <summary>
         /// The broker server address
         /// </summary>
@@ -88,7 +90,13 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public Uri[] GetInitialNodeUris()
         {
             _ = InitialNodes ?? throw new InvalidOperationException("Initial nodes have not been set");
-            return InitialNodes.Select(static x => new Uri(x, UriKind.Absolute)).ToArray();
+            return InitialNodes.Select(static x =>
+                {
+                    //Append a default well known endpoint if the path is just a root
+                    Uri ur = new (x, UriKind.Absolute);
+                    return ur.LocalPath == "/" ? new Uri(ur, DefaultWellKnownEndpoint) : ur;
+                })
+                .ToArray();
         }
 
         ///<inheritdoc/>

@@ -451,7 +451,7 @@ namespace VNLib.Data.Caching
         /// <param name="client"></param>
         /// <param name="change">The instance to store change event data to</param>
         /// <param name="cancellationToken">A token to cancel the deuque operation</param>
-        /// <returns>A <see cref="WaitForChangeResult"/> that contains information about the modified element</returns>
+        /// <returns>A task that completes when a change has occured</returns>
         /// <exception cref="InvalidResponseException"></exception>
         /// <exception cref="InvalidOperationException"></exception>
         public static async Task WaitForChangeAsync(this FBMClient client, WaitForChangeResult change, CancellationToken cancellationToken = default)

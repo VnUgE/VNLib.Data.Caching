@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -53,13 +53,13 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
 
     internal sealed class ConnectEndpoint : ResourceEndpointBase
     {
-        internal const string LOG_SCOPE_NAME = "CONEP";
+        private readonly ObjectCacheSystemState _sysState;
 
-       
-        private readonly ICacheEventQueueManager PubSubManager;
-        private readonly IPeerMonitor Peers;
-        private readonly BlobCacheListener<IPeerEventQueue> Store;
-        private readonly NodeConfig NodeConfiguration;
+        private PeerEventQueueManager PubSubManager => _sysState.PeerEventQueue;
+        private CachePeerMonitor Peers => _sysState.PeerMonitor;
+        private BlobCacheListener<IPeerEventQueue> Listener => _sysState.Listener;
+        private ServerClusterConfig ClusterConfiguration => _sysState.ClusterConfig;
+        
         private readonly CacheNegotationManager AuthManager;
 
         private uint _connectedClients;
@@ -72,7 +72,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
         /// <summary>
         /// The cache store configuration
         /// </summary>
-        public CacheConfiguration CacheConfig { get; }
+        public CacheMemoryConfiguration CacheConfig => _sysState.MemoryConfiguration;
 
         //Loosen up protection settings
         ///<inheritdoc/>
@@ -83,24 +83,11 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
 
         public ConnectEndpoint(PluginBase plugin)
         {
-            //Get node configuration
-            NodeConfiguration = plugin.GetOrCreateSingleton<NodeConfig>();
+            _sysState = plugin.GetOrCreateSingleton<ObjectCacheSystemState>();
 
             //Init from config and create a new log scope
-            InitPathAndLog(NodeConfiguration.ConnectPath, plugin.Log.CreateScope(LOG_SCOPE_NAME));
-
-            //Setup pub/sub manager
-            PubSubManager = plugin.GetOrCreateSingleton<CacheEventQueueManager>();
-
-            //Get peer monitor
-            Peers = plugin.GetOrCreateSingleton<CachePeerMonitor>();
-
-            //Init the cache store
-            Store = plugin.GetOrCreateSingleton<CacheStore>().Listener;
-
-            //Get the cache store configuration
-            CacheConfig = plugin.GetConfigForType<CacheStore>().Deserialze<CacheConfiguration>();
-
+            InitPathAndLog(ClusterConfiguration.ConnectPath, plugin.Log.CreateScope(CacheConstants.LogScopes.ConnectionEndpoint));
+         
             //Get the auth manager
             AuthManager = plugin.GetOrCreateSingleton<CacheNegotationManager>();
         }
@@ -127,6 +114,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
         {
             //Parse jwt from authoriation
             string? jwtAuth = entity.Server.Headers[HttpRequestHeader.Authorization];
+
             if (string.IsNullOrWhiteSpace(jwtAuth))
             {
                 return VirtualClose(entity, HttpStatusCode.Forbidden);
@@ -149,25 +137,33 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             }
 
             //Verified, now we can create an auth message with a short expiration
-            using JsonWebToken auth = AuthManager.ConfirmCLientNegotiation(state, entity.TrustedRemoteIp, entity.RequestedTimeUtc);
+            using JsonWebToken auth = AuthManager.ConfirmClientNegotiation(state, entity.TrustedRemoteIp, entity.RequestedTimeUtc);
 
-            //Close response
+            //Close response by sending a copy of the signed token
             entity.CloseResponse(HttpStatusCode.OK, ContentType.Text, auth.DataBuffer);
             return VfReturnType.VirtualSkip;
         }
 
         protected override VfReturnType WebsocketRequested(HttpEntity entity)
         {
+            /*
+             * Check to see if any more connections are allowed,
+             * otherwise deny the connection
+             * 
+             * This is done here to prevent the server from being overloaded
+             * on a new connection. It would be ideal to not grant new tokens
+             * but malicious clients could cache a bunch of tokens and use them 
+             * later, exhausting resources.
+             */
+            if(_connectedClients >= ClusterConfiguration.MaxConcurrentConnections)
+            {
+                return VirtualClose(entity, HttpStatusCode.ServiceUnavailable);
+            }
+
             //Parse jwt from authorization
             string? jwtAuth = entity.Server.Headers[HttpRequestHeader.Authorization];
             string? clientSignature = entity.Server.Headers[FBMDataCacheExtensions.X_UPGRADE_SIG_HEADER];
             string? optionalDiscovery = entity.Server.Headers[FBMDataCacheExtensions.X_NODE_DISCOVERY_HEADER];
-
-            //Not null
-            if (string.IsNullOrWhiteSpace(jwtAuth) || string.IsNullOrWhiteSpace(clientSignature))
-            {
-                return VfReturnType.Forbidden;
-            }
 
             string? nodeId = null;
             bool isPeer = false;
@@ -178,17 +174,17 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
                 return VirtualClose(entity, HttpStatusCode.Unauthorized);
             }
 
-            CacheNodeAdvertisment? discoveryAd = null;
-
             /*
              * If the client is a peer server, it may offer a signed advertisment 
              * that this node will have the duty of making available to other peers
              * if it is valid
              */
 
-            if (isPeer && !string.IsNullOrWhiteSpace(optionalDiscovery))
+            CacheNodeAdvertisment? discoveryAd = null;
+
+            if (isPeer)
             {
-                discoveryAd = NodeConfiguration.KeyStore.VerifyPeerAdvertisment(optionalDiscovery);
+                discoveryAd = _sysState.KeyStore.VerifyPeerAdvertisment(optionalDiscovery);
             }
 
             WsUserState state;
@@ -196,11 +192,10 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             try
             {               
                 //Get query config suggestions from the client
-                string recvBufCmd = entity.QueryArgs[FBMClient.REQ_RECV_BUF_QUERY_ARG];
-                string maxHeaderCharCmd = entity.QueryArgs[FBMClient.REQ_HEAD_BUF_QUERY_ARG];
-                string maxMessageSizeCmd = entity.QueryArgs[FBMClient.REQ_MAX_MESS_QUERY_ARG];
+                string? recvBufCmd = entity.QueryArgs.GetValueOrDefault(FBMClient.REQ_RECV_BUF_QUERY_ARG);
+                string? maxHeaderCharCmd = entity.QueryArgs.GetValueOrDefault(FBMClient.REQ_HEAD_BUF_QUERY_ARG);
+                string? maxMessageSizeCmd = entity.QueryArgs.GetValueOrDefault(FBMClient.REQ_MAX_MESS_QUERY_ARG);
                 
-                //Parse recv buffer size
                 int recvBufSize = int.TryParse(recvBufCmd, out int rbs) ? rbs : CacheConfig.MinRecvBufferSize;
                 int maxHeadBufSize = int.TryParse(maxHeaderCharCmd, out int hbs) ? hbs : CacheConfig.MinHeaderBufferSize;
                 int maxMessageSize = int.TryParse(maxMessageSizeCmd, out int mxs) ? mxs : CacheConfig.MaxMessageSize;
@@ -253,9 +248,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             Peers.OnPeerConnected(state);
 
             //Register plugin exit token to cancel the connected socket
-            CancellationTokenRegistration reg = this.GetPlugin().UnloadToken.Register(wss.CancelAll);
-
-            //Inc connected count
+            await using CancellationTokenRegistration reg = this.GetPlugin().UnloadToken.Register(wss.CancelAll);
+          
             Interlocked.Increment(ref _connectedClients);
 
             try
@@ -280,7 +274,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
                     try
                     {
                         //Begin listening for messages with a queue
-                        await Store.ListenAsync(wss, queue, args);
+                        await Listener.ListenAsync(wss, queue, args);
                     }
                     finally
                     {
@@ -291,7 +285,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
                 else
                 {
                     //Begin listening for messages without a queue
-                    await Store.ListenAsync(wss, null!, args);
+                    await Listener.ListenAsync(wss, null!, args);
                 }
             }
             catch (OperationCanceledException)
@@ -303,14 +297,12 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             }
             catch (Exception ex)
             {
-                Log.Debug(ex);
+                //If debug logging is enabled print a more detailed error message
+                Log.Error("An error occured on websocket connection: node {con} -> {error}", state.NodeId, ex.Message);
+                Log.Debug("Websocket connection error: node {con}\n{error}", state.NodeId, ex);
             }
-
-            //Dec connected count
+           
             Interlocked.Decrement(ref _connectedClients);
-
-            //Unregister the token
-            reg.Unregister();
 
             //Notify monitor of disconnect
             Peers.OnPeerDisconnected(state);
