@@ -40,12 +40,18 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
      * This class is responsible for resolving and discovering peer nodes in the cluster network.
      */
 
-    internal sealed class PeerDiscoveryManager(CacheNodeConfiguration config, ServerClusterConfig clusterConf, ILogProvider Log, bool IsDebug, bool HasWellKnown) 
+    internal sealed class PeerDiscoveryManager(
+        CacheNodeConfiguration config, 
+        ServerClusterConfig clusterConf, 
+        CachePeerMonitor Monitor,
+        ILogProvider Log, 
+        bool IsDebug, 
+        bool HasWellKnown
+    ) 
         : IAsyncBackgroundWork, ICachePeerAdapter
     {
 
         private readonly List<CacheNodeAdvertisment> _connectedPeers = [];
-        private readonly CachePeerMonitor Monitor = new();
         private readonly VNCacheClusterManager clusterMan = new(config);
 
         async Task IAsyncBackgroundWork.DoWorkAsync(ILogProvider pluginLog, CancellationToken exitToken)
@@ -81,9 +87,12 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
                        /*
                         * On every loop we will need to resolve well-known servers incase they go down
                         * or change. There probably should be some more advanced logic and caching here.
+                        * 
+                        * Node may not have any well-known nodes, so we need to check for that.
                         */
-                        CacheNodeAdvertisment[] wellKnown = await clusterMan.ResolveWellKnownAsync(exitToken);
-                        wellKnownFailed = wellKnown.Length == 0;
+                        CacheNodeAdvertisment[] wellKnown = HasWellKnown ? 
+                            await clusterMan.ResolveWellKnownAsync(exitToken) :  
+                            Array.Empty<CacheNodeAdvertisment>();
 
                         //Use the monitor to get the initial peers
                         IEnumerable<CacheNodeAdvertisment> ads = GetMonitorAds();

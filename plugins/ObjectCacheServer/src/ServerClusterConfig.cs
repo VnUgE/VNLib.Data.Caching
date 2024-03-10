@@ -45,7 +45,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
 
         public int MaxQueueDepth { get; } = (int)config.GetRequiredProperty("max_queue_depth", p => p.GetUInt32());
 
-        public string? DiscoveryPath { get; } = config.GetValueOrDefault(CacheConfigTemplate, p => p.GetString(), null);
+        public string? DiscoveryPath { get; } = config.GetValueOrDefault("discovery_path", p => p.GetString(), null);
 
         public string ConnectPath { get; } = config.GetRequiredProperty("connect_path", p => p.GetString()!);
 
@@ -63,7 +63,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         /// The maxium number of concurrent client connections to allow
         /// before rejecting new connections
         /// </summary>
-        public uint MaxConcurrentConnections { get; }
+        public uint MaxConcurrentConnections { get; } = config.GetValueOrDefault("max_concurrent_connections", p => p.GetUInt32(), 100u);
 
         const string CacheConfigTemplate =
 @"

@@ -24,6 +24,7 @@
 
 using System;
 using System.Net;
+using System.Security;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -72,7 +73,23 @@ namespace VNLib.Data.Caching.Extensions.ApiModel
         }
 
         public override void OnResponse(RestResponse response)
-        { }
+        {
+            switch(response.StatusCode)
+            {
+                case HttpStatusCode.OK:
+                    break;
+                case HttpStatusCode.Unauthorized:
+                    throw new SecurityException("Unauthorized access to cache service");
+                case HttpStatusCode.Forbidden:
+                    throw new SecurityException("Forbidden access to cache service");
+                case HttpStatusCode.NotFound:
+                    throw new InvalidOperationException("Cache service not found");
+                case HttpStatusCode.InternalServerError:
+                    throw new InvalidOperationException("Cache service internal error");
+                default:
+                    throw new InvalidOperationException($"Cache service error: {response.StatusCode}");
+            }
+        }
 
         public override Task WaitAsync(CancellationToken cancellation = default)
         {

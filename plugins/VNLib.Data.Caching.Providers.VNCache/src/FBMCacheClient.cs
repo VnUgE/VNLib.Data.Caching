@@ -258,6 +258,12 @@ namespace VNLib.Data.Caching.Providers.VNCache
                         pluginLog.Verbose("Stack trace: {re}", he);
                         await Task.Delay(1000, exitToken);
                     }
+                    catch(HttpRequestException hre) when (hre.InnerException is SocketException se)
+                    {
+                        pluginLog.Warn("Failed to establish a TCP connection to server {server} {reason}", node.NodeId, se.Message);
+                        pluginLog.Verbose("Stack trace: {re}", se);
+                        await Task.Delay(1000, exitToken);
+                    }
                     finally
                     {
                         _isConnected = false;
