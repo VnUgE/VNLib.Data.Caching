@@ -12,7 +12,6 @@ version: '3'
 vars:
   TARGET: '{{.USER_WORKING_DIR}}/bin'
   RELEASE_DIR: "./bin/release/{{.TARGET_FRAMEWORK}}/publish"
-  SOURCE_OUT: "{{.USER_WORKING_DIR}}/bin/source"
 
 tasks:
   
@@ -37,9 +36,7 @@ tasks:
 
   postbuild_failed:
     dir: '{{.USER_WORKING_DIR}}'
-    cmds:
-     - echo "postbuild failed {{.PROJECT_NAME}}"
-
+    cmds: []
 
   postbuild:
     dir: '{{.USER_WORKING_DIR}}'      
@@ -48,8 +45,7 @@ tasks:
       #the build output directory
       BUILD_OUT: "{{.USER_WORKING_DIR}}/bin/{{.BUILD_MODE}}/{{.TARGET_FRAMEWORK}}/publish" 
 
-    cmds:
-     
+    cmds:     
      #copy license and readme to target
      - cd .. && powershell -Command "Copy-Item -Path ./build.readme.md -Destination '{{.BUILD_OUT}}/readme.md'"
 
@@ -67,7 +63,8 @@ tasks:
 #Remove the output dirs on clean
   clean:
     dir: '{{.USER_WORKING_DIR}}'
+    ignore_error: true
     cmds:
-     - for: ['./bin', './obj']
+     - for: ['bin/', 'obj/']
        cmd: powershell Remove-Item -Recurse '{{.ITEM}}'
-       ignore_error: true
+     

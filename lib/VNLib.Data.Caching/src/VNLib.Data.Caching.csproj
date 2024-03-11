@@ -47,7 +47,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\..\core\lib\Net.Messaging.FBM\src\VNLib.Net.Messaging.FBM.csproj" />
+    <ProjectReference Include="..\..\..\..\core\lib\Net.Messaging.FBM\src\VNLib.Net.Messaging.FBM.csproj" />
   </ItemGroup>
 
 </Project>
