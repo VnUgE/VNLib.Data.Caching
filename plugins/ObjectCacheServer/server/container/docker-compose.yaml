@@ -25,7 +25,8 @@ services:
       VERIFY_IP: "true"                     #verfies the IP address of clients during negotiation (recommended)
       MAX_PEER_NODES: "10"                  #max number of other peer nodes this node shoud connect to
       DISCOVERY_INTERVAL: "360"             #time (in seconds) between peer node discovery
-      KNOWN_PEERS: '[]'                     #array of known peer nodes in the cluster     
+      KNOWN_PEERS: '[]'                     #array of known peer nodes in the cluster  
+      ENABLE_CHECKSUMS: "true"              #enables checksums for messages
 
       #SECRETS (must be JWK formatted keys)
       CACHE_PRIV_KEY: ""                    #REQUIRED local private key used to identify and sign messages to clients and other nodes

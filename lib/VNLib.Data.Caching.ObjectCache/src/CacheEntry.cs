@@ -89,8 +89,8 @@ namespace VNLib.Data.Caching
         /// <exception cref="ArgumentException"></exception>
         public static CacheEntry FromExistingHandle(object handle, ICacheEntryMemoryManager manager)
         {
-            _ = handle ?? throw new ArgumentNullException(nameof(handle));
-            _ = manager ?? throw new ArgumentNullException(nameof(manager));
+            ArgumentNullException.ThrowIfNull(handle);
+            ArgumentNullException.ThrowIfNull(manager);
 
             //validate handle size it at least the minimum size
             if (manager.GetHandleSize(handle) < DATA_SEGMENT_START)

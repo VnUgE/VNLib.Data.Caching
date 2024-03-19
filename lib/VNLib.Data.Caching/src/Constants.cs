@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2022 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -22,12 +22,11 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
-using System;
-
 using VNLib.Net.Messaging.FBM;
 
 namespace VNLib.Data.Caching
 {
+
     public static class Constants
     {
         /// <summary>
@@ -48,9 +47,25 @@ namespace VNLib.Data.Caching
             public const string Okay = "ok";
             public const string Error = "err";
             public const string NotFound = "nf";
+            public const string InvalidChecksum = "cm";
         }
 
         public const HeaderCommand ObjectId = (HeaderCommand)0xAA;
         public const HeaderCommand NewObjectId = (HeaderCommand)0xAB;
+        public const HeaderCommand ChecksumType = (HeaderCommand)0xA1;
+        public const HeaderCommand ChecksumValue = (HeaderCommand)0xA2;
+        public const HeaderCommand ChecksumWarning = (HeaderCommand)0xA3;
+
+        /// <summary>
+        /// Contains constants for checksum type names for FBM headers
+        /// </summary>
+        public static class ChecksumTypes
+        {
+            public const string Fnv1a = "fnv1a";
+            public const string Crc32 = "crc32";
+            public const string Md5 = "md5";
+            public const string Sha1 = "sha1";
+            public const string Sha256 = "sha256";
+        }
     }
 }

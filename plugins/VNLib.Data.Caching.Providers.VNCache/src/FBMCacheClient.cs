@@ -78,7 +78,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public FBMCacheClient(PluginBase plugin, IConfigScope config)
         : this(
             config.Deserialze<VnCacheClientConfig>(),
-            plugin.IsDebug() ? plugin.Log : null
+            plugin.IsDebug() ? plugin.Log : null,
+            plugin
         )
         {
             ILogProvider scoped = plugin.Log.CreateScope(LOG_NAME);
@@ -103,7 +104,11 @@ namespace VNLib.Data.Caching.Providers.VNCache
             }
         }
 
-        public FBMCacheClient(VnCacheClientConfig config, ILogProvider? debugLog):base(config)
+        public FBMCacheClient(VnCacheClientConfig config, ILogProvider? debugLog) : this(config, debugLog, null)
+        { }
+        
+
+        private FBMCacheClient(VnCacheClientConfig config, ILogProvider? debugLog, PluginBase? plugin) : base(config)
         {
             //Validate config
             (config as IOnConfigValidation).Validate();
@@ -115,13 +120,13 @@ namespace VNLib.Data.Caching.Providers.VNCache
 
             //Init the client with default settings
             FBMClientConfig conf = FBMDataCacheExtensions.GetDefaultConfig(BufferHeap, (int)config.MaxBlobSize, config.RequestTimeout, debugLog);
-            
+
             FBMClientFactory clientFactory = new(
-                in conf, 
-                new FBMFallbackClientWsFactory(), 
+                in conf,
+                new FBMFallbackClientWsFactory(),
                 10
             );
-           
+
             _cluster = (new CacheClientConfiguration())
                 .WithTls(config.UseTls)
                 .WithInitialPeers(config.GetInitialNodeUris())
@@ -129,6 +134,9 @@ namespace VNLib.Data.Caching.Providers.VNCache
 
             //Init index
             _index = ClusterNodeIndex.CreateIndex(_cluster);
+
+            //Init serializers
+            InitSerializers(config, plugin);
         }
 
         /*
@@ -296,7 +304,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public override Task<bool> DeleteAsync(string key, CancellationToken cancellation)
         {
             return !IsConnected
-              ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
+              ? Task.FromException<bool>(new InvalidOperationException("The underlying client is not connected to a cache node"))
               : _client!.DeleteObjectAsync(key, cancellation);
         }
 
@@ -304,7 +312,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public override Task<T> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation)
         {
             return !IsConnected
-            ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
+            ? Task.FromException<T>(new InvalidOperationException("The underlying client is not connected to a cache node"))
             : _client!.GetObjectAsync<T>(key, deserializer, cancellation);
         }
 
@@ -312,7 +320,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public override Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
         {
             return !IsConnected
-            ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
+            ? Task.FromException(new InvalidOperationException("The underlying client is not connected to a cache node"))
             : _client!.AddOrUpdateObjectAsync(key, newKey, value, serialzer, cancellation);
         }
 
@@ -320,7 +328,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public override Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation)
         {
             return !IsConnected
-            ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
+            ? Task.FromException(new InvalidOperationException("The underlying client is not connected to a cache node"))
             : _client!.GetObjectAsync(key, callback, state, cancellation);
         }
 
@@ -328,7 +336,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public override Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataGet<T> callback, T state, CancellationToken cancellation)
         {
             return !IsConnected
-            ? throw new InvalidOperationException("The underlying client is not connected to a cache node")
+            ? Task.FromException(new InvalidOperationException("The underlying client is not connected to a cache node"))
             : _client!.AddOrUpdateObjectAsync(key, newKey, callback, state, cancellation);
         }
 

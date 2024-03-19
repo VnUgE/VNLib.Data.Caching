@@ -187,15 +187,21 @@ namespace VNLib.Data.Caching.ObjectCache.Server
 
             CacheListenerPubQueue queue = new(plugin, PeerEventQueue);
 
-            //Must register background worker to listen for changes
+            //Must register the queue background worker to listen for changes
             _ = plugin.ObserveWork(queue, 150);
+
+            BlobCacheListenerConfig conf = new()
+            {
+                Log = plugin.Log.CreateScope(CacheConstants.LogScopes.BlobCacheListener),
+                MemoryManager = new SharedHeapFBMMemoryManager(SharedCacheHeap),
+                EnableMessageChecksums = MemoryConfiguration.EnableChecksums,
+            };
 
             //Endpoint only allows for a single reader
             Listener = new(
                 plugin.LoadMemoryCacheSystem(config, manager, MemoryConfiguration),
-                queue,
-                plugin.Log.CreateScope(CacheConstants.LogScopes.BlobCacheListener),
-                new SharedHeapFBMMemoryManager(SharedCacheHeap)
+                conf,
+                queue
             );
 
             InternalStore = new CacheStore(Listener.Cache);

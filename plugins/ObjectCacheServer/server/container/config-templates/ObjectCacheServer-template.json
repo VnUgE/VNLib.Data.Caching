@@ -45,7 +45,8 @@
     "buffer_recv_min": 8192,                  //min of 8k transfer buffer
     "buffer_header_max": 2048,                //2k max header buffer size
     "buffer_header_min": 128,                 //128 byte min request header buffer size
-    "max_message_size": ${CACHE_MAX_MESSAGE}  //Absolute maxium message size allowed, also the maxium size of cache entires
+    "max_message_size": ${CACHE_MAX_MESSAGE}, //Absolute maxium message size allowed, also the maxium size of cache entires
+    "enable_checksums":  ${ENABLE_CHECKSUMS}  //Enable checksums for cache entries
   },
 
   //Known peers array, must point to well-known endpoint for discovery
