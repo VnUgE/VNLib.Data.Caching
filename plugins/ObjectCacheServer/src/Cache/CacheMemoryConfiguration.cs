@@ -54,5 +54,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
 
         [JsonPropertyName("memory_lib_path")]
         public string? ExternLibPath { get; set; }
+
+        [JsonPropertyName("enable_checksums")]
+        public bool EnableChecksums { get; set; } = true;
     }
 }

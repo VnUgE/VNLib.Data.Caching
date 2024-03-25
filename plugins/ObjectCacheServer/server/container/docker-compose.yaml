@@ -10,6 +10,7 @@ services:
     restart: unless-stopped
     hostname: vncache-server
     volumes:
+      - ./data/:/app/data:rw            #optional writes log files to the host (may be required in the future)
       - ./assets:/app/usr/assets:ro     #optional if assets are required
       - ./ssl:/app/ssl:ro               #optional only if SSL is enabled (currently not a feature)
     ports:
@@ -18,18 +19,19 @@ services:
       #System memory consumption is calculated as follows:
       # MAX_ENTIRES x CACHE_BUCKETS x CACHE_MAX_MESSAGE = max memory consumption
 
-      MAX_CONCURRENT_CONNECTIONS: "1000"    #max number of concurrent connections
+      MAX_CONCURRENT_CONNECTIONS: "1000"    #max number of concurrent client connections
       MAX_ENTRIES: "10000"                  #max number of cache entries per bucket
       CACHE_BUCKETS: "100"                  #number of cache buckets for load balancing
       CACHE_MAX_MESSAGE: "20480"            #20KB
       VERIFY_IP: "true"                     #verfies the IP address of clients during negotiation (recommended)
       MAX_PEER_NODES: "10"                  #max number of other peer nodes this node shoud connect to
       DISCOVERY_INTERVAL: "360"             #time (in seconds) between peer node discovery
-      KNOWN_PEERS: '[]'                     #array of known peer nodes in the cluster     
+      KNOWN_PEERS: '[]'                     #array of known peer nodes in the cluster  
+      ENABLE_CHECKSUMS: "true"              #enables checksums for messages
 
       #SECRETS (must be JWK formatted keys)
-      CACHE_PRIV_KEY: ""                    #REQUIRED local private key used to identify and sign messages to clients and other nodes
-      CLIENT_PUB_KEY: ""                    #REQUIRED used to verify client messages     
+      CACHE_PRIV_KEY: ''                    #REQUIRED local private key used to identify and sign messages to clients and other nodes
+      CLIENT_PUB_KEY: ''                    #REQUIRED used to verify client messages     
 
       #HC vault
       #HC_VAULT_ADDR: ""

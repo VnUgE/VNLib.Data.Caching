@@ -43,7 +43,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\Extensions\lib\VNLib.Plugins.Extensions.Loading\src\VNLib.Plugins.Extensions.Loading.csproj" />
+    <ProjectReference Include="..\..\..\..\VNLib.Plugins.Extensions\lib\VNLib.Plugins.Extensions.Loading\src\VNLib.Plugins.Extensions.Loading.csproj" />
     <ProjectReference Include="..\..\..\lib\VNLib.Data.Caching\src\VNLib.Data.Caching.csproj" />
   </ItemGroup>
 

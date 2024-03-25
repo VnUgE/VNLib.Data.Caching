@@ -244,6 +244,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
         {
             WsUserState state = wss.UserState!;
 
+            Log.Debug("Client established websocket connection {sid}", wss.SocketID);
+
             //Notify peers of new connection
             Peers.OnPeerConnected(state);
 
@@ -307,7 +309,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             //Notify monitor of disconnect
             Peers.OnPeerDisconnected(state);
 
-            Log.Debug("Server websocket exited");
+            Log.Debug("Client websocket disconnected {sid}", wss.SocketID);
         }
        
 

@@ -69,8 +69,6 @@ namespace VNLib.Data.Caching.Providers.Redis
         public RedisClientCacheEntry(PluginBase plugin, IConfigScope config)
         {
             _defaultHeap = MemoryUtil.Shared;
-            DefaultDeserializer = new JsonCacheObjectSerializer(256);
-            DefaultSerializer = new JsonCacheObjectSerializer(256);
 
             ILogProvider redisLog = plugin.Log.CreateScope("REDIS");
 
@@ -120,6 +118,31 @@ namespace VNLib.Data.Caching.Providers.Redis
 
                     redisLog.Information("Successfully connected to Redis server");
                 });
+            }
+
+            string? serialzerDllPath = config.GetPropString("serializer_assebly_name");
+
+            //See if user has specified a custom serializer assembly
+            if (!string.IsNullOrWhiteSpace(serialzerDllPath))
+            {
+                //Load the custom serializer assembly and get the serializer and deserializer instances
+                DefaultSerializer = plugin.CreateServiceExternal<ICacheObjectSerializer>(serialzerDllPath);
+
+                //Avoid creating another instance if the deserializer is the same as the serializer
+                if (DefaultSerializer is ICacheObjectDeserializer cod)
+                {
+                    DefaultDeserializer = cod;
+                }
+                else
+                {
+                    DefaultDeserializer = plugin.CreateServiceExternal<ICacheObjectDeserializer>(serialzerDllPath);
+                }
+            }
+            else
+            {
+                //If no default serializer is set, use the default JSON serializer
+                DefaultDeserializer = new JsonCacheObjectSerializer(256);
+                DefaultSerializer = new JsonCacheObjectSerializer(256);
             }
         }
 
@@ -311,7 +334,7 @@ namespace VNLib.Data.Caching.Providers.Redis
         ///<inheritdoc/>
         public object GetUnderlyingStore()
         {
-            return _database == null ? throw new InvalidOperationException("The cache store is not available") : _database;
+            return _database is null ? throw new InvalidOperationException("The cache store is not available") : _database;
         }
 
         private sealed class AddOrUpdateBuffer: VnDisposeable, IBufferWriter<byte>

@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2022 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -42,7 +42,7 @@ namespace VNLib.Data.Caching.Exceptions
         /// <param name="statusCode"></param>
         public InvalidStatusException(string message, string statusCode):this(message)
         {
-            this.StatusCode = statusCode;
+            StatusCode = statusCode;
         }
 
         ///<inheritdoc/>

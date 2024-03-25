@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -98,6 +98,11 @@ namespace VNLib.Data.Caching.Providers.VNCache
                 throw new ArgumentException("You must configure a maximum object size", "max_object_size");
             }
         }
-        
+
+        /// <summary>
+        /// Optional external cache serializer library to load
+        /// </summary>
+        [JsonPropertyName("serializer_assebly_name")]
+        public string? SerializerDllPath { get; set; }
     }
 }

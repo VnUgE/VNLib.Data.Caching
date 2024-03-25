@@ -38,12 +38,12 @@ tasks:
       VNLIB_SHARED_HEAP_FILE_PATH: lib/libvn_rpmalloc  
 
     cmds:   
-    - cmd: dotnet webserver/VNLib.WebServer.dll --config config/config.json --input-off --inline-scheduler {{.ARGS}}
+    - cmd: dotnet webserver/VNLib.WebServer.dll --config config/config.json --input-off --inline-scheduler {{.CLI_ARGS}}
       #setup sever environment
      
 
-  setup-debian:
-     desc: "Performs initial setup on Debian x64 based machines"
+  setup-apt:
+     desc: "Performs initial setup on Debian/APT x64 based machines"
      silent: true
      cmds:
      - apt update
@@ -51,8 +51,8 @@ tasks:
      - task: setup
      - echo "Setup complete" 
  
-  setup-fedora:
-     desc: "Performs initial setup on Fedora/Redhat x64 (dnf) based machines"
+  setup-dnf:
+     desc: "Performs initial setup on Fedora using DNF x64 (dnf) based machines"
      silent: true
      cmds:
      - dnf update
@@ -61,7 +61,7 @@ tasks:
      - echo "Setup complete"
  
   setup-alpine:
-     desc: "Performs initial setup on Alpine x64 based machines"
+     desc: "Performs initial setup on Alpine using APK x64 based machines"
      silent: true
      cmds:
      - apk update

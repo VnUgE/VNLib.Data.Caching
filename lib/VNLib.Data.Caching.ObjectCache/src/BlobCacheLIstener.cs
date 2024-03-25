@@ -43,7 +43,6 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using VNLib.Utils.Logging;
-using VNLib.Net.Messaging.FBM;
 using VNLib.Net.Messaging.FBM.Server;
 using static VNLib.Data.Caching.Constants;
 
@@ -57,18 +56,22 @@ namespace VNLib.Data.Caching.ObjectCache
     /// </remarks>
     /// <param name="cache">The cache table to work from</param>
     /// <param name="queue">The event queue to publish changes to</param>
-    /// <param name="log">Writes error and debug logging information</param>
-    /// <param name="memoryManager">The heap to alloc FBM buffers and <see cref="CacheEntry"/> cache buffers from</param>
+    /// <param name="config">The listener configuration object</param>
     /// <exception cref="ArgumentNullException"></exception>
-    public class BlobCacheListener<T>(IBlobCacheTable cache, ICacheListenerEventQueue<T> queue, ILogProvider log, IFBMMemoryManager memoryManager) 
+    public class BlobCacheListener<T>(IBlobCacheTable cache, BlobCacheListenerConfig config, ICacheListenerEventQueue<T> queue) 
         : FBMListenerBase<T>, IDisposable
     {
         private bool disposedValue;
 
         ///<inheritdoc/>
-        protected override ILogProvider Log { get; } = log;
+        protected override ILogProvider Log { get; } = config.Log;
         ///<inheritdoc/>
-        protected override FBMListener Listener { get; } = new(memoryManager);
+        protected override FBMListener Listener { get; } = new(config.MemoryManager);
+
+        /// <summary>
+        /// The configuration instance for the listener
+        /// </summary>
+        public BlobCacheListenerConfig Config { get; } = config ?? throw new ArgumentNullException(nameof(config));
 
         /// <summary>
         /// A queue that stores update and delete events
@@ -79,6 +82,9 @@ namespace VNLib.Data.Caching.ObjectCache
         /// The Cache store to access data blobs
         /// </summary>
         public IBlobCacheTable Cache { get; } = cache ?? throw new ArgumentNullException(nameof(cache));
+
+
+        private readonly ILogProvider _tLog = config.LogTransactions ? config.Log : new NullLogger();
 
         ///<inheritdoc/>
         protected override async Task ProcessAsync(FBMContext context, T? userState, CancellationToken exitToken)
@@ -109,6 +115,25 @@ namespace VNLib.Data.Caching.ObjectCache
 
                             //Create change event for the object
                             ChangeEvent change = new(objectId, alternateId, false);
+
+                            if (config.EnableMessageChecksums)
+                            {
+                                switch (context.Request.IsClientChecksumValid())
+                                {
+                                    //0 is checksum sent, supported, but invalid
+                                    case 0:
+                                        context.CloseResponse(ResponseCodes.InvalidChecksum);
+                                        return;
+
+                                    case -2:    //Method not supported, set an error header but allow the request
+                                        context.Response.WriteHeader(ChecksumWarning, "Checksum method not supported");
+                                        break;
+
+                                    case 1:     //1 is checksum sent and valid
+                                    case -1:    //No checksum sent
+                                        break;
+                                }
+                            }
 
                             await AddOrUpdateAsync(context, change, exitToken);
                             return;
@@ -199,6 +224,12 @@ namespace VNLib.Data.Caching.ObjectCache
 
             if (handle.Cache.TryGetValue(objectId, out CacheEntry data))
             {
+                //Compute an fnv message checksum and send it to the client
+                if (config.EnableMessageChecksums)
+                {
+                    FbmMessageChecksum.WriteFnv1aChecksum(context.Response, data.GetDataSegment());
+                }
+
                 //Set the status code and write the buffered data to the response buffer
                 context.CloseResponse(ResponseCodes.Okay);
 
@@ -222,6 +253,8 @@ namespace VNLib.Data.Caching.ObjectCache
             if (found)
             {
                 EnqueEvent(change);
+
+                _tLog.Debug("Deleted cache entry {id}", change.CurrentId);
             }
         }
 
@@ -232,6 +265,8 @@ namespace VNLib.Data.Caching.ObjectCache
 
             EnqueEvent(change);
 
+            _tLog.Debug("Cache entry {id} added or updated. New ID {nid}", change.CurrentId, change.AlternateId);
+
             context.CloseResponse(ResponseCodes.Okay);
         }
 
@@ -239,7 +274,7 @@ namespace VNLib.Data.Caching.ObjectCache
         {
             EventQueue.PublishEvent(change);
         }
-
+       
 
         ///<inheritdoc/>
         protected virtual void Dispose(bool disposing)
@@ -257,6 +292,29 @@ namespace VNLib.Data.Caching.ObjectCache
             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
+        }
+
+        sealed class NullLogger : ILogProvider
+        {
+            public void Flush()
+            { }
+
+            public object GetLogProvider() => null!;
+
+
+            public bool IsEnabled(LogLevel level) => false;
+
+            public void Write(LogLevel level, string value)
+            { }
+
+            public void Write(LogLevel level, Exception exception, string value = "")
+            { }
+
+            public void Write(LogLevel level, string value, params object?[] args)
+            { }
+
+            public void Write(LogLevel level, string value, params ValueType[] args)
+            { }
         }
     }
 }

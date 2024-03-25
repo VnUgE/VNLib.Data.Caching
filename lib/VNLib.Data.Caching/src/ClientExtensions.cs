@@ -37,7 +37,7 @@ using VNLib.Data.Caching.Exceptions;
 using static VNLib.Data.Caching.Constants;
 
 namespace VNLib.Data.Caching
-{
+{  
 
     /// <summary>
     /// Provides caching extension methods for <see cref="FBMClient"/>
@@ -212,11 +212,11 @@ namespace VNLib.Data.Caching
 
                 return ExecAsync(client, request, objectId, cancellationToken);
             }
-            catch
+            catch(Exception e)
             {
                 //Return the request(clears data and reset)
                 client.ReturnRequest(request);
-                throw;
+                return Task.FromException(e);
             }
 
             static async Task ExecAsync(FBMClient client, FBMRequest request, string objectId, CancellationToken cancellationToken)
@@ -239,6 +239,10 @@ namespace VNLib.Data.Caching
                     {
                         throw new ObjectNotFoundException($"object {objectId} not found on remote server");
                     }
+                    else if(status.ValueEquals(ResponseCodes.InvalidChecksum, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidChecksumException($"The server rejected the message {objectId} due to an invalid checksum");
+                    }  
 
                     //Invalid status
                     throw new InvalidStatusException("Invalid status code recived for object upsert request", status.ToString());
@@ -256,6 +260,7 @@ namespace VNLib.Data.Caching
         /// Gets an object from the server if it exists
         /// </summary>
         /// <typeparam name="T"></typeparam>
+        /// <typeparam name="TState"></typeparam>
         /// <param name="client"></param>
         /// <param name="objectId">The id of the object to get</param>
         /// <param name="cancellationToken">A token to cancel the operation</param>
@@ -368,18 +373,35 @@ namespace VNLib.Data.Caching
                 response.ThrowIfNotSet();
 
                 //Get the status code
-                FBMMessageHeader status = response.Headers.FirstOrDefault(static a => a.Header == HeaderCommand.Status);
+                FBMMessageHeader status = response.Headers.FirstOrDefault(static a => a.Header == HeaderCommand.Status);             
 
                 //Check ok status code, then its safe to deserialize
-                if (status.Value.Equals(ResponseCodes.Okay, StringComparison.Ordinal))
+                if (status.ValueEquals(ResponseCodes.Okay, StringComparison.Ordinal))
                 {
+                    //Add message integrity check
+                    FBMMessageHeader checksumType = response.Headers.FirstOrDefault(static a => a.Header == ChecksumType);
+                    FBMMessageHeader checksum = response.Headers.FirstOrDefault(static a => a.Header == ChecksumValue);
+
+                    if(checksumType.ValueEquals(ChecksumTypes.Fnv1a, StringComparison.OrdinalIgnoreCase))
+                    {
+                        //Verify the checksum
+                        if (!FbmMessageChecksum.VerifyFnv1aChecksum(checksum.Value, response.ResponseBody))
+                        {
+                            throw new InvalidChecksumException(
+                                $"The response data integrety check failed. The message data was corrupted for id: {checksum.GetValueString()}"
+                            );
+                        }
+
+                        //Valid checksum, continue
+                    }
+
                     //Write the object data
                     setter(state, response.ResponseBody);
                     return true;
                 }
 
                 //Object may not exist on the server yet
-                if (status.Value.Equals(ResponseCodes.NotFound, StringComparison.Ordinal))
+                if (status.ValueEquals(ResponseCodes.NotFound, StringComparison.Ordinal))
                 {
                     return false;
                 }
@@ -540,5 +562,34 @@ namespace VNLib.Data.Caching
             return new (worker, retryDelay, serverUri);
         }
        
+        /// <summary>
+        /// Determines if the the client sent a message checksum, and if so, verifies the checksum
+        /// if the checksum type is supported.
+        /// </summary>
+        /// <param name="message"></param>
+        /// <returns>
+        /// -1 if the checksum type or value is not set,
+        /// -2 if the checksum type is not supported,
+        /// 0 if the checksum is invalid,
+        /// 1 if the checksum is valid
+        /// </returns>
+        public static int IsClientChecksumValid(this FBMRequestMessage message)
+        {
+            string? type = message.Headers.FirstOrDefault(static h => h.Header == ChecksumType).GetValueString();
+            ReadOnlySpan<char> value = message.Headers.FirstOrDefault(static h => h.Header == ChecksumValue).Value;
+
+            if (type == null || value.IsEmpty)
+            {
+                return -1;
+            }
+
+            if(type.Equals(ChecksumTypes.Fnv1a, StringComparison.OrdinalIgnoreCase))
+            {
+                //Verify the checksum
+                return FbmMessageChecksum.VerifyFnv1aChecksum(value, message.BodyData) ? 1 : 0;
+            }
+
+            return -2;
+        }
     }
 }
