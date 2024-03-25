@@ -83,6 +83,9 @@ namespace VNLib.Data.Caching.ObjectCache
         /// </summary>
         public IBlobCacheTable Cache { get; } = cache ?? throw new ArgumentNullException(nameof(cache));
 
+
+        private readonly ILogProvider _tLog = config.LogTransactions ? config.Log : new NullLogger();
+
         ///<inheritdoc/>
         protected override async Task ProcessAsync(FBMContext context, T? userState, CancellationToken exitToken)
         {
@@ -250,6 +253,8 @@ namespace VNLib.Data.Caching.ObjectCache
             if (found)
             {
                 EnqueEvent(change);
+
+                _tLog.Debug("Deleted cache entry {id}", change.CurrentId);
             }
         }
 
@@ -259,6 +264,8 @@ namespace VNLib.Data.Caching.ObjectCache
             await Cache.AddOrUpdateObjectAsync(change.CurrentId, change.AlternateId, static r => r.BodyData, context.Request, default, cancellation);
 
             EnqueEvent(change);
+
+            _tLog.Debug("Cache entry {id} added or updated. New ID {nid}", change.CurrentId, change.AlternateId);
 
             context.CloseResponse(ResponseCodes.Okay);
         }
@@ -285,6 +292,29 @@ namespace VNLib.Data.Caching.ObjectCache
             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
+        }
+
+        sealed class NullLogger : ILogProvider
+        {
+            public void Flush()
+            { }
+
+            public object GetLogProvider() => null!;
+
+
+            public bool IsEnabled(LogLevel level) => false;
+
+            public void Write(LogLevel level, string value)
+            { }
+
+            public void Write(LogLevel level, Exception exception, string value = "")
+            { }
+
+            public void Write(LogLevel level, string value, params object?[] args)
+            { }
+
+            public void Write(LogLevel level, string value, params ValueType[] args)
+            { }
         }
     }
 }

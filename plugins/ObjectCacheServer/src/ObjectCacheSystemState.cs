@@ -195,7 +195,13 @@ namespace VNLib.Data.Caching.ObjectCache.Server
                 Log = plugin.Log.CreateScope(CacheConstants.LogScopes.BlobCacheListener),
                 MemoryManager = new SharedHeapFBMMemoryManager(SharedCacheHeap),
                 EnableMessageChecksums = MemoryConfiguration.EnableChecksums,
+                LogTransactions = plugin.IsDebug() || plugin.HostArgs.HasArgument("--log-cache-events")
             };
+
+            if (conf.LogTransactions)
+            {
+                plugin.Log.Information("Verbose cache event logging enabled");
+            }
 
             //Endpoint only allows for a single reader
             Listener = new(

@@ -47,5 +47,10 @@ namespace VNLib.Data.Caching.ObjectCache
         /// data in FBM header fields
         /// </summary>
         public bool EnableMessageChecksums { get; init; } = true;
+
+        /// <summary>
+        /// A flag that enables logging of transactions (events) to the log
+        /// </summary>
+        public bool LogTransactions { get; init; }
     }
 }
