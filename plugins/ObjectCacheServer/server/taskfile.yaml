@@ -6,14 +6,10 @@
 version: "3"
 
 vars:
-  BUILDS_URL: https://www.vaughnnugent.com/public/resources/software/builds
   SCRIPT_DIR: '{{.TASKFILE_DIR}}'
   BINARY_DIR: '{{.PROJECT_DIR}}/bin'        #binary dir is not available for dotnet plugis 
 
 includes:
-  install:
-    taskfile: install.taskfile.yaml
-    optional: true     
 
   container:
     dir: container  #always run from the container directory
@@ -38,9 +34,8 @@ tasks:
       VNLIB_SHARED_HEAP_FILE_PATH: lib/libvn_rpmalloc  
 
     cmds:   
-    - cmd: dotnet webserver/VNLib.WebServer.dll --config config/config.json --input-off --inline-scheduler {{.CLI_ARGS}}
-      #setup sever environment
-     
+    - cmd: dotnet webserver/VNLib.WebServer.dll --config config/config.json --input-off {{.CLI_ARGS}}
+      #setup sever environment     
 
   setup-apt:
      desc: "Performs initial setup on Debian/APT x64 based machines"
@@ -105,6 +100,7 @@ tasks:
   install-webserver:
     internal: true
     cmds:
+      #create a server environment for each target os
     - for: [ win-x64, linux-x64, osx-x64, linux-arm64 ]
       task: create-env
       vars: 
@@ -112,20 +108,21 @@ tasks:
 
   install-plugins:
     internal: true
+    vars:
+      RPMALLOC_SRC: 'core/lib/Utils.Memory/vnlib_rpmalloc/bin/src.tgz'
     cmds:
     - cmd: powershell -Command "mkdir lib -Force"
       ignore_error: true
 
     #copy the object-cache plugin output to the local plugins directory
-    - cmd: powershell -Command "cp -Recurse -Force {{.PROJECT_DIR}}/bin/Release/net8.0/publish/ plugins/{{.PROJECT_NAME}}/"
+    - cmd: powershell -Command "cp -Recurse -Force {{.PROJECT_DIR}}/bin/Release/net8.0/publish/ plugins/{{.PROJECT_NAME}}"
     
-    #download rpmalloc
-    - task: install:install
-      vars:
-        PROJECT_NAME: 'vnlib_rpmalloc'
-        MODULE_NAME: "VNLib.Core"
-        FILE_NAME: "src.tgz"
-        DIR: './lib/vnlib_rpmalloc'
+    #copy local rpmalloc library to the local lib directory
+    - cmd: powershell mkdir lib/vnlib_rpmalloc -Force
+    - cmd: cd '{{.MODULE_DIR}}' && cd .. && powershell cp '{{.RPMALLOC_SRC}}' '{{.TASKFILE_DIR}}/lib/vnlib_rpmalloc/src.tgz'
+    - cmd: cd lib/vnlib_rpmalloc && tar -xzf src.tgz
+    - for: [ src.tgz, package.json ]
+      cmd: cd lib/vnlib_rpmalloc && powershell rm {{.ITEM}}
 
   postbuild_success:
     desc: "CI ONLY! DO NOT RUN"
@@ -141,17 +138,12 @@ tasks:
       ignore_error: true
 
     - task: container:postbuild_success
-  
-  build-container:
-    internal: true
-    cmds:
-     - task: container:build
     
   #Creates a new webserver build environment for an operating system configuration
   create-env:
-    internal: true
+    #internal: true
     vars:
-      BUILD_DIR: './build/{{.TARGET_OS}}'
+      BUILD_DIR: 'build/{{.TARGET_OS}}'
     cmds:
     #create dir for env
     - cmd: powershell -Command "mkdir {{.BUILD_DIR}} -Force"
@@ -169,13 +161,16 @@ tasks:
   #fetches a copy of (the desired os version) VNLib.WebServer project and installs it into the build directory
   get-webserver:
     internal: true
+    vars:
+      TARGET_DIR: '{{.TASKFILE_DIR}}/{{.BUILD_DIR}}/webserver/'
+      TARGET_FILENAME: '{{.TARGET_OS}}-release.tgz'
+      CI_WEBSERVER_DIR: 'VNLib.WebServer/src/bin'
     cmds:
-    - task: install:install
-      vars:
-        PROJECT_NAME: 'VNLib.Webserver'
-        MODULE_NAME: "VNLib.Webserver"
-        FILE_NAME: "{{.TARGET_OS}}-release.tgz"
-        DIR: '{{.BUILD_DIR}}/webserver'
+    #copy an existing webserver build to the build directory
+    - cmd: powershell -Command "mkdir {{.TARGET_DIR}} -Force"
+    - cmd: cd '{{.MODULE_DIR}}' && cd .. && powershell cp -Recurse -Force '{{.CI_WEBSERVER_DIR}}/{{.TARGET_FILENAME}}' '{{.TARGET_DIR}}{{.TARGET_FILENAME}}'
+    - cmd: cd '{{.TARGET_DIR}}' && tar -xzf {{.TARGET_FILENAME}}
+    - cmd: powershell rm '{{.TARGET_DIR}}/{{.TARGET_FILENAME}}'
  
   pack:
     internal: true

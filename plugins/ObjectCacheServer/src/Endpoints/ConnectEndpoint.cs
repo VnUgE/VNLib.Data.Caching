@@ -25,6 +25,7 @@
 using System;
 using System.Net;
 using System.Threading;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
@@ -224,7 +225,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
                     MaxResponseBufferSize = (int)MemoryUtil.NearestPage(maxMessageSizeClamp),
 
                     NodeId = nodeId,
-                    Advertisment = discoveryAd
+                    Advertisment = discoveryAd,
+                    Address = entity.TrustedRemoteIp,
                 };
             }
             catch (KeyNotFoundException)
@@ -243,8 +245,9 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
         private async Task WebsocketAcceptedAsync(WebSocketSession<WsUserState> wss)
         {
             WsUserState state = wss.UserState!;
+            Debug.Assert(state != null, "User state is null");
 
-            Log.Debug("Client established websocket connection {sid}", wss.SocketID);
+            Log.Information("{sid} established websocket connection", state.Address);
 
             //Notify peers of new connection
             Peers.OnPeerConnected(state);
@@ -309,7 +312,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             //Notify monitor of disconnect
             Peers.OnPeerDisconnected(state);
 
-            Log.Debug("Client websocket disconnected {sid}", wss.SocketID);
+            Log.Information("{sid} websocket disconnected", state.Address);
         }
        
 
@@ -321,6 +324,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             public int MaxResponseBufferSize { get; init; }
             public string? NodeId { get; init; }
             public CacheNodeAdvertisment? Advertisment { get; init; }
+            public IPAddress Address { get; init; }
 
             public bool IsPeer => !string.IsNullOrWhiteSpace(NodeId);
 
