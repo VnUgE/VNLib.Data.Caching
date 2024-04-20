@@ -23,6 +23,7 @@
 */
 
 using System;
+using System.IO;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -255,21 +256,22 @@ namespace VNLib.Data.Caching.Providers.VNCache
                         pluginLog.Verbose("Stack trace: {re}", wse);
                     }
                     //SEs may be raised when the server is not available
-                    catch (HttpRequestException he) when (he.InnerException is SocketException)
+                    catch (HttpRequestException he) when (he.InnerException is SocketException se)
                     {
                         pluginLog.Debug("Failed to connect to random cache server because a TCP connection could not be established");
-                        pluginLog.Verbose("Stack trace: {re}", he.InnerException);
+                        pluginLog.Verbose("Stack trace: {re}", se);
+                        await Task.Delay(1000, exitToken);
+                    }
+                    catch (HttpRequestException he) when (he.InnerException is IOException ioe && ioe.InnerException is SocketException se)
+                    {
+                        pluginLog.Debug("Failed to connect to random cache server because a TCP connection could not be established");
+                        pluginLog.Verbose("Stack trace: {re}", se);
+                        await Task.Delay(1000, exitToken);
                     }
                     catch (HttpRequestException he) when (he.StatusCode.HasValue)
                     {
                         pluginLog.Warn("Failed to negotiate with cache server {reason}", he.Message);
                         pluginLog.Verbose("Stack trace: {re}", he);
-                        await Task.Delay(1000, exitToken);
-                    }
-                    catch(HttpRequestException hre) when (hre.InnerException is SocketException se)
-                    {
-                        pluginLog.Warn("Failed to establish a TCP connection to server {server} {reason}", node.NodeId, se.Message);
-                        pluginLog.Verbose("Stack trace: {re}", se);
                         await Task.Delay(1000, exitToken);
                     }
                     finally
