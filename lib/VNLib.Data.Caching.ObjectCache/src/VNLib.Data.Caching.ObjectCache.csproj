@@ -2,11 +2,14 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace>VNLib.Data.Caching.ObjectCache</RootNamespace>
-    <AssemblyName>VNLib.Data.Caching.ObjectCache</AssemblyName>   
     <Nullable>enable</Nullable>
+    <RootNamespace>VNLib.Data.Caching.ObjectCache</RootNamespace>
+    <AssemblyName>VNLib.Data.Caching.ObjectCache</AssemblyName>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
-    <AnalysisLevel>latest-all</AnalysisLevel>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AnalysisLevel Condition="'$(BuildingInsideVisualStudio)' == true">latest-all</AnalysisLevel>
   </PropertyGroup>
 
   <PropertyGroup>
