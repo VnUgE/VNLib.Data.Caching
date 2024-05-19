@@ -143,8 +143,8 @@ namespace VNLib.Plugins.Extensions.VNCache
                     ForwardOnlyWriter<char> writer = new(buffer);
 
                     //Append prefix and entity id
-                    writer.Append(Prefix);
-                    writer.Append(entityId);
+                    writer.AppendSmall(Prefix);
+                    writer.AppendSmall(entityId);
 
                     //Compute the simple hash of the combined values
                     return ManagedHash.ComputeHash(writer.AsSpan(), Digest, Encoding);
