@@ -64,7 +64,7 @@ namespace VNLib.Data.Caching.Extensions.ApiModel
             //Configure connection pool
             Pool = new(maxClients, new RestClientOptions()
             {
-                MaxTimeout = 10 * 1000,
+                Timeout = TimeSpan.FromSeconds(value: 10),
                 FollowRedirects = false,
                 Encoding = Encoding.UTF8,
                 AutomaticDecompression = DecompressionMethods.All,
