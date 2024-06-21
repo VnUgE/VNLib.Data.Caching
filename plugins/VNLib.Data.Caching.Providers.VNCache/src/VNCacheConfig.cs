@@ -26,6 +26,7 @@ using System;
 using System.Text.Json.Serialization;
 
 using VNLib.Plugins.Extensions.Loading;
+using VNLib.Plugins.Extensions.Loading.Configuration;
 
 namespace VNLib.Data.Caching.Providers.VNCache
 {
@@ -91,12 +92,11 @@ namespace VNLib.Data.Caching.Providers.VNCache
         [JsonPropertyName("max_object_size")]
         public virtual uint MaxBlobSize { get; set; } = 16 * 1024;
 
-        public virtual void Validate()
+        public virtual void OnValidate()
         {
-            if (MaxBlobSize < 16)
-            {
-                throw new ArgumentException("You must configure a maximum object size", "max_object_size");
-            }
+
+            Validate.Range2<uint>(MaxBlobSize, 16, uint.MaxValue, "You must configure a maximum object size");
+
         }
 
         /// <summary>

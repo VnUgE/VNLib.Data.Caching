@@ -1,0 +1,69 @@
+
+tcp:
+  keepalive_sec: 60				    #How long to wait for a keepalive response before closing the connection (0 to disable tcp keepalive)
+  keepalive_interval_sec: 60	    #How long to wait between keepalive probes
+  max_recv_size: 655360			    #640k absolute maximum recv buffer (defaults to OS socket buffer size)
+  max_connections: 1000			    #Per listener instance
+  backlog: 100					    #OS socket backlog
+  
+  #sets operating system buffer sizes
+  tx_buffer: 65536				    #OS socket send buffer size
+  rx_buffer: 65536				    #OS socket recv buffer size
+
+http:
+  default_version: "HTTP/1.1"		#Default HTTP version to use
+  max_connections: 5000				#Maximum number of connections to accept
+  max_entity_size: 10240		    #Maximum size of an entity body
+  multipart_max_buf_size: 1024		#Maximum size of a multipart buffer
+  multipart_max_size: 0			    #Maximum size of a multipart entity (disabled)
+  header_buf_size: 8128				#Size of the header buffer
+  max_request_header_count: 50		#Maximum number of headers in a request
+  response_header_buf_size: 16384	#Size of the response header buffer
+  max_uploads_per_request: 10		#Maximum number of uploads per request
+  keepalive_ms: 1000000				#How long to wait for a keepalive response before closing the connection
+  recv_timeout_ms: 5000				#How long to wait to receive data from a client
+  send_timeout_ms: 60000			#How long to wait for a client to receive data from us
+
+  compression:
+    enabled: false                  #Enable compression (not used for caching)
+    assembly: ""				    #Path to the compression assembly
+    max_size: 5120000			    #Maximum size of a compressed entity
+    min_size: 2048				    #Minimum size of a compressed entity    
+
+max_execution_time_ms: 20000		#Maximum time the server should spend processing a request
+
+plugins:
+  enabled: true					    #Enable plugins (required for caching)
+  hot_reload: false				    #No hot reload for production
+  assets: "plugins/assets/"         #where shared assets are stored
+  config_dir: "config/"             #where to load plugin config files from
+  paths:                            #Paths to search for plugin assemblies
+   - "plugins/"
+
+
+#Only a single host is required for caching since object 
+#cache is a plugin. It just needs to be accessable
+
+virtual_hosts:
+ - hostnames: [ "*" ]	            #Hostnames to listen on
+   path: "root/"                    #Path to the host directory
+
+   interface:
+     address: "0.0.0.0"             #list on all addresses
+     port: 2557
+     ssl: false                     #disable ssl (it's supported yet)
+
+   trace: false                     #Enable connection tracing
+   cache_default_sec: 864000		#Default cache time in seconds
+   force_port_check: false          #Enforces urls to have the same port as the server is listening on
+   deny_extensions: []              #File extensions to deny access to
+   default_file: []				    #Default file to serve if none is specified
+   #whitelist: []                   #IP addresses to whitelist
+   
+   cors:
+     enabled: false                 #disable cors module
+     deny_cors_connections: true    #deny cors connections
+     allow_origins: []
+
+   headers:
+     Server: "VNLib.Data.Caching Object Cache"

@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -25,6 +25,8 @@
 using System;
 using System.Text.Json.Serialization;
 
+using VNLib.Plugins.Extensions.Loading.Configuration;
+
 namespace VNLib.Data.Caching.Providers.VNCache
 {
     /// <summary>
@@ -45,19 +47,12 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public uint BucketSize { get; set; } = 5000;
 
         ///<inheritdoc/>
-        public override void Validate()
+        public override void OnValidate()
         {
-            base.Validate();
+            base.OnValidate();
 
-            if (TableSize == 0)
-            {
-                throw new ArgumentException("You must specify a cache bucket table size", "buckets");
-            }
-
-            if (BucketSize == 0)
-            {
-                throw new ArgumentException("You must specify the maxium number of entires allowed in each bucket ", "bucket_size");
-            }
+            Validate.Assert(TableSize > 0, "You must specify a number of cache buckets");
+            Validate.Assert(BucketSize > 0, "You must specify a 'bucket_size'");
         }
     }
 }

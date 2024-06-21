@@ -104,13 +104,14 @@ namespace VNLib.Data.Caching.ObjectCache
         {
             ArgumentOutOfRangeException.ThrowIfLessThan(objectId.Length, 4, nameof(objectId));
 
-            Span<byte> buffer = stackalloc byte[4];
-
-            //cast the characters 
-            buffer[0] = (byte)objectId[0];
-            buffer[1] = (byte)objectId[objectId.Length / 2];
-            buffer[2] = (byte)objectId[1];
-            buffer[3] = (byte)objectId[^1];
+            Span<byte> buffer =
+            [
+                //cast the characters 
+                (byte)objectId[0],
+                (byte)objectId[objectId.Length / 2],
+                (byte)objectId[1],
+                (byte)objectId[^1],
+            ];
 
             //Read the buffer back to a uint and mod by the table size to get the bucket index
             return BitConverter.ToUInt32(buffer) % _tableSize;

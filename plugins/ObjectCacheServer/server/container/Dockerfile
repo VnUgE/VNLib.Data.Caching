@@ -20,7 +20,7 @@ RUN task build-libs
 
 #APP CONTAINER
 #move into a clean dotnet apline lean image
-FROM mcr.microsoft.com/dotnet/runtime:8.0.2-alpine3.19-amd64 as app-cont
+FROM mcr.microsoft.com/dotnet/runtime:8.0.3-alpine3.19-amd64 as app-cont
 
 LABEL name="vnuge/vncache"
 LABEL maintainer="Vaughn Nugent <vnpublic@proton.me>"
@@ -51,31 +51,30 @@ ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=0
 #ENV VNLIB_SHARED_HEAP_FILE_PATH=/app/lib/libvn_rpmalloc.so		not ready yet, still need to debug
 
 #cache varables
-ENV MAX_ENTRIES=10000
-ENV CACHE_BUCKETS=100
-ENV CACHE_MAX_MESSAGE=20480
-ENV MAX_CONCURRENT_CONNECTIONS=1000
-ENV ENABLE_CHECKSUMS=true
-
-ENV VERIFY_IP=true
-ENV MAX_PEER_NODES=10
-ENV DISCOVERY_INTERVAL=360
-ENV CACHE_CONNECT_PATH="/cache"
-ENV DISCOVER_PATH="/discover"
-ENV KNOWN_PEERS=[]
+ENV MAX_ENTRIES=10000				/
+ CACHE_BUCKETS=100					/
+ CACHE_MAX_MESSAGE=20480			/
+ MAX_CONCURRENT_CONNECTIONS=1000	/
+ ENABLE_CHECKSUMS=true				/
+ VERIFY_IP=true						/
+ MAX_PEER_NODES=10					/
+ DISCOVERY_INTERVAL=360				/
+ CACHE_CONNECT_PATH="/cache"		/
+ DISCOVER_PATH="/discover"			/
+ KNOWN_PEERS=[]						/
 
 #HC Vault
-ENV HC_VAULT_ADDR=""
-ENV HC_VAULT_TOKEN=""
-ENV HC_VAULT_TRUST_CERT=false
+ENV HC_VAULT_ADDR=""				/
+ HC_VAULT_TOKEN=""					/
+ HC_VAULT_TRUST_CERT=false
 
 #SECRETS
-ENV CACHE_PRIV_KEY=""
-ENV CLIENT_PUB_KEY=""
+ENV CACHE_PRIV_KEY=""				/
+  CLIENT_PUB_KEY=""
 
 #HTTP/PROXY Config
-ENV HTTP_DOWNSTREAM_SERVERS=[]
-ENV HTTP_MAX_CONNS=5000
+ENV HTTP_DOWNSTREAM_SERVERS=[]		/
+ HTTP_MAX_CONNS=5000
 
 #run the init script within dumb-init
 ENTRYPOINT ["dumb-init", "--"]

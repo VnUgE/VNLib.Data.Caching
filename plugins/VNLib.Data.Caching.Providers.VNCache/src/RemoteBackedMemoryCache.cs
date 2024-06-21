@@ -86,7 +86,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
             ArgumentNullException.ThrowIfNull(memCache);
             ArgumentNullException.ThrowIfNull(backingStore);
 
-            memCache.Validate();
+            memCache.OnValidate();
 
             /*
              * If no buffer factory was supplied, we can create one, but it has to be 

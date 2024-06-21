@@ -112,7 +112,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         private FBMCacheClient(VnCacheClientConfig config, ILogProvider? debugLog, PluginBase? plugin) : base(config)
         {
             //Validate config
-            (config as IOnConfigValidation).Validate();
+            (config as IOnConfigValidation).OnValidate();
 
             _config = config;
 

@@ -34,7 +34,7 @@ tasks:
       VNLIB_SHARED_HEAP_FILE_PATH: lib/libvn_rpmalloc  
 
     cmds:   
-    - cmd: dotnet webserver/VNLib.WebServer.dll --config config/config.json --input-off {{.CLI_ARGS}}
+    - cmd: dotnet webserver/VNLib.WebServer.dll --config config/config.yaml --input-off {{.CLI_ARGS}}
       #setup sever environment     
 
   setup-apt:
