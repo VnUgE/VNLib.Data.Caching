@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -36,16 +36,10 @@ namespace VNLib.Data.Caching.Providers.VNCache
     /// store the object data for use by the memory cache store, and the 
     /// remote cache store
     /// </summary>
-    internal sealed class AddOrUpdateBuffer : VnDisposeable, IBufferWriter<byte>, IObjectData
+    internal sealed class AddOrUpdateBuffer(IUnmangedHeap heap) : VnDisposeable, IBufferWriter<byte>, IObjectData
     {
         private int _count;
-        private readonly IUnmangedHeap _heap;
         private MemoryHandle<byte>? _buffer;
-
-        public AddOrUpdateBuffer(IUnmangedHeap heap)
-        {
-            _heap = heap;
-        }
 
         ///<inheritdoc/>
         public void Advance(int count)
@@ -55,13 +49,13 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        Memory<byte> IBufferWriter<byte>.GetMemory(int sizeHint = 0)
+        Memory<byte> IBufferWriter<byte>.GetMemory(int sizeHint)
         {
             throw new NotImplementedException();
         }
 
         ///<inheritdoc/>
-        Span<byte> IBufferWriter<byte>.GetSpan(int sizeHint = 0)
+        Span<byte> IBufferWriter<byte>.GetSpan(int sizeHint)
         {
             //Round to nearest page for new size
             nint newSize = MemoryUtil.NearestPage(sizeHint + _count);
@@ -69,11 +63,11 @@ namespace VNLib.Data.Caching.Providers.VNCache
             //Alloc buffer it not yet allocated
             if (_buffer == null)
             {
-                _buffer = _heap.Alloc<byte>(newSize);
+                _buffer = MemoryUtil.SafeAlloc<byte>(heap, newSize, false);
             }
             else
             {
-                //check for resize if allocated
+                //check for resize if already allocated
                 _buffer.ResizeIfSmaller(newSize);
             }
 
