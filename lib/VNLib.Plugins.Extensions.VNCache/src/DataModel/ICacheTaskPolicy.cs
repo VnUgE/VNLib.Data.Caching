@@ -1,11 +1,11 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Plugins.Extensions.VNCache
-* File: ICacheExpirationStrategy.cs 
+* File: ICacheTaskPolicy.cs 
 *
-* ICacheExpirationStrategy.cs is part of VNLib.Plugins.Extensions.VNCache 
+* ICacheTaskPolicy.cs is part of VNLib.Plugins.Extensions.VNCache 
 * which is part of the larger VNLib collection of libraries and utilities.
 *
 * VNLib.Plugins.Extensions.VNCache is free software: you can redistribute it and/or modify 
@@ -22,27 +22,21 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
-using System;
+using System.Threading.Tasks;
 
 namespace VNLib.Plugins.Extensions.VNCache.DataModel
 {
     /// <summary>
-    /// An interface that provides an object caching expiration 
-    /// instructions
+    /// Provides a policy for observing the completion of cache operations
     /// </summary>
-    public interface ICacheExpirationStrategy
+    public interface ICacheTaskPolicy
     {
         /// <summary>
-        /// The maxium age of a given entity 
+        /// Observes the completion of a cache operation
         /// </summary>
-        TimeSpan CacheMaxAge { get; }
-
-        /// <summary>
-        /// Invoked when a record is retrieved and determined to be expired
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="expired"></param>
-        void OnExpired<T>(T expired);
+        /// <param name="operation">The task representing the operation to observe</param>
+        /// <returns>A task that the caller will await on the current control flow</returns>
+        Task ObserveOperationAsync(Task operation);
     }
    
 }
