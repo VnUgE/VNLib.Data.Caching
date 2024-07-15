@@ -91,7 +91,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// <exception cref="InvalidOperationException"></exception>
         public Uri[] GetInitialNodeUris()
         {
-            _ = InitialNodes ?? throw new InvalidOperationException("Initial nodes have not been set");
+            Validate.NotNull(InitialNodes, "Initial nodes have not been set");
+
             return InitialNodes.Select(static x =>
                 {
                     //Append a default well known endpoint if the path is just a root

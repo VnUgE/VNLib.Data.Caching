@@ -79,7 +79,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public FBMCacheClient(PluginBase plugin, IConfigScope config)
         : this(
             config.Deserialze<VnCacheClientConfig>(),
-            plugin.IsDebug() ? plugin.Log : null,
+            plugin.IsDebug() ? plugin.Log.CreateScope("FBM-DEBUG") : null,
             plugin
         )
         {
@@ -117,15 +117,17 @@ namespace VNLib.Data.Caching.Providers.VNCache
             _config = config;
 
             //Set a default node delay if null
-            _initNodeDelay = _config.InitialNodeDelay.HasValue ? TimeSpan.FromSeconds(_config.InitialNodeDelay.Value) : InitialDelay;
+            _initNodeDelay = _config.InitialNodeDelay.HasValue 
+                ? TimeSpan.FromSeconds(_config.InitialNodeDelay.Value) 
+                : InitialDelay;
 
             //Init the client with default settings
             FBMClientConfig conf = FBMDataCacheExtensions.GetDefaultConfig(BufferHeap, (int)config.MaxBlobSize, config.RequestTimeout, debugLog);
 
             FBMClientFactory clientFactory = new(
                 in conf,
-                new FBMFallbackClientWsFactory(),
-                10
+                webSocketManager: new FBMFallbackClientWsFactory(),
+                maxClients: 10
             );
 
             _cluster = (new CacheClientConfiguration())
@@ -421,10 +423,10 @@ namespace VNLib.Data.Caching.Providers.VNCache
         private sealed record class DiscoveryErrHAndler(ILogProvider Logger) : ICacheDiscoveryErrorHandler
         {
             public void OnDiscoveryError(CacheNodeAdvertisment errorNode, Exception ex) 
-                => OnDiscoveryError(errorNode, ex);
+                => OnDiscoveryError(ex, errorNode, address: null);
 
             public void OnDiscoveryError(Uri errorAddress, Exception ex) 
-                => OnDiscoveryError(ex, null, errorAddress);
+                => OnDiscoveryError(ex, errorNode: null, errorAddress);
 
             public void OnDiscoveryError(Exception ex, CacheNodeAdvertisment? errorNode, Uri? address)
             {

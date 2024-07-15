@@ -133,26 +133,6 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
             ArgumentNullException.ThrowIfNull(cache);
             return new EntityCacheBuilder<TEntity>(cache);
         }
-
-        /// <summary>
-        /// Builds a transparent entity result cache for a backing store. 
-        /// </summary>
-        /// <typeparam name="TEntity"></typeparam>
-        /// <param name="builder"></param>
-        /// <param name="store">The backing data store used to fetch results from</param>
-        /// <returns>The new <see cref="TransparentEntityCache{TEntity}"/> that wraps the entity store</returns>
-        public static TransparentEntityCache<TEntity> BuildTransparent<TEntity>(this EntityCacheBuilder<TEntity> builder, IEntityStore<TEntity> store) 
-            where TEntity : class
-        {
-            ArgumentNullException.ThrowIfNull(builder);
-            ArgumentNullException.ThrowIfNull(store);
-
-            EntityResultCache<TEntity> resultCache = builder.Build();
-
-            return new TransparentEntityCache<TEntity>(store, resultCache);
-        }
-        
-
         private sealed class EntityCacheImpl<T>(IGlobalCacheProvider cache, ICacheObjectDeserializer deserializer, ICacheObjectSerializer serializer) 
             : IEntityCache<T> where T : class
         {

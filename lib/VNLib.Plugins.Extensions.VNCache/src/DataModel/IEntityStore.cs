@@ -31,7 +31,8 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
     /// An instance that stores entities which can be fetched, updated, or removed
     /// </summary>
     /// <typeparam name="TEntity">The entity result type</typeparam>
-    public interface IEntityStore<TEntity>
+    /// <typeparam name="TRequest">The entity operation request state object</typeparam>
+    public interface IEntityStore<TEntity, TRequest> where TRequest : IEntityCacheKey
     {
         /// <summary>
         /// Fetches an entity from the store by it's request entity state object
@@ -39,7 +40,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         /// <param name="request">The request state object</param>
         /// <param name="cancellation">A token to cancel the operation</param>
         /// <returns>A task that yields the entity object if it exists</returns>
-        Task<TEntity?> GetAsync<TRequest>(TRequest request, CancellationToken cancellation = default) where TRequest : IEntityCacheKey;
+        Task<TEntity?> GetAsync(TRequest request, CancellationToken cancellation = default);
 
         /// <summary>
         /// Updates or inserts an entity into the store
@@ -48,7 +49,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         /// <param name="request">The request state object</param>
         /// <param name="cancellation">A token to cancel the operation</param>
         /// <returns>A task that completes when the upsert operation has completed</returns>
-        Task UpsertAsync<TRequest>(TRequest request, TEntity entity, CancellationToken cancellation = default) where TRequest : IEntityCacheKey;
+        Task UpsertAsync(TRequest request, TEntity entity, CancellationToken cancellation = default);
 
         /// <summary>
         /// Removes an entity from the store
@@ -56,6 +57,6 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         /// <param name="request">The request state object</param>
         /// <param name="cancellation">A token to cancel the operation</param>
         /// <returns>A task that completes with the result of the delete operation</returns>
-        Task<bool> RemoveAsync<TRequest>(TRequest request, CancellationToken cancellation = default) where TRequest : IEntityCacheKey;
+        Task<bool> RemoveAsync(TRequest request, CancellationToken cancellation = default);
     }
 }
