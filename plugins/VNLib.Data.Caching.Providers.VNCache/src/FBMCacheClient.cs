@@ -206,9 +206,11 @@ namespace VNLib.Data.Caching.Providers.VNCache
                             //Wait for a discovery to complete  
                             await _index.WaitForDiscoveryAsync(exitToken);
                         }
-                        catch (CacheDiscoveryFailureException)
+                        catch (Exception ex)
                         {
-                            //Ignore as master instance will handle this error
+                            pluginLog.Debug("Failed to wait for discovery\n{err}", ex.Message);
+                            //Exception types from the other side so we can't really granually handle
+                            //them, but master instance should so we just need to wait
                         }
 
                         //Get the next node to connect to
