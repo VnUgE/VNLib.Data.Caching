@@ -19,13 +19,13 @@ services:
       #System memory consumption is calculated as follows:
       # MAX_ENTIRES x CACHE_BUCKETS x CACHE_MAX_MESSAGE = max memory consumption
 
-      MAX_CONCURRENT_CONNECTIONS: "1000"    #max number of concurrent client connections
+      MAX_CLIENT_CONNECTIONS: "1000"        #max number of concurrent client connections
       MAX_ENTRIES: "10000"                  #max number of cache entries per bucket
       CACHE_BUCKETS: "100"                  #number of cache buckets for load balancing
       CACHE_MAX_MESSAGE: "20480"            #20KB
       VERIFY_IP: "true"                     #verfies the IP address of clients during negotiation (recommended)
       MAX_PEER_NODES: "10"                  #max number of other peer nodes this node shoud connect to
-      DISCOVERY_INTERVAL: "360"             #time (in seconds) between peer node discovery
+      DISCOVERY_INTERVAL_SEC: "360"         #time (in seconds) between peer node discovery
       KNOWN_PEERS: '[]'                     #array of known peer nodes in the cluster  
       ENABLE_CHECKSUMS: "true"              #enables checksums for messages
 
@@ -40,7 +40,8 @@ services:
 
       #HTTP
       #HTTP_DOWNSTREAM_SERVERS: '[]'
-      #SSL_JSON: '{"cert": "ssl/cert.pem", "privkey":"ssl/priv.pem"}'
+      HTTP_BIND_ADDR: "0.0.0.0"
+      HTTP_BIND_PORT: "2557"
       HTTP_MAX_CONNS: "5000"
 
       SERVER_ARGS: "--input-off"
