@@ -57,22 +57,24 @@ tasks:
       BUILD_DIR: './build/{{.TARGET_OS}}'
     cmds:
     #create dir for env
-    - cmd: powershell -Command "mkdir {{.BUILD_DIR}} -Force"
+    - cmd: powershell -Command "mkdir {{ .BUILD_DIR }} -Force"
       ignore_error: true
     
     #copy build files for target os
     - for: [ plugins, lib, config, webserver, config ]
-      cmd: powershell -Command "cp -Recurse -Force {{ .ITEM }} {{ .BUILD_DIR }}"
+      cmd: powershell cp -Recurse -Force "{{ .ITEM }}" "{{ .BUILD_DIR }}"
 
     #copy release taskfile and rename it
-    - cmd: powershell -Command "cp -Force release.taskfile.yaml {{ .BUILD_DIR }}/Taskfile.yaml"
+    - cmd: powershell cp -Force release.taskfile.yaml "{{ .BUILD_DIR }}/Taskfile.yaml"
  
   pack:
     internal: true
+    vars:
+      TAR_OUT_DIR: '{{ .USER_WORKING_DIR }}/{{ .BINARY_DIR }}'
     cmds:
-    - cmd: powershell -Command "mkdir build/{{.TARGET_OS}}/ -Force"
+    - cmd: powershell mkdir -Force "build/{{.TARGET_OS}}/"
       ignore_error: true
-    - cmd: cd build/{{.TARGET_OS}} && tar -czf ../../bin/{{.TARGET_OS}}-release.tgz . 
+    - cmd: cd build/{{ .TARGET_OS }} && tar -czf "{{ .TAR_OUT_DIR }}/{{ .TARGET_OS }}-release.tgz" . 
 
   compile-config:
     internal: false

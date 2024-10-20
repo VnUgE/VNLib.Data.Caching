@@ -30,6 +30,7 @@ tasks:
       - install-compressor-lib
       - install-compression
       - install-vncache
+      - install-webserver
     cmds:
     - cmd: echo "Plugins installed"
       silent: true
@@ -53,7 +54,7 @@ tasks:
         SRC_DIR: '../../core/apps/VNLib.WebServer/src/bin'
 
     #remove the executable since its not needed
-    - cmd: cd webserver/ && powershell -Command "rm VNlib.WebServer"
+    - cmd: cd webserver/ && powershell rm VNlib.WebServer
 
   install-compression:
     cmds:
@@ -84,7 +85,7 @@ tasks:
     #install the rpmalloc source code package for Linux and Mac
     - task: install:install
       vars: 
-        FILE_NAME: 'scr.tgz'
+        FILE_NAME: 'src.tgz'
         DIR: 'lib/vnlib_rpmalloc'
         SRC_DIR: '../../core/lib/Utils.Memory/vnlib_rpmalloc/bin'
 

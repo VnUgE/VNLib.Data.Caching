@@ -43,7 +43,7 @@ tasks:
       BUILD_OUT: "{{ .BINARY_DIR }}/{{ .BUILD_MODE }}/{{ .TARGET_FRAMEWORK }}/publish"     
 
     cmds:
-     - powershell cp ../build.readme.txt '{{.BUILD_OUT}}/readme.txt'
+     - powershell cp ../build.readme.txt '{{ .BUILD_OUT }}/readme.txt'
 
      #tar outputs
      - cd "{{ .BUILD_OUT }}" && tar -czf "{{ .TARGET_DIR }}/{{ .BUILD_MODE }}.tgz" .
