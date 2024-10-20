@@ -61,7 +61,7 @@ tasks:
       ignore_error: true
     
     #copy build files for target os
-    - for: [ plugins, dist, lib, config, webserver, config ]
+    - for: [ plugins, lib, config, webserver, config ]
       cmd: powershell -Command "cp -Recurse -Force {{ .ITEM }} {{ .BUILD_DIR }}"
 
     #copy release taskfile and rename it
@@ -93,7 +93,7 @@ tasks:
     - task: pb-parallel
 
     #cleanup unnecessary build files that clog up the pipeline
-    - for: [ build, plugins, dist, lib, webserver, config ]
+    - for: [ build, plugins, lib, webserver, config ]
       cmd: powershell -Command "rm -Recurse '{{.ITEM}}'"
       ignore_error: true
 
@@ -120,7 +120,7 @@ tasks:
   clean:
     ignore_error: true
     cmds:
-    - for: [ build/, bin/, dist/, plugins/, lib/, webserver/, config/ ]
+    - for: [ build/, bin/, plugins/, lib/, webserver/, config/ ]
       cmd: powershell -Command "rm -Recurse -Force '{{.ITEM}}'"
     
     - task: container:clean
