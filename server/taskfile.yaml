@@ -71,8 +71,8 @@ tasks:
     - task: pb-parallel
 
     #cleanup unnecessary build files that clog up the pipeline
-    #- cmd: powershell rm -Recurse -Force build/
-    #  ignore_error: true
+    - cmd: powershell rm -Recurse -Force build/
+      ignore_error: true
 
     - task: container:postbuild_success
 
