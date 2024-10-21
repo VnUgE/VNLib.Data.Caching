@@ -8,8 +8,6 @@ version: "3"
 vars:
   SSL_DIR: "ssl"
   DATA_DIR: "data"
-  DEFAULT_EC_CURVE: "secp384r1"
-  PASS_PEPPER_SIZE: 64
 
 tasks:
   default:
@@ -24,7 +22,7 @@ tasks:
     interactive: true
     env: 
       #libraries intentionally do not have extensions, for cross-platform compatibility, the server will load them regardless
-      VNLIB_SHARED_HEAP_FILE_PATH: lib/vnlib_rpmalloc.dll
+      VNLIB_SHARED_HEAP_FILE_PATH: lib/vnlib_rpmalloc{{if eq OS "windows"}}.dll{{else}}.so{{end}}
     cmds:
     - cmd: dotnet webserver/VNLib.WebServer.dll --config config/config.json {{ .CLI_ARGS }}
 
@@ -61,27 +59,17 @@ tasks:
       #build rpmalloc lib
       - task: build-rpmalloc
       - task: build-compress
-    cmds:
-    #setup ssl dir
-    - cmd: '{{if eq OS "windows"}}powershell{{ end }}mkdir ssl/'
-      ignore_error: true
-
-  create-cert:
-    desc: "Genereates a new self-signed TLS certificate"
-    interactive: true
-    cmds:
-    - openssl req -new -x509 -days 365 -keyout {{.SSL_DIR}}/key.pem -out {{.SSL_DIR}}/cert.pem -newkey ec -pkeyopt ec_paramgen_curve:{{.DEFAULT_EC_CURVE}} --nodes
 
   build-rpmalloc:
     internal: true
     dir: 'lib/'
     cmds:
     #build rpmalloc library for linux/mac
-    - cmd: cd vnlib_rpmalloc/ && task && cp build/libvn_rpmalloc{{if eq OS "darwin"}}.dylib{{else}}.so{{end}} ../vnlib_rpmalloc.dll
+    - cmd: cd vnlib_rpmalloc/ && task && cp build/libvn_rpmalloc{{if eq OS "darwin"}}.dylib{{else}}.so{{end}} ../vnlib_rpmalloc.so
       platforms: [ linux, darwin ]
       
     #for windows just copy the existing dll
-    - cmd: powershell -Command "cp vnlib_rpmalloc/vnlib_rpmalloc.dll vnlib_rpmalloc.dll"
+    - cmd: powershell cp vnlib_rpmalloc/vnlib_rpmalloc.dll vnlib_rpmalloc.dll
       platforms: [ windows/amd64 ]
 
   build-compress:
@@ -89,7 +77,7 @@ tasks:
     dir: 'lib/'
     cmds:
     #build the native compressor library for linux/mac
-    - cmd: cd vnlib_compress/ && task && cp build/libvn_compress{{if eq OS "darwin"}}.dylib{{else}}.so{{end}} ../vnlib_compress.dll
+    - cmd: cd vnlib_compress/ && task && cp build/libvn_compress{{if eq OS "darwin"}}.dylib{{else}}.so{{end}} ../vnlib_compress.so
       platforms: [ linux, darwin ]
 
     #windows now supports pre-compiled libs

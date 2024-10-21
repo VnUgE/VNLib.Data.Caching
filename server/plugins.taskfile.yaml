@@ -18,9 +18,6 @@ tasks:
     cmds:
     - cmd: echo "Installing and configuring plugins"
       silent: true
-
-    - for: [ plugins/, lib/ ]
-      cmd: powershell mkdir {{ .ITEM }} -Force
     
     - task: all-parallel
 
@@ -36,47 +33,44 @@ tasks:
       silent: true
 
   install-vncache:
-    - cmd: powershell mkdir -Force 'plugins/{{ .PLUGIN_NAME }}'
+    - cmd: powershell mkdir -Force 'build/plugins/{{ .PLUGIN_NAME }}'
 
     #copy the plugin output
-    - cmd: powershell cp -Recurse -Force '../plugins/ObjectCacheServer/src/bin/Release/net8.0/publish/*' 'plugins/{{ .PLUGIN_NAME }}/'
+    - cmd: powershell cp -Recurse -Force '../plugins/ObjectCacheServer/src/bin/release/net8.0/publish/*' 'build/plugins/{{ .PLUGIN_NAME }}/'
 
   install-webserver:
     cmds:
-    - cmd : powershell -Command "mkdir webserver -Force"
-      ignore_error: true
-
     #clone the webserver (it's cross platform when using dotnet command so just grab the linux version)
     - task: install:install
       vars:
         FILE_NAME: "linux-x64-release.tgz"
-        DIR: 'webserver'
+        DIR: 'build/webserver'
         SRC_DIR: '../../core/apps/VNLib.WebServer/src/bin'
 
     #remove the executable since its not needed
-    - cmd: cd webserver/ && powershell rm VNlib.WebServer
+    - cmd: cd build/webserver/ && powershell rm VNlib.WebServer
 
   install-compression:
     cmds:
     - task: install:install
       vars:
         FILE_NAME: 'release.tgz' 
-        DIR: 'lib/vnlib.net.compression'
+        DIR: 'build/lib/vnlib.net.compression'
         SRC_DIR: '../../core/lib/Net.Compression/VNLib.Net.Compression/bin'
 
   install-compressor-lib:
     cmds:
     - task: install:install
       vars: 
-        FILE_NAME: 'release.tgz'
-        DIR: 'lib/vnlib_compress'
+        FILE_NAME: 'src.tgz'
+        DIR: 'build/lib/vnlib_compress'
         SRC_DIR: '../../core/lib/Net.Compression/vnlib_compress/bin'
 
     #get windows dll for the compressor
     - task: install:install
       vars: 
         FILE_NAME: 'msvc-x64-release-vnlib_compress.tgz'
-        DIR: 'lib/vnlib_compress'
+        DIR: 'build/windows-x64/lib/vnlib_compress'
         SRC_DIR: '../../core/lib/Net.Compression/vnlib_compress/bin'
 
   install-rpmalloc:
@@ -86,14 +80,14 @@ tasks:
     - task: install:install
       vars: 
         FILE_NAME: 'src.tgz'
-        DIR: 'lib/vnlib_rpmalloc'
+        DIR: 'build/lib/vnlib_rpmalloc'
         SRC_DIR: '../../core/lib/Utils.Memory/vnlib_rpmalloc/bin'
 
     #install the rpmalloc binary for Windows
     - task: install:install
       vars: 
-        FILE_NAME: 'msvc-x64-release-vnlib_compress.tgz'
-        DIR: 'lib/vnlib_rpmalloc'
+        FILE_NAME: 'msvc-x64-release-vnlib_rpmalloc.tgz'
+        DIR: 'build/windows-x64/lib/vnlib_rpmalloc'
         SRC_DIR: '../../core/lib/Utils.Memory/vnlib_rpmalloc/bin'
 
 

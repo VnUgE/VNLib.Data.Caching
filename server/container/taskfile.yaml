@@ -6,6 +6,7 @@
 version: "3"
 
 vars:
+  BINARY_DIR: '{{ .BINARY_DIR | default "bin"}}'
   INCLUDE_FILES: "Dockerfile, docker-compose.yaml"
   OUT_DIR: "{{ .USER_WORKING_DIR }}/out"
 
@@ -42,9 +43,11 @@ tasks:
      - powershell -Command "rm -Force -Recurse build/app/config/"
 
   postbuild_success:
+    vars:
+      TAR_OUT_DIR: '{{ .USER_WORKING_DIR }}/{{ .BINARY_DIR }}'
     cmds:
      #tar up the build directory and move it to the output bin directory
-     - cmd: cd build/ && tar -czf '{{ .BINARY_DIR }}/{{ .PACKAGE_FILE_NAME }}' .
+     - cmd: cd build/ && tar -czf '{{ .TAR_OUT_DIR }}/{{ .PACKAGE_FILE_NAME }}' .
      #clean up all the build files after build succeeds
      - task: clean
 
@@ -59,9 +62,9 @@ tasks:
      #make build directory
      - powershell -Command "mkdir build, build/app, build/app/config-templates/, build/app/static/ -Force"
      #copy the existing linux-x64 build to the build folder, this will be the container base
-     - powershell -Command "cp -Recurse -Force ../build/linux-x64/* build/app/"
+     - powershell -Command "cp -Recurse -Force ../build/posix/* build/app/"
      #copy local scripts and config data into the build folder
      - powershell -Command "cp -Force run.sh, Taskfile.yaml build/app/"
      - powershell -Command "cp -Force Dockerfile, docker-compose.yaml build/"
      - powershell -Command "cp -Force static/* build/app/static/"
-     - powershell -Command "cp -Force config-templates/* build/app/config-templates/"
+     - powershell -Command "cp -Force ../config-templates/* build/app/config-templates/"

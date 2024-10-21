@@ -4,7 +4,7 @@
   //to the host and loaded child plugins, all elements are available to plugins via the 'HostConfig' property
 
     "tcp": {
-    "keepalive_sec": 120,           //How long to wait for a keepalive response before closing the connection (0 to disable tcp keepalive)
+    "keepalive_sec": 60,            //How long to wait for a keepalive response before closing the connection (0 to disable tcp keepalive)
     "keepalive_interval_sec": 30,   //How long to wait between keepalive probes
     "max_recv_size": 655360,        //640k absolute maximum recv buffer (defaults to OS socket buffer size)
     "max_connections": ${HTTP_MAX_CONS:-5000}0,     //Per listener instance
@@ -53,7 +53,7 @@
       //The interface to bind to, you may not mix TLS and non-TLS connections on the same interface
       "interfaces": [
         {
-          "address": "${HTTP_BIND_ADDRESS: 0.0.0.0}",
+          "address": "${HTTP_BIND_ADDRESS:-0.0.0.0}",
           "port": ${HTTP_BIND_PORT:-2557},
 
           "ssl": ${TLS_ENABLE:-false},          //Enables TLS for this interface for this host specifically
