@@ -11,16 +11,17 @@ tasks:
     internal: true
     cmds:
     #make the plugin directory
-    - cmd: powershell -Command "mkdir {{ .DIR }} -Force"
+    - cmd: powershell mkdir -Force {{ .DIR }}
     
     - cmd: powershell cp -Recurse -Force 
        '{{ .SRC_DIR }}/{{ .FILE_NAME }}'
        '{{ .DIR }}/'
     
-    - cd {{ .DIR }} && tar -xzf {{ .FILE_NAME }}
+    #extract the archive
+    - cmd: cd {{ .DIR }} && tar -xzf {{ .FILE_NAME }}
 
     #remove the archive file
-    - cd {{ .DIR }} && powershell -Command "rm {{ .FILE_NAME }}"
+    - cmd: cd {{ .DIR }} && powershell rm "{{ .FILE_NAME }}"
 
     #remove all pckage.json files that could cause build issues
     - cmd: cd {{ .DIR }} && powershell 'Get-ChildItem -Path . -Recurse -File -Filter "package.json" | Remove-Item -Force'

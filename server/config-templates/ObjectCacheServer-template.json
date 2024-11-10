@@ -14,6 +14,9 @@
     "well_known_path": ${WELL_KNOWN_PATH:-null},        //Optionally change the well-known path (clients must know this)
   },
 
+  //Known peers array, must point to well-known endpoint for discovery
+  "known_peers": ${KNOWN_PEERS:-[]},
+
   //Cache configuration object, FBM protocol variables
   "cache": {
     "max_cache": ${MAX_ENTRIES:-10000},   //Max number of cache entires to be stored
@@ -26,9 +29,6 @@
     "buffer_header_min": 128,                         //128 byte min request header buffer size
     "max_message_size": ${CACHE_MAX_MESSAGE:-20480},  //Absolute maxium message size allowed, also the maxium size of cache entires
     "enable_checksums": ${ENABLE_CHECKSUMS:-true}     //Enable checksums for cache entries
-  },
-
-  //Known peers array, must point to well-known endpoint for discovery
-  "known_peers": ${KNOWN_PEERS:-[]}
+  }
 
 }

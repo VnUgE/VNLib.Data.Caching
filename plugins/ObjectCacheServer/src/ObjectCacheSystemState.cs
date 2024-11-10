@@ -96,8 +96,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server
 
         void IDisposable.Dispose()
         {
-            SharedCacheHeap.Dispose();
-            Listener.Dispose();
+            SharedCacheHeap?.Dispose();
+            Listener?.Dispose();
         }
 
         /// <summary>
