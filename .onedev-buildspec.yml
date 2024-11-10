@@ -76,7 +76,7 @@ jobs:
     interpreter: !DefaultInterpreter
       commands: |
         vnbuild build -S --include vnlib.core
-        vnbuild build -S --include @project_name@--verbose
+        vnbuild build -S --include @project_name@ --verbose
     useTTY: true
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   triggers:
