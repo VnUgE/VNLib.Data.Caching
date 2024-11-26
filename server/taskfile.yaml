@@ -1,0 +1,132 @@
+# https://taskfile.dev
+
+#Called by the vnbuild system to produce builds for my website
+#https://www.vaughnnugent.com/resources/software
+
+version: "3"
+
+vars:
+  BINARY_DIR: '{{ .BINARY_DIR | default "bin" }}'
+
+includes:
+  install:
+    taskfile: install.taskfile.yaml
+
+  plugins:
+    taskfile: plugins.taskfile.yaml
+
+tasks:
+
+  build:
+    deps:
+      - task: plugins:all
+      - task: compile-config
+    cmds:
+     #remove runtime-shared libs before they are copied
+    - task: prune-plugin-libs
+    - task: parallel-envs
+
+  parallel-envs:
+    internal: true
+    deps: 
+     - task: create-env
+       vars: { TARGET_OS: 'windows-x64' }
+     - task: create-env
+       vars: { TARGET_OS: 'posix' }
+     - task: setup-container
+
+  #similar to create-env task, except specialized for a container deployment
+  setup-container:
+    internal: true
+    cmds:
+      - cmd: powershell mkdir -Force "build/{{ .TARGET_OS }}"
+     
+      #copy build files for container build in the 'app/' directory
+      - for: [ plugins, lib, webserver ]
+        cmd: cd build/
+          && powershell mkdir -Force "container/app/{{ .ITEM }}"
+          && powershell cp -Recurse -Force "{{ .ITEM }}" "container/app"
+
+      - cmd: powershell cp -Recurse -Force "config-templates" "build/container/app"
+
+      #docker specific files go in the root dir
+      - for: [ Dockerfile, docker-compose.yaml ]
+        cmd: powershell cp -Force {{ .ITEM }} build/container
+
+      # copy the compile script and taskfile, rename the taskfile to Taskfile.yaml
+      - cmd: powershell cp -Force 'compile.sh' 'build/container/app'
+      - cmd: powershell cp -Force release.taskfile.yaml "build/container/app/Taskfile.yaml"
+
+  create-env:
+    cmds:
+    #create dir for env
+    - cmd: powershell mkdir -Force "build/{{ .TARGET_OS }}"
+    
+    #copy build files for target os
+    - for: [ plugins, lib, config, webserver ]
+      cmd: cd build/ && powershell cp -Recurse -Force "{{ .ITEM }}" "{{ .TARGET_OS }}"
+
+    #copy release taskfile and rename it
+    - cmd: powershell cp -Force release.taskfile.yaml "build/{{ .TARGET_OS }}/Taskfile.yaml"
+
+  compile-config:
+    internal: false
+    dotenv: ['build.env']  #use the local .env file when compiling config variables
+    cmds:
+     - cmd: powershell mkdir -Force 'build/config/'
+     - cmd: powershell './compile.ps1' -InputDir 'config-templates/' -OutputDir 'build/config/'
+
+  prune-plugin-libs:
+    internal: true
+    dir: build/plugins
+    vars:
+      FILES:
+        VNLib.Utils.dll
+        VNLib.Net.Http.dll
+        VNLib.Hashing.Portable.dll
+        VNLib.Plugins.Essentials.dll
+        VNLib.Plugins.dll
+        Serilog.dll
+        Serilog.Sinks.Console.dll
+        Serilog.Sinks.File.dll
+        *.xml
+        *.pdb
+    cmds:
+    - for: { var: FILES }
+      cmd: powershell 'Get-ChildItem -Path . -Recurse -File -Filter "{{ .ITEM }}" | Remove-Item -Force'
+
+  postbuild_success:
+    cmds:
+    - cmd: powershell mkdir -Force bin
+    - task: pb-parallel
+
+    #cleanup unnecessary build files that clog up the pipeline
+    - cmd: powershell rm -Recurse -Force build/
+      ignore_error: true
+
+  pb-parallel:
+    internal: true
+    deps:
+     - task: pack
+       vars: { TARGET_OS: 'windows-x64' }
+     - task: pack
+       vars: { TARGET_OS: 'posix' }
+     - task: pack
+       vars: { TARGET_OS: 'container' }
+    cmds:
+    - echo "Packing complete"
+
+  pack:
+    internal: true
+    vars:
+      TAR_OUT_DIR: '{{ .USER_WORKING_DIR }}/{{ .BINARY_DIR }}'
+    cmds:
+    - cmd: powershell mkdir -Force "build/{{ .TARGET_OS }}/"
+      ignore_error: true
+    - cmd: cd build/{{ .TARGET_OS }} && tar -czf "{{ .TAR_OUT_DIR }}/{{ .TARGET_OS }}-release.tgz" .
+
+  clean:
+    ignore_error: true
+    cmds:
+    - for: [ build/, bin/ ]
+      cmd: powershell rm -Recurse -Force '{{ .ITEM }}'

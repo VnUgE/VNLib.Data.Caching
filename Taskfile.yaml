@@ -10,54 +10,54 @@
 version: '3'
 
 vars:
-  TARGET: '{{.USER_WORKING_DIR}}/bin'
-  RELEASE_DIR: "./bin/release/{{.TARGET_FRAMEWORK}}/publish"
+  TARGET_FRAMEWORK: '{{ .TARGET_FRAMEWORK | default "net8.0" }}'
+  BINARY_DIR: '{{ .BINARY_DIR | default "bin" }}'
+  RELEASE_DIR: './bin/release/{{.TARGET_FRAMEWORK}}/publish'
+  TARGET_DIR: '{{ .USER_WORKING_DIR }}/{{ .BINARY_DIR }}'
 
 tasks:
-  
+
   #when build succeeds, archive the output into a tgz 
   postbuild_success:
-    dir: '{{.USER_WORKING_DIR}}'
+    dir: '{{ .USER_WORKING_DIR }}'
     cmds:
-     #pack up source code
-     - task: packsource
+     #remove uncessary files from the release dir
+     - powershell -Command "Get-ChildItem -Recurse '{{ .RELEASE_DIR }}/' -Include *.pdb,*.xml | Remove-Item"
 
-     #run post in debug mode
+     - task: post_parallel
+
+  post_parallel:
+    internal: true
+    deps:
+     - task: packsource
      - task: postbuild
        vars: { BUILD_MODE: debug }
-
-     #remove uncessary files from the release dir
-     - powershell -Command "Get-ChildItem -Recurse '{{.RELEASE_DIR}}/' -Include *.pdb,*.xml | Remove-Item"
-
-     #run post in release mode
      - task: postbuild
-       vars: { BUILD_MODE: release }    
-
-
-  postbuild_failed:
-    dir: '{{.USER_WORKING_DIR}}'
-    cmds: []
+       vars: { BUILD_MODE: release }
 
   postbuild:
-    dir: '{{.USER_WORKING_DIR}}'      
+    dir: '{{.USER_WORKING_DIR}}'
     internal: true
     vars:
       #the build output directory
-      BUILD_OUT: "{{.USER_WORKING_DIR}}/bin/{{.BUILD_MODE}}/{{.TARGET_FRAMEWORK}}/publish" 
+      BUILD_OUT: "{{ .BINARY_DIR }}/{{ .BUILD_MODE }}/{{ .TARGET_FRAMEWORK }}/publish"     
 
-    cmds:     
-     #copy license and readme to target
-     - cd .. && powershell -Command "Copy-Item -Path ./build.readme.md -Destination '{{.BUILD_OUT}}/readme.md'"
+    cmds:
+     - powershell cp ../build.readme.txt '{{ .BUILD_OUT }}/readme.txt'
 
      #tar outputs
-     - cd "{{.BUILD_OUT}}" && tar -czf "{{.TARGET}}/{{.BUILD_MODE}}.tgz" .
+     - cd "{{ .BUILD_OUT }}" && tar -czf "{{ .TARGET_DIR }}/{{ .BUILD_MODE }}.tgz" .
  
   packsource:
     dir: '{{.USER_WORKING_DIR}}'
     internal: true
     cmds:
     #copy source code to target
-    - powershell -Command "Get-ChildItem -Include *.cs,*.csproj -Recurse | Where { \$_.FullName -notlike '*\obj\*' -and \$_.FullName -notlike '*\bin\*' } | Resolve-Path -Relative | tar --files-from - -czf '{{.TARGET}}/src.tgz'"
+     -  
+      powershell -Command "Get-ChildItem -Include *.cs,*.csproj -Recurse 
+      | Where { \$_.FullName -notlike '*\obj\*' -and \$_.FullName -notlike '*\bin\*' } 
+      | Resolve-Path -Relative 
+      | tar --files-from - -czf '{{ .TARGET_DIR }}/src.tgz'"
 
 
 #Remove the output dirs on clean
@@ -65,6 +65,5 @@ tasks:
     dir: '{{.USER_WORKING_DIR}}'
     ignore_error: true
     cmds:
-     - for: ['bin/', 'obj/']
-       cmd: powershell Remove-Item -Recurse '{{.ITEM}}'
-     
+    - for: [ bin/, obj/ ]
+      cmd: '{{ if eq OS "windows" }}powershell rm -Recurse -Force{{ else }}rm -rf{{ end }} "{{.ITEM}}"'

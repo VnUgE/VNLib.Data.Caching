@@ -1,0 +1,34 @@
+﻿{
+  "debug": ${DEBUG_PLUGINS:-false},
+
+  //enables cache server cluster node data
+  "cluster": {
+    "max_concurrent_connections": ${MAX_CLIENT_CONNECTIONS:-1000}, //The maxium number of connections to this node
+    "discovery_interval_sec": ${DISCOVERY_INTERVAL_SEC:-360}, //Delay to re-discover peers
+    "max_peers": ${MAX_PEER_NODES:-10},                 //The maxium number of peers to connect to
+    "max_queue_depth": 10000,                           //Max ev queue depth before LRU eviction
+    "queue_purge_interval_sec": 360000,                 //Time between queue purge
+    "verify_ip": ${VERIFY_IP:-true},                    //Forces strict ip address verification on upgrades (best to leave on)
+    "connect_path": "${CACHE_CONNECT_PATH:-/cache}",    //The cache websocket endpoint path
+    "discovery_path": "${DISCOVER_PATH:-/discover}",    //Optional to allow nodes to discover nodes we adverties
+    "well_known_path": ${WELL_KNOWN_PATH:-null},        //Optionally change the well-known path (clients must know this)
+  },
+
+  //Known peers array, must point to well-known endpoint for discovery
+  "known_peers": ${KNOWN_PEERS:-[]},
+
+  //Cache configuration object, FBM protocol variables
+  "cache": {
+    "max_cache": ${MAX_ENTRIES:-10000},   //Max number of cache entires to be stored
+    "buckets": ${CACHE_BUCKETS:-100},     //the number of cache buckets to distribute load
+
+    //FBM buffer config
+    "buffer_recv_max": ${CACHE_MAX_MESSAGE:-20480},   //Max transfer buffer 
+    "buffer_recv_min": 8192,                          //min of 8k transfer buffer
+    "buffer_header_max": 2048,                        //2k max header buffer size
+    "buffer_header_min": 128,                         //128 byte min request header buffer size
+    "max_message_size": ${CACHE_MAX_MESSAGE:-20480},  //Absolute maxium message size allowed, also the maxium size of cache entires
+    "enable_checksums": ${ENABLE_CHECKSUMS:-true}     //Enable checksums for cache entries
+  }
+
+}

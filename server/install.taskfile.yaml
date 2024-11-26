@@ -1,0 +1,28 @@
+# https://taskfile.dev
+
+#Called by the vnbuild system to produce builds for my website
+#https://www.vaughnnugent.com/resources/software
+
+version: "3"
+
+tasks:
+
+  install:
+    internal: true
+    cmds:
+    #make the plugin directory
+    - cmd: powershell mkdir -Force {{ .DIR }}
+    
+    - cmd: powershell cp -Recurse -Force 
+       '{{ .SRC_DIR }}/{{ .FILE_NAME }}'
+       '{{ .DIR }}/'
+    
+    #extract the archive
+    - cmd: cd {{ .DIR }} && tar -xzf {{ .FILE_NAME }}
+
+    #remove the archive file
+    - cmd: cd {{ .DIR }} && powershell rm "{{ .FILE_NAME }}"
+
+    #remove all pckage.json files that could cause build issues
+    - cmd: cd {{ .DIR }} && powershell 'Get-ChildItem -Path . -Recurse -File -Filter "package.json" | Remove-Item -Force'
+      ignore_error: true

@@ -64,7 +64,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
 
         public RemoteBackedMemoryCache(PluginBase plugin, IConfigScope config)
             : this(
-                config.GetRequiredProperty(VNCacheClient.MEMORY_CACHE_CONFIG_KEY, p => p.Deserialize<MemoryCacheConfig>()!),
+                config.GetRequiredProperty<MemoryCacheConfig>(VNCacheClient.MEMORY_CACHE_CONFIG_KEY),
                 plugin.GetOrCreateSingleton<FBMCacheClient>(),   //Cache client is backing store
                 plugin.GetOrCreateSingleton<BucketLocalManagerFactory>()
             )
