@@ -50,12 +50,13 @@ WORKDIR /app
 
 #default to 2557 for cache port
 EXPOSE 2557/tcp
+ENV HTTP_BIND_PORT=2557
 
 #expose an assets directory for custom assets install
 VOLUME /app/usr/assets
 
 #path to the inlcuded compression assembly path
-ENV COMPRESSOR_ASM_PATH=lib/vnlib.net.compression/VNLib.Net.Compression.dll 
+ENV COMPRESSOR_ASM_PATH=lib/vnlib.net.compression/VNLib.Net.Compression.dll
 
 #run permissions setup 
 RUN task container-set-perms
