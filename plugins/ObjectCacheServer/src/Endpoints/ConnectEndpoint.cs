@@ -49,9 +49,9 @@ using VNLib.Data.Caching.ObjectCache.Server.Cache;
 using VNLib.Data.Caching.ObjectCache.Server.Clustering;
 
 
+
 namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
 {
-
     internal sealed class ConnectEndpoint : ResourceEndpointBase
     {
         private readonly ObjectCacheSystemState _sysState;
@@ -162,7 +162,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
              * but malicious clients could cache a bunch of tokens and use them 
              * later, exhausting resources.
              */
-            if(_connectedClients >= ClusterConfiguration.MaxConcurrentConnections)
+            if(_connectedClients >= ClusterConfiguration.MaxClientConnections)
             {
                 return VirtualClose(entity, HttpStatusCode.ServiceUnavailable);
             }

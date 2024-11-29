@@ -63,7 +63,14 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         /// <summary>
         /// The plugin-wide, shared node configuration
         /// </summary>
-        public ServerClusterConfig ClusterConfig { get; } = plugin.GetOrCreateSingleton<ServerClusterConfig>();
+        public ServerClusterConfig ClusterConfig { get; } = config.GetRequiredProperty<ServerClusterConfig>("cluster");
+    
+        public CacheMemoryConfiguration MemoryConfiguration { get; } = config.GetRequiredProperty<CacheMemoryConfiguration>("memory");
+
+        /// <summary>
+        /// The system wide gossip configuration for syncronizing the cluster
+        /// </summary>
+        public ClusterGossipConfig GossipConfig { get; } = config.GetRequiredProperty<ClusterGossipConfig>("gossip");
 
         /// <summary>
         /// The system wide cache authenticator
@@ -84,8 +91,6 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         /// System wide peer monitor
         /// </summary>
         public CachePeerMonitor PeerMonitor { get; } = new();
-
-        public CacheMemoryConfiguration MemoryConfiguration { get; } = config.Deserialze<CacheMemoryConfiguration>();
 
         /// <summary>
         /// The system wide peer event queue manager

@@ -22,9 +22,6 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
-using System;
-using System.Collections.Generic;
-
 using VNLib.Plugins;
 using VNLib.Utils;
 using VNLib.Utils.Logging;
@@ -33,6 +30,8 @@ using VNLib.Plugins.Extensions.Loading.Routing;
 
 using VNLib.Data.Caching.ObjectCache.Server.Endpoints;
 using VNLib.Data.Caching.ObjectCache.Server.Clustering;
+using VNLib.Data.Caching.ObjectCache.Server.Rpc;
+using VNLib.Plugins.Extensions.Loading.Routing.Mvc;
 
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
@@ -49,6 +48,16 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             sysState = this.GetOrCreateSingleton<ObjectCacheSystemState>();
             sysState.Initialize();
 
+            //Route the rpc controller if the user has configured it
+            if (this.HasConfigForType<CacheRpcController>())
+            {
+                this.Route<CacheRpcController>();
+            }
+            else
+            {
+                Log.Warn("No rpc configuration was loaded, your server will not be able to communicate with clients");
+            }
+
             //Route well-known endpoint
             this.Route<WellKnownEndpoint>();
 
@@ -57,12 +66,6 @@ namespace VNLib.Data.Caching.ObjectCache.Server
 
             //We must initialize the replication manager
             _ = this.GetOrCreateSingleton<CacheNodeReplicationMaanger>();
-
-            //Setup discovery endpoint only if the user enabled clustering
-            if (!string.IsNullOrWhiteSpace(sysState.ClusterConfig.DiscoveryPath))
-            {
-                this.Route<PeerDiscoveryEndpoint>();
-            }
 
             Log.Information("Plugin loaded");
         }

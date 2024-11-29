@@ -26,44 +26,70 @@ using System;
 using System.Net;
 using System.Linq;
 using System.Text.Json;
-using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 using VNLib.Plugins;
 using VNLib.Utils.Logging;
-using VNLib.Utils.Extensions;
 using VNLib.Plugins.Extensions.Loading;
+using VNLib.Plugins.Extensions.Loading.Configuration;
+
 using VNLib.Data.Caching.Extensions.Clustering;
 
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
-    [ConfigurationName("cluster")]
-    internal sealed class ServerClusterConfig(PluginBase plugin, IConfigScope config)
+
+    internal sealed class ServerClusterConfig : IOnConfigValidation
     {
-        public TimeSpan DiscoveryInterval { get; } = config.GetRequiredProperty("discovery_interval_sec", p => p.GetTimeSpan(TimeParseType.Seconds));
+        [JsonPropertyName("queue_purge_interval_sec")]
+        public uint EventPurgeIntervalSec { get; init; }
 
-        public TimeSpan EventQueuePurgeInterval { get; } = config.GetRequiredProperty("queue_purge_interval_sec", p => p.GetTimeSpan(TimeParseType.Seconds));
+        [JsonPropertyName("max_queue_depth")]
+        public int MaxQueueDepth { get; init; }
 
-        public int MaxQueueDepth { get; } = (int)config.GetRequiredProperty("max_queue_depth", p => p.GetUInt32());
+        [JsonPropertyName("connect_path")]
+        public string ConnectPath { get; init; } = "/cache";
 
-        public string? DiscoveryPath { get; } = config.GetValueOrDefault("discovery_path", p => p.GetString(), null);
+        [JsonPropertyName("well_known_path")]
+        public string WellKnownPath { get; init; } = CacheConstants.DefaultWellKnownPath;
 
-        public string ConnectPath { get; } = config.GetRequiredProperty("connect_path", p => p.GetString()!);
-
-        public string WellKnownPath { get; } = config.GetValueOrDefault("well_known_path", p => p.GetString()!, CacheConstants.DefaultWellKnownPath) 
-            ?? CacheConstants.DefaultWellKnownPath;
-
-        public bool VerifyIp { get; } = config.GetRequiredProperty("verify_ip", p => p.GetBoolean());
+        /// <summary>
+        /// Ensures that client signed connections use the same IP address
+        /// between authorized connections. This should be on for most
+        /// production deployments.
+        /// </summary>
+        [JsonPropertyName("verify_ip")]
+        public bool VerifyIp { get; init; } = true;
 
         /// <summary>
         /// The maximum number of peer connections to allow
         /// </summary>
-        public uint MaxPeerConnections { get; } = config.GetValueOrDefault("max_peers", p => p.GetUInt32(), 10u);
+        [JsonPropertyName("max_peers")]
+        public uint MaxPeerConnections { get; init; }
 
         /// <summary>
         /// The maxium number of concurrent client connections to allow
         /// before rejecting new connections
         /// </summary>
-        public uint MaxConcurrentConnections { get; } = config.GetValueOrDefault("max_concurrent_connections", p => p.GetUInt32(), 100u);
+        [JsonPropertyName("max_client_connections")]
+        public uint MaxClientConnections { get; init; }
+
+        [JsonPropertyName("kown_peers")]
+        public string[] KownPeers { get; init; } = [];
+
+        public void OnValidate()
+        {
+            Validate.Range(MaxPeerConnections, 1u, 1000u, "max_peers");
+            Validate.Range(MaxClientConnections, 1u, 1000u, "max_client_connections");
+            Validate.Range(MaxQueueDepth, 1, 1000, "max_queue_depth");
+
+            //Check for valid well-known path
+            Validate.NotNull(WellKnownPath, "well_known_path");
+            Validate.Assert(WellKnownPath[0] == '/', "'well_known_path' must start with '/' ");
+
+            //Check for valid connect path
+            Validate.NotNull(ConnectPath, "connect_path");
+            Validate.Assert(ConnectPath[0] == '/', "'connect_path' must start with '/' ");
+        }
 
         const string CacheConfigTemplate =
 @"
