@@ -101,22 +101,24 @@
     "assets": "plugins/assets/"
   },
 
-  "sys_log": {
-    "enabled": ${FILE_LOG_ENABLED:-true},
-    "path": "data/logs/sys-log.txt",
-    "flush_sec": 5,
-    "retained_files": 31,
-    "file_size_limit": 10485760,
-    "interval": "infinite"
-  },
+  "logs": {
+    "sys_log": {
+      "enabled": ${FILE_LOG_ENABLED:-true},
+      "path": "data/logs/sys-log.txt",
+      "flush_sec": 5,
+      "retained_files": 31,
+      "file_size_limit": 10485760,
+      "interval": "infinite"
+    },
 
-  "app_log": {
-    "enabled": ${FILE_LOG_ENABLED:-true},
-    "path": "data/logs/app-log.txt",
-    "flush_sec": 5,
-    "retained_files": 31,
-    "file_size_limit": 10485760,
-    "interval": "infinite"
+    "app_log": {
+      "enabled": ${FILE_LOG_ENABLED:-true},
+      "path": "data/logs/app-log.txt",
+      "flush_sec": 5,
+      "retained_files": 31,
+      "file_size_limit": 10485760,
+      "interval": "infinite"
+    }
   },
 
   //HASHICORP VAULT
