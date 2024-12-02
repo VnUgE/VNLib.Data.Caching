@@ -73,6 +73,8 @@ tasks:
 
   test:
     desc: "Runs managed tests against the entire solution and all loaded test projects"
+    vars:
+      HOST_CONFIG_FILE: '{{ .USER_WORKING_DIR }}/tests/plugin-tests/Test.DataCaching.Config.json'
     cmds:
      - cmd: dotnet test
         {{ .CLI_ARGS }}
@@ -80,6 +82,7 @@ tasks:
         --configuration debug
         --verbosity normal
         --framework {{ .FRAMEWORK | default "net8.0" }}
+        --environment TEST_HOST_CONFIG_FILE="{{ .HOST_CONFIG_FILE }}"
 
 #called by build pipeline to clean module
   clean:

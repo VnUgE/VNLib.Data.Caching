@@ -47,7 +47,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server
 
         public string ConnectPath { get; } = config.GetRequiredProperty("connect_path", p => p.GetString()!);
 
-        public string WellKnownPath { get; } = config.GetValueOrDefault("well_known_path", CacheConstants.DefaultWellKnownPath);
+        public string WellKnownPath { get; } = config.GetValueOrDefault("well_known_path", CacheConstants.DefaultWellKnownPath) 
+            ?? CacheConstants.DefaultWellKnownPath;
 
         public bool VerifyIp { get; } = config.GetValueOrDefault("verify_ip", true);
 
