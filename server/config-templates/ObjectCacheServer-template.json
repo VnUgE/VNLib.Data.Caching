@@ -11,7 +11,7 @@
     "verify_ip": ${VERIFY_IP:-true},                                //Forces strict ip address verification on upgrades (best to leave on)
     "connect_path": "${CACHE_CONNECT_PATH:-/cache}",                //The cache websocket endpoint path
     "discovery_path": "${DISCOVER_PATH:-/discover}",                //Optional to allow nodes to discover nodes we adverties
-    "well_known_path": "${WELL_KNOWN_PATH:-/.well-knwon/vncache}",  //Optionally change the well-known path (clients must know this)
+    "well_known_path": "${WELL_KNOWN_PATH:-/.well-known/vncache}",  //Optionally change the well-known path (clients must know this)
     "local_port": ${HTTP_BIND_PORT:-2557}                           //Must tell cluster config what port were listening on
   },
 
