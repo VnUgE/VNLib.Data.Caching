@@ -46,7 +46,6 @@ namespace VNLib.Data.Caching.Extensions
         /// <summary>
         /// Connects to the specified server on the configured cache client
         /// </summary>
-        /// <param name="factory"></param>
         /// <param name="server">The server to connect to</param>
         /// <param name="token">A token to cancel the operation</param>
         /// <returns>A task that resolves when the client is connected to the cache server</returns>

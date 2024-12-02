@@ -7,11 +7,7 @@
     <AssemblyName>VNLib.Data.Caching.Extensions</AssemblyName>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
-
-  <PropertyGroup>
-    <AnalysisLevel Condition="'$(BuildingInsideVisualStudio)' == true">latest-all</AnalysisLevel>
-  </PropertyGroup>
-
+  
   <PropertyGroup>
     <PackageId>VNLib.Data.Caching.Extensions</PackageId>
     <Authors>Vaughn Nugent</Authors>

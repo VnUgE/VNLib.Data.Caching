@@ -57,8 +57,11 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
         private readonly ObjectCacheSystemState _sysState;
 
         private PeerEventQueueManager PubSubManager => _sysState.PeerEventQueue;
+
         private CachePeerMonitor Peers => _sysState.PeerMonitor;
+
         private BlobCacheListener<IPeerEventQueue> Listener => _sysState.Listener;
+
         private ServerClusterConfig ClusterConfiguration => _sysState.ClusterConfig;
         
         private readonly CacheNegotationManager AuthManager;
@@ -87,7 +90,10 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
             _sysState = plugin.GetOrCreateSingleton<ObjectCacheSystemState>();
 
             //Init from config and create a new log scope
-            InitPathAndLog(ClusterConfiguration.ConnectPath, plugin.Log.CreateScope(CacheConstants.LogScopes.ConnectionEndpoint));
+            InitPathAndLog(
+                path: ClusterConfiguration.ConnectPath, 
+                log: plugin.Log.CreateScope(CacheConstants.LogScopes.ConnectionEndpoint)
+            );
          
             //Get the auth manager
             AuthManager = plugin.GetOrCreateSingleton<CacheNegotationManager>();
@@ -318,13 +324,19 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
 
         private class WsUserState : ICachePeer
         {
-            public int RecvBufferSize { get; init; }
-            public int MaxHeaderBufferSize { get; init; }
-            public int MaxMessageSize { get; init; }
-            public int MaxResponseBufferSize { get; init; }
-            public string? NodeId { get; init; }
-            public CacheNodeAdvertisment? Advertisment { get; init; }
-            public IPAddress Address { get; init; }
+            public required int RecvBufferSize { get; init; }
+
+            public required int MaxHeaderBufferSize { get; init; }
+
+            public required int MaxMessageSize { get; init; }
+
+            public required int MaxResponseBufferSize { get; init; }
+
+            public required string? NodeId { get; init; }
+
+            public required CacheNodeAdvertisment? Advertisment { get; init; }
+
+            public required IPAddress Address { get; init; }
 
             public bool IsPeer => !string.IsNullOrWhiteSpace(NodeId);
 

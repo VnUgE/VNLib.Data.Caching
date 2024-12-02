@@ -109,7 +109,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
         ///<inheritdoc/>
         public void PublishEvent(ChangeEvent changeEvent)
         {
-            if (!_listenerQueue.TryEnque(changeEvent))
+            if (!_listenerQueue.TryEnqueue(changeEvent))
             {
                 _logProvider.Warn("Cache listener event queue is overflowing");
             }

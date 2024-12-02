@@ -1,0 +1,9 @@
+{
+  "name": "vncache",
+  "version": "0.1.0",
+  "copyright": "Copyright \u00A9 2024 Vaughn Nugent",
+  "author": "Vaughn Nugent",
+  "description": "The project contains a ready-to-run, vnlib object cache server",
+  "repository": "https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching/.git/tree/server",
+  "output_dir": "bin"
+}

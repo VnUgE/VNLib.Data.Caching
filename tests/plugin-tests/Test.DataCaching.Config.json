@@ -1,0 +1,15 @@
+{
+  //Minimum configuration for testing
+
+  "plugins": {
+    "enabled": true,
+    "hot_reload": false,
+    "reload_delay_sec": 2,
+    "paths": [],
+    "assets": "." //Use output directory as assets directory since projects are referenced
+  },
+
+  "secrets": {
+  
+  }
+}

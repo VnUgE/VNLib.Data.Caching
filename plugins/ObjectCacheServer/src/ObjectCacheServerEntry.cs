@@ -45,33 +45,26 @@ namespace VNLib.Data.Caching.ObjectCache.Server
 
         protected override void OnLoad()
         {
-            try
+            //Initialize the cache node builder
+            sysState = this.GetOrCreateSingleton<ObjectCacheSystemState>();
+            sysState.Initialize();
+
+            //Route well-known endpoint
+            this.Route<WellKnownEndpoint>();
+
+            //Init connect endpoint
+            this.Route<ConnectEndpoint>();
+
+            //We must initialize the replication manager
+            _ = this.GetOrCreateSingleton<CacheNodeReplicationMaanger>();
+
+            //Setup discovery endpoint only if the user enabled clustering
+            if (!string.IsNullOrWhiteSpace(sysState.ClusterConfig.DiscoveryPath))
             {
-                //Initialize the cache node builder
-                sysState = this.GetOrCreateSingleton<ObjectCacheSystemState>();
-                sysState.Initialize();
-
-                //Route well-known endpoint
-                this.Route<WellKnownEndpoint>();
-
-                //Init connect endpoint
-                this.Route<ConnectEndpoint>();
-
-                //We must initialize the replication manager
-                _ = this.GetOrCreateSingleton<CacheNodeReplicationMaanger>();
-
-                //Setup discovery endpoint only if the user enabled clustering
-                if(!string.IsNullOrWhiteSpace(sysState.ClusterConfig.DiscoveryPath))
-                {
-                    this.Route<PeerDiscoveryEndpoint>();
-                }               
-
-                Log.Information("Plugin loaded");
+                this.Route<PeerDiscoveryEndpoint>();
             }
-            catch (KeyNotFoundException kne)
-            {
-                Log.Error("Missing required configuration variables {m}", kne.Message);
-            }
+
+            Log.Information("Plugin loaded");
         }
 
         protected override void OnUnLoad()

@@ -124,7 +124,9 @@ namespace VNLib.Data.Caching.Providers.VNCache.Clustering
                 //Get all discovered nodes
                 CacheNodeAdvertisment[] ads = cluster.DiscoveredNodes.GetAllNodes();
                 //Just get a random node from the collection for now
-                return ads.Length > 0 ? ads.SelectRandom() : null;
+                return ads.Length > 0 
+                    ? ads.SelectRandom() 
+                    : null;
             }
 
             ///<inheritdoc/>
@@ -145,22 +147,28 @@ namespace VNLib.Data.Caching.Providers.VNCache.Clustering
             internal string? SerializeNextNode()
             {
                 CacheNodeAdvertisment? nextNode = GetNextNode();
-                return nextNode == null ? null : JsonSerializer.Serialize(nextNode);
+                return nextNode is not null 
+                    ? JsonSerializer.Serialize(nextNode) 
+                    : null;
             }
         }
 
         sealed class RemoteHandler(object RemoteIndex) : IClusterNodeIndex
         {
-            private readonly Func<string?> _remoteSerializer = ManagedLibrary.GetMethod<Func<string?>>(RemoteIndex, nameof(LocalHandler.SerializeNextNode), BindingFlags.NonPublic);
+            private readonly Func<string?> _remoteSerializer 
+                = ManagedLibrary.GetMethod<Func<string?>>(RemoteIndex, nameof(LocalHandler.SerializeNextNode), BindingFlags.NonPublic);
 
-            private readonly Func<CancellationToken, Task> _waitTask = ManagedLibrary.GetMethod<Func<CancellationToken, Task>>(RemoteIndex, nameof(WaitForDiscoveryAsync), BindingFlags.Public);
+            private readonly Func<CancellationToken, Task> _waitTask 
+                = ManagedLibrary.GetMethod<Func<CancellationToken, Task>>(RemoteIndex, nameof(LocalHandler.WaitForDiscoveryAsync), BindingFlags.Public);
 
             ///<inheritdoc/>
             public CacheNodeAdvertisment? GetNextNode()
             {
                 //Deserialize the next node from the remote index
                 string? nexNode = _remoteSerializer();
-                return nexNode == null ? null : JsonSerializer.Deserialize<CacheNodeAdvertisment>(nexNode);
+                return nexNode is not null
+                    ? JsonSerializer.Deserialize<CacheNodeAdvertisment>(nexNode) 
+                    : null;
             }
 
             ///<inheritdoc/>

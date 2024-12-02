@@ -26,6 +26,8 @@ using System;
 using System.Linq;
 using System.Text.Json.Serialization;
 
+using VNLib.Plugins.Extensions.Loading.Configuration;
+
 namespace VNLib.Data.Caching.Providers.VNCache
 {
     /// <summary>
@@ -89,7 +91,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// <exception cref="InvalidOperationException"></exception>
         public Uri[] GetInitialNodeUris()
         {
-            _ = InitialNodes ?? throw new InvalidOperationException("Initial nodes have not been set");
+            Validate.NotNull(InitialNodes, "Initial nodes have not been set");
+
             return InitialNodes.Select(static x =>
                 {
                     //Append a default well known endpoint if the path is just a root
@@ -100,40 +103,27 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public override void Validate()
+        public override void OnValidate()
         {
-            base.Validate();
+            base.OnValidate();
 
-            if (!DiscoveryIntervalSeconds.HasValue || DiscoveryIntervalSeconds.Value < 1)
-            {
-                throw new ArgumentException("You must specify a discovery interval period greater than 0", "retry_interval_sec");
-            }
+            Validate.Assert(DiscoveryIntervalSeconds.HasValue, "A discovery interval is required");
+            Validate.Range(DiscoveryIntervalSeconds.Value, 1, int.MaxValue);
 
-            //Allow a 0 timeout to disable timeouts, not recommended, but allowed
-            if (!RequestTimeoutSeconds.HasValue || RequestTimeoutSeconds.Value < 0)
-            {
-                throw new ArgumentException("You must specify a positive integer FBM message timoeut", "request_timeout_sec");
-            }
+            Validate.Assert(RequestTimeoutSeconds.HasValue, "A request timeout is required");
+            Validate.Range(RequestTimeoutSeconds.Value, 1, int.MaxValue);
 
-            //Validate initial nodes
-            if (InitialNodes == null || InitialNodes.Length == 0)
-            {
-                throw new ArgumentException("You must specify at least one initial peer", "initial_peers");
-            }
+            Validate.NotNull(InitialNodes, "You must specify at least one initial cache node to connect to");
+            Validate.Assert(InitialNodes.Length > 0, "You must specify at least one initial cache node to connect to");
 
             //Validate initial nodes
             foreach (Uri peer in GetInitialNodeUris())
             {
-                if (!peer.IsAbsoluteUri)
-                {
-                    throw new ArgumentException("You must specify an absolute URI for each initial node", "initial_nodes");
-                }
-
-                //Verify http connection
-                if (peer.Scheme != Uri.UriSchemeHttp && peer.Scheme != Uri.UriSchemeHttps)
-                {
-                    throw new ArgumentException("You must specify an HTTP or HTTPS URI for each initial node", "initial_nodes");
-                }
+                Validate.Assert(peer.IsAbsoluteUri, "You must specify an absolute URI for each initial node");
+                Validate.Assert(
+                    peer.Scheme == Uri.UriSchemeHttp || peer.Scheme == Uri.UriSchemeHttps, 
+                    message: "You must specify an HTTP or HTTPS URI for each initial node"
+                );
             }
         }
     }

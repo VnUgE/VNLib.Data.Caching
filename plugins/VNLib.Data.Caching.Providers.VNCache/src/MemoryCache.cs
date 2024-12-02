@@ -75,7 +75,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         private MemoryCache(MemoryCacheConfig config, bool isDebug, ILogProvider? log, BucketLocalManagerFactory? factory) : base(config)
         {
             //Validate config
-            config.Validate();
+            config.OnValidate();
 
             if (isDebug)
             {

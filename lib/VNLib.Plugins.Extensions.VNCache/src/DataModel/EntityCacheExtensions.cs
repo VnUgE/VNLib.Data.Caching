@@ -57,8 +57,9 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         /// <exception cref="ArgumentNullException"></exception>
         public static Task<bool> RemoveAsync<T>(this IEntityCache<T> cache, T entity, CancellationToken cancellation) where T: class, ICacheEntity
         {
-            _ = entity ?? throw new ArgumentNullException(nameof(entity));
-            _ = cache ?? throw new ArgumentNullException(nameof(entity));
+            ArgumentNullException.ThrowIfNull(entity);
+            ArgumentNullException.ThrowIfNull(cache);
+          
             //Delete by its id
             return cache.RemoveAsync(entity.Id, cancellation);
         }
@@ -94,9 +95,9 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         /// <exception cref="ArgumentNullException"></exception>
         public static IEntityCache<T> CreateEntityCache<T>(this IGlobalCacheProvider cache, ICacheObjectSerializer serialier, ICacheObjectDeserializer deserializer) where T: class
         {
-            _ = cache ?? throw new ArgumentNullException(nameof(cache));
-            _ = serialier ?? throw new ArgumentNullException(nameof(serialier));
-            _ = deserializer ?? throw new ArgumentNullException(nameof(deserializer));
+            ArgumentNullException.ThrowIfNull(cache);
+            ArgumentNullException.ThrowIfNull(serialier);
+            ArgumentNullException.ThrowIfNull(deserializer);
 
             return new EntityCacheImpl<T>(cache, deserializer, serialier);
         }
@@ -112,96 +113,32 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         /// <exception cref="ArgumentNullException"></exception>
         public static IEntityCache<T> CreateJsonEntityCache<T>(this IGlobalCacheProvider cache, int bufferSize) where T: class
         {
-            _ = cache ?? throw new ArgumentNullException(nameof(cache));
+            ArgumentNullException.ThrowIfNull(cache);
+
             JsonCacheObjectSerializer json = new(bufferSize);
             return CreateEntityCache<T>(cache, json, json);
         }
 
         /// <summary>
-        /// Attemts to recover an entity from cache if possible, if a miss occurs, the 
-        /// factory function is called to produce a value from a backing store. If the store 
-        /// returns a result it is writen back to the cache before this method returns
+        /// Creates a new <see cref="EntityCacheBuilder{TEntity}"/> instance for building a
+        /// new <see cref="EntityResultCache{TEntity}"/>
         /// </summary>
-        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="TEntity">The result entity type</typeparam>
         /// <param name="cache"></param>
-        /// <param name="id">The id of the entity to get or laod</param>
-        /// <param name="factory">The factory callback function to produce a value when a cache miss occurs</param>
-        /// <param name="cancellation">A token to cancel the operation</param>
-        /// <returns>A task that completes by returning the entity</returns>
+        /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static async Task<T?> GetOrLoadAsync<T>(this IEntityCache<T> cache, string id, Func<string, Task<T?>> factory, CancellationToken cancellation = default) where T : class
-        {
-            _ = cache ?? throw new ArgumentNullException(nameof(cache));
-            _ = id ?? throw new ArgumentNullException(nameof(id));
-            _ = factory ?? throw new ArgumentNullException(nameof(factory));
-
-            //try to load the value from cache
-            T? record = await cache.GetAsync(id, cancellation);
-
-            //If record was not found in cache, load it from the factory
-            if (record is null)
-            {
-                record = await factory(id);
-
-                //If new record found, write to cache
-                if (record is not null)
-                {
-                    await cache.UpsertAsync(id, record, cancellation);
-                }
-            }
-
-            return record;
-        }
-
-        /// <summary>
-        /// Attemts to recover an entity from cache if possible, if a miss occurs, the 
-        /// factory function is called to produce a value from a backing store. If the store 
-        /// returns a result it is writen back to the cache before this method returns
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="cache"></param>
-        /// <param name="id">The id of the entity to get or laod</param>
-        /// <param name="factory">The factory callback function to produce a value when a cache miss occurs</param>
-        /// <param name="cancellation">A token to cancel the operation</param>
-        /// <returns>A task that completes by returning the entity</returns>
-        /// <exception cref="ArgumentException"></exception>
-        /// <exception cref="ArgumentNullException"></exception>
-        public static async Task<T?> GetOrLoadAsync<T>(this IEntityCache<T> cache, string id, Func<string, CancellationToken, Task<T?>> factory, CancellationToken cancellation = default) where T : class
+        public static EntityCacheBuilder<TEntity> CreateResultCache<TEntity>(this IEntityCache<TEntity> cache)
+            where TEntity : class
         {
             ArgumentNullException.ThrowIfNull(cache);
-            ArgumentNullException.ThrowIfNull(factory);
-            ArgumentException.ThrowIfNullOrWhiteSpace(id);
-
-            //try to load the value from cache
-            T? record = await cache.GetAsync(id, cancellation);
-
-            //If record was not found in cache, load it from the factory
-            if (record is null)
-            {
-                record = await factory(id, cancellation);
-                
-                //If new record found, write to cache
-                if(record is not null)
-                {
-                    await cache.UpsertAsync(id, record, cancellation);
-                }
-            }
-
-            return record;           
-        } 
-      
-        private sealed class EntityCacheImpl<T> : IEntityCache<T> where T : class
+            return new EntityCacheBuilder<TEntity>(cache);
+        }
+        private sealed class EntityCacheImpl<T>(IGlobalCacheProvider cache, ICacheObjectDeserializer deserializer, ICacheObjectSerializer serializer) 
+            : IEntityCache<T> where T : class
         {
-            private readonly IGlobalCacheProvider _cacheProvider;
-            private readonly ICacheObjectDeserializer _cacheObjectDeserialzer;
-            private readonly ICacheObjectSerializer _cacheObjectSerialzer;
-
-            public EntityCacheImpl(IGlobalCacheProvider cache, ICacheObjectDeserializer deserializer, ICacheObjectSerializer serializer)
-            {
-                _cacheProvider = cache;
-                _cacheObjectDeserialzer = deserializer;
-                _cacheObjectSerialzer = serializer;
-            }
+            private readonly IGlobalCacheProvider _cacheProvider = cache;
+            private readonly ICacheObjectDeserializer _cacheObjectDeserialzer = deserializer;
+            private readonly ICacheObjectSerializer _cacheObjectSerialzer = serializer;
 
             ///<inheritdoc/>
             public Task<T?> GetAsync(string id, CancellationToken token = default) => _cacheProvider.GetAsync<T>(id, _cacheObjectDeserialzer, token);
@@ -213,9 +150,9 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
             public Task UpsertAsync(string id, T entity, CancellationToken token = default) => _cacheProvider.AddOrUpdateAsync(id, null, entity, _cacheObjectSerialzer, token);
         }
 
-        private sealed class ScopedCacheImpl: ScopedCache
+        private sealed class ScopedCacheImpl(IGlobalCacheProvider cache, ICacheKeyGenerator keyGen) : ScopedCache
         {
-            private readonly IGlobalCacheProvider Cache;
+            private readonly IGlobalCacheProvider Cache = cache;
 
             ///<inheritdoc/>
             public override bool IsConnected
@@ -225,19 +162,13 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
             }
 
             ///<inheritdoc/>
-            protected override ICacheKeyGenerator KeyGen { get; }
+            protected override ICacheKeyGenerator KeyGen { get; } = keyGen;
 
             ///<inheritdoc/>
             public override ICacheObjectDeserializer DefaultDeserializer => Cache.DefaultDeserializer;
 
             ///<inheritdoc/>
             public override ICacheObjectSerializer DefaultSerializer => Cache.DefaultSerializer;
-
-            public ScopedCacheImpl(IGlobalCacheProvider cache, ICacheKeyGenerator keyGen)
-            {
-                this.Cache = cache;
-                KeyGen = keyGen;
-            }
 
             ///<inheritdoc/>
             public override Task<bool> DeleteAsync(string key, CancellationToken cancellation)

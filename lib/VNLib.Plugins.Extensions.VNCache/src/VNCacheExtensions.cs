@@ -55,7 +55,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// <param name="search">The directory search option</param>
         /// <returns>The loaded <see cref="IGlobalCacheProvider"/> instance</returns>
         public static IGlobalCacheProvider LoadCacheLibrary(this PluginBase plugin, string asmDllPath, SearchOption search = SearchOption.AllDirectories) 
-             => plugin.CreateServiceExternal<IGlobalCacheProvider>(asmDllPath, search, null);
+             => plugin.CreateServiceExternal<IGlobalCacheProvider>(asmDllPath, search, defaultCtx: null);
 
         /// <summary>
         /// Gets the configuration assigned global cache provider, if defined. If the configuration does not 

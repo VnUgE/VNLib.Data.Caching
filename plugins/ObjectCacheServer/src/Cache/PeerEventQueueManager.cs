@@ -228,13 +228,13 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
                 FullMode = BoundedChannelFullMode.DropOldest,
             });
 
-            public void PublishChange(ChangeEvent change) => Queue.TryEnque(change);
+            public void PublishChange(ChangeEvent change) => Queue.TryEnqueue(change);
 
             public void PublishChanges(Span<ChangeEvent> changes)
             {
                 for (int i = 0; i < changes.Length; i++)
                 {
-                    Queue.TryEnque(changes[i]);
+                    Queue.TryEnqueue(changes[i]);
                 }
             }
 
