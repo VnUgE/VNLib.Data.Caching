@@ -141,13 +141,16 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
             private readonly ICacheObjectSerializer _cacheObjectSerialzer = serializer;
 
             ///<inheritdoc/>
-            public Task<T?> GetAsync(string id, CancellationToken token = default) => _cacheProvider.GetAsync<T>(id, _cacheObjectDeserialzer, token);
+            public Task<T?> GetAsync(string id, CancellationToken token = default) 
+                => _cacheProvider.GetAsync<T>(id, _cacheObjectDeserialzer, token);
 
             ///<inheritdoc/>
-            public Task<bool> RemoveAsync(string id, CancellationToken token = default) => _cacheProvider.DeleteAsync(id, token);
+            public Task<bool> RemoveAsync(string id, CancellationToken token = default) 
+                => _cacheProvider.DeleteAsync(id, token);
 
             ///<inheritdoc/>
-            public Task UpsertAsync(string id, T entity, CancellationToken token = default) => _cacheProvider.AddOrUpdateAsync(id, null, entity, _cacheObjectSerialzer, token);
+            public Task UpsertAsync(string id, T entity, CancellationToken token = default) 
+                => _cacheProvider.AddOrUpdateAsync(id, newKey: null, entity, _cacheObjectSerialzer, token);
         }
 
         private sealed class ScopedCacheImpl(IGlobalCacheProvider cache, ICacheKeyGenerator keyGen) : ScopedCache

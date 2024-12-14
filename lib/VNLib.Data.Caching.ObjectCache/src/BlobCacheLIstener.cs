@@ -92,29 +92,33 @@ namespace VNLib.Data.Caching.ObjectCache
             try
             {
                 //Get the action header
-                string action = context.Method();
-
-                //Optional newid header
-                string? alternateId = context.NewObjectId();
+                string? action = FBMCacheHeaders.GetMethod(context);
+                string? objectId = FBMCacheHeaders.GetObjectId(context);
+                string? alternateId = FBMCacheHeaders.GetNewObjectId(context);
 
                 switch (action)
                 {
                     case Actions.Get:
                         {
-                            //Get the object-id header
-                            string objectId = context.ObjectId();
+                            if (string.IsNullOrWhiteSpace(objectId))
+                            {
+                                break;
+                            }
 
                             //Process read
                             await ReadEntryAsync(context, objectId, exitToken);
+
                             return;
                         }                        
                     case Actions.AddOrUpdate:
                         {
-                            //Get the object-id header
-                            string objectId = context.ObjectId();
+                            if (string.IsNullOrWhiteSpace(objectId))
+                            {
+                                break;
+                            }
 
                             //Create change event for the object
-                            ChangeEvent change = new(objectId, alternateId, false);
+                            ChangeEvent change = new(objectId, alternateId, deleted: false);
 
                             if (config.EnableMessageChecksums)
                             {
@@ -140,11 +144,13 @@ namespace VNLib.Data.Caching.ObjectCache
                         }
                     case Actions.Delete:
                         {
-                            //Get the object-id header
-                            string objectId = context.ObjectId();
+                            if (string.IsNullOrWhiteSpace(objectId))
+                            {
+                                break;
+                            }
 
                             //Create change event
-                            ChangeEvent change = new(objectId, alternateId, true);
+                            ChangeEvent change = new(objectId, alternateId, deleted: true);
 
                             await DeleteEntryAsync(context, change, exitToken);
                             return;
@@ -196,11 +202,10 @@ namespace VNLib.Data.Caching.ObjectCache
 
                             return;
                         }
-                       
                 }
 
-                Log.Error("Unhandled cache event for session {id}", context.Request.ConnectionId);
-                context.CloseResponse(ResponseCodes.Error);
+                Log.Debug("Unhandled cache event {action} for session {id}", action, context.Request.ConnectionId);
+                context.CloseResponse(ResponseCodes.BadRequest);
             }
             catch (OperationCanceledException)
             {
@@ -232,9 +237,11 @@ namespace VNLib.Data.Caching.ObjectCache
 
                 //Set the status code and write the buffered data to the response buffer
                 context.CloseResponse(ResponseCodes.Okay);
-
-                //Copy data to response buffer
-                context.Response.WriteBody(data.GetDataSegment());
+            
+                context.Response.WriteBody(
+                    data.GetDataSegment(), 
+                    Net.Http.ContentType.Binary
+                );
             }
             else
             {
@@ -261,7 +268,14 @@ namespace VNLib.Data.Caching.ObjectCache
         private async ValueTask AddOrUpdateAsync(FBMContext context, ChangeEvent change, CancellationToken cancellation)
         {
             //Run add/update and get the valuetask
-            await Cache.AddOrUpdateObjectAsync(change.CurrentId, change.AlternateId, static r => r.BodyData, context.Request, default, cancellation);
+            await Cache.AddOrUpdateObjectAsync(
+                objectId: change.CurrentId, 
+                alternateId: change.AlternateId, 
+                static r => r.BodyData, 
+                state: context.Request, 
+                time: default, 
+                cancellation
+            );
 
             EnqueEvent(change);
 

@@ -34,11 +34,12 @@ namespace VNLib.Data.Caching
         /// </summary>
         public static class Actions
         {
-            public const string Get= "g";
+            public const string Get = "g";
             public const string AddOrUpdate = "u";
             public const string Delete = "d";
             public const string Dequeue = "dq";
         }
+
         /// <summary>
         /// Containts constants for operation response codes
         /// </summary>
@@ -47,6 +48,7 @@ namespace VNLib.Data.Caching
             public const string Okay = "ok";
             public const string Error = "err";
             public const string NotFound = "nf";
+            public const string BadRequest = "br";
             public const string InvalidChecksum = "cm";
         }
 

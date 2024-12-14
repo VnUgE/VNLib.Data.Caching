@@ -107,7 +107,6 @@ namespace VNLib.Data.Caching.Providers.VNCache
 
         public FBMCacheClient(VnCacheClientConfig config, ILogProvider? debugLog) : this(config, debugLog, null)
         { }
-        
 
         private FBMCacheClient(VnCacheClientConfig config, ILogProvider? debugLog, PluginBase? plugin) : base(config)
         {
@@ -117,8 +116,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
             _config = config;
 
             //Set a default node delay if null
-            _initNodeDelay = _config.InitialNodeDelay.HasValue 
-                ? TimeSpan.FromSeconds(_config.InitialNodeDelay.Value) 
+            _initNodeDelay = _config.InitialNodeDelay.HasValue
+                ? TimeSpan.FromSeconds(_config.InitialNodeDelay.Value)
                 : InitialDelay;
 
             //Init the client with default settings
@@ -130,7 +129,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
                 maxClients: 10
             );
 
-            _cluster = (new CacheClientConfiguration())
+            _cluster = new CacheClientConfiguration()
                 .WithTls(config.UseTls)
                 .WithInitialPeers(config.GetInitialNodeUris())
                 .ToClusterClient(clientFactory);
@@ -217,7 +216,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
                         node = _index.GetNextNode();
 
                         //Again master instance will handle this condition, we just need to wait
-                        if(node is null)
+                        if (node is null)
                         {
                             await Task.Delay(NoNodeDelay, exitToken);
                             continue;
@@ -281,7 +280,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
                     finally
                     {
                         _isConnected = false;
-                        
+
                         //Cleanup client
                         _client?.Dispose();
                     }
@@ -434,7 +433,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
             {
                 string node = errorNode?.NodeId ?? address?.ToString() ?? "unknown";
 
-                if(ex is HttpRequestException he)
+                if (ex is HttpRequestException he)
                 {
                     if(he.InnerException is SocketException se)
                     {
@@ -451,7 +450,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
 
                 void LogErrorException(Exception ex)
                 {
-                    if(Logger.IsEnabled(LogLevel.Debug))
+                    if (Logger.IsEnabled(LogLevel.Debug))
                     {
                         Logger.Error("Failed to discover nodes from server {s} cause:\n{err}", node, ex);
                     }

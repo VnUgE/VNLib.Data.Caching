@@ -37,14 +37,14 @@ using VNLib.Data.Caching.Exceptions;
 using static VNLib.Data.Caching.Constants;
 
 namespace VNLib.Data.Caching
-{  
+{
 
     /// <summary>
     /// Provides caching extension methods for <see cref="FBMClient"/>
     /// </summary>
     public static class ClientExtensions
     {
-        private readonly record struct AddOrUpdateState<T>(T State, ICacheObjectSerializer Serializer);      
+        private readonly record struct AddOrUpdateState<T>(T State, ICacheObjectSerializer Serializer);
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -88,10 +88,10 @@ namespace VNLib.Data.Caching
 
             return AddOrUpdateObjectAsync(client, objectId, newId, Serialize, state, cancellationToken);
 
-            static void Serialize(AddOrUpdateState<T> state, IBufferWriter<byte> finiteWriter) 
+            static void Serialize(AddOrUpdateState<T> state, IBufferWriter<byte> finiteWriter)
                 => state.Serializer.Serialize(state.State, finiteWriter);
         }
-        
+
 
         /// <summary>
         /// Updates the state of the object, and optionally updates the ID of the object. The data 
@@ -113,7 +113,7 @@ namespace VNLib.Data.Caching
         {
             return AddOrUpdateObjectAsync(client, objectId, newId, static d => d.GetData(), data, cancellationToken);
         }
-      
+
 
         /// <summary>
         /// Updates the state of the object, and optionally updates the ID of the object. The data 
@@ -133,11 +133,11 @@ namespace VNLib.Data.Caching
         /// <exception cref="MessageTooLargeException"></exception>
         /// <exception cref="ObjectNotFoundException"></exception>
         public static Task AddOrUpdateObjectAsync<T>(
-            this FBMClient client, 
-            string objectId, 
-            string? newId, 
+            this FBMClient client,
+            string objectId,
+            string? newId,
             ObjectDataGet<T> callback,
-            T state, 
+            T state,
             CancellationToken cancellationToken = default
         )
         {
@@ -177,11 +177,11 @@ namespace VNLib.Data.Caching
         /// <exception cref="MessageTooLargeException"></exception>
         /// <exception cref="ObjectNotFoundException"></exception>
         public static Task AddOrUpdateObjectAsync<T>(
-            this FBMClient client, 
-            string objectId, 
-            string? newId, 
-            ObjectDataReader<T> callback, 
-            T state, 
+            this FBMClient client,
+            string objectId,
+            string? newId,
+            ObjectDataReader<T> callback,
+            T state,
             CancellationToken cancellationToken = default
         )
         {
@@ -212,7 +212,7 @@ namespace VNLib.Data.Caching
 
                 return ExecAsync(client, request, objectId, cancellationToken);
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 //Return the request(clears data and reset)
                 client.ReturnRequest(request);
@@ -239,10 +239,10 @@ namespace VNLib.Data.Caching
                     {
                         throw new ObjectNotFoundException($"object {objectId} not found on remote server");
                     }
-                    else if(status.ValueEquals(ResponseCodes.InvalidChecksum, StringComparison.OrdinalIgnoreCase))
+                    else if (status.ValueEquals(ResponseCodes.InvalidChecksum, StringComparison.OrdinalIgnoreCase))
                     {
                         throw new InvalidChecksumException($"The server rejected the message {objectId} due to an invalid checksum");
-                    }  
+                    }
 
                     //Invalid status
                     throw new InvalidStatusException("Invalid status code recived for object upsert request", status.ToString());
@@ -254,7 +254,7 @@ namespace VNLib.Data.Caching
                 }
             }
         }
-     
+
 
         /// <summary>
         /// Gets an object from the server if it exists
@@ -273,10 +273,10 @@ namespace VNLib.Data.Caching
         /// <exception cref="ObjectDisposedException"></exception>
         /// <exception cref="InvalidResponseException"></exception>
         public static async Task<T?> GetObjectAsync<T, TState>(
-            this FBMClient client, 
-            string objectId, 
-            GetObjectFromData<T,TState> getter, 
-            TState state, 
+            this FBMClient client,
+            string objectId,
+            GetObjectFromData<T, TState> getter,
+            TState state,
             CancellationToken cancellationToken = default
             )
         {
@@ -309,7 +309,7 @@ namespace VNLib.Data.Caching
         public static Task<T?> GetObjectAsync<T>(this FBMClient client, string objectId, ICacheObjectDeserializer deserialzer, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(deserialzer);
-          
+
             //Use the deserialzer to deserialize the data as a state parameter
             return GetObjectAsync(client, objectId, static (s, d) => s.Deserialize<T>(d), deserialzer, cancellationToken);
         }
@@ -373,7 +373,7 @@ namespace VNLib.Data.Caching
                 response.ThrowIfNotSet();
 
                 //Get the status code
-                FBMMessageHeader status = response.Headers.FirstOrDefault(static a => a.Header == HeaderCommand.Status);             
+                FBMMessageHeader status = response.Headers.FirstOrDefault(static a => a.Header == HeaderCommand.Status);
 
                 //Check ok status code, then its safe to deserialize
                 if (status.ValueEquals(ResponseCodes.Okay, StringComparison.Ordinal))
@@ -382,7 +382,7 @@ namespace VNLib.Data.Caching
                     FBMMessageHeader checksumType = response.Headers.FirstOrDefault(static a => a.Header == ChecksumType);
                     FBMMessageHeader checksum = response.Headers.FirstOrDefault(static a => a.Header == ChecksumValue);
 
-                    if(checksumType.ValueEquals(ChecksumTypes.Fnv1a, StringComparison.OrdinalIgnoreCase))
+                    if (checksumType.ValueEquals(ChecksumTypes.Fnv1a, StringComparison.OrdinalIgnoreCase))
                     {
                         //Verify the checksum
                         if (!FbmMessageChecksum.VerifyFnv1aChecksum(checksum.Value, response.ResponseBody))
@@ -504,40 +504,6 @@ namespace VNLib.Data.Caching
         }
 
         /// <summary>
-        /// Gets the Object-id for the request message, or throws an <see cref="InvalidOperationException"/> if not specified
-        /// </summary>
-        /// <param name="context"></param>
-        /// <returns>The id of the object requested</returns>
-        /// <exception cref="InvalidOperationException"></exception>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string ObjectId(this FBMContext context)
-        {
-            return context.Request.Headers.First(static kvp => kvp.Header == Constants.ObjectId).Value.ToString();
-        }
-        
-        /// <summary>
-        /// Gets the new ID of the object if specified from the request. Null if the request did not specify an id update
-        /// </summary>
-        /// <param name="context"></param>
-        /// <returns>The new ID of the object if speicifed, null otherwise</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string? NewObjectId(this FBMContext context)
-        {
-            return context.Request.Headers.FirstOrDefault(static kvp => kvp.Header == Constants.NewObjectId).GetValueString();
-        }
-
-        /// <summary>
-        /// Gets the request method for the request
-        /// </summary>
-        /// <param name="context"></param>
-        /// <returns>The request method string</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string Method(this FBMContext context)
-        {
-            return context.Request.Headers.First(static kvp => kvp.Header == HeaderCommand.Action).Value.ToString();
-        }
-
-        /// <summary>
         /// Closes a response with a status code
         /// </summary>
         /// <param name="context"></param>
@@ -556,12 +522,12 @@ namespace VNLib.Data.Caching
         /// <param name="retryDelay">The amount of time to wait between retries</param>
         /// <param name="serverUri">The uri to reconnect the client to</param>
         /// <returns>A <see cref="ClientRetryManager{T}"/> for listening for retry events</returns>
-        public static ClientRetryManager<T> SetReconnectPolicy<T>(this T worker, TimeSpan retryDelay, Uri serverUri) where T: IStatefulConnection
+        public static ClientRetryManager<T> SetReconnectPolicy<T>(this T worker, TimeSpan retryDelay, Uri serverUri) where T : IStatefulConnection
         {
             //Return new manager
-            return new (worker, retryDelay, serverUri);
+            return new(worker, retryDelay, serverUri);
         }
-       
+
         /// <summary>
         /// Determines if the the client sent a message checksum, and if so, verifies the checksum
         /// if the checksum type is supported.
@@ -583,7 +549,7 @@ namespace VNLib.Data.Caching
                 return -1;
             }
 
-            if(type.Equals(ChecksumTypes.Fnv1a, StringComparison.OrdinalIgnoreCase))
+            if (type.Equals(ChecksumTypes.Fnv1a, StringComparison.OrdinalIgnoreCase))
             {
                 //Verify the checksum
                 return FbmMessageChecksum.VerifyFnv1aChecksum(value, message.BodyData) ? 1 : 0;
