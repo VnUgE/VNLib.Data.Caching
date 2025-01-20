@@ -23,7 +23,7 @@
     "max_request_header_count": 50,                 //The maxium number of headers allowed in an HTTP request message
     "max_connections": ${HTTP_MAX_CONS:-5000},       //The maxium number of allowed network connections, before 503s will be issued automatically and connections closed   
     "response_header_buf_size": 8128,               //The size (in bytes) of the buffer used to store all response header data
-    "max_uploads_per_request": 0,                  //Max number of multi-part file uploads allowed per request
+    "max_uploads_per_request": 1,                  //Max number of multi-part file uploads allowed per request
     "keepalive_ms": ${HTTP_KEEPALIVE_MS:-1000000},  //Keepalive ms for HTTP1.1 keepalive connections
     "recv_timeout_ms": 5000,                        //Time (in ms) to wait for a response from an active connection in recv mode, before dropping it
     "send_timeout_ms": 60000,                       //Time (in ms) to wait for the client to accept transport data before terminating the connection
@@ -46,8 +46,13 @@
 
   "virtual_hosts": [
     {
+      "enabled": true,
       "trace": ${HTTP_TRACE_ON:-false},
       "force_port_check": ${HTTP_PORT_CHECK_ON:-false},        //disable port checking by default (useful for containers)
+
+      //The hostname to listen for, "*" as wildcard, and "[system]" as the default hostname for the current machine
+      "hostname": "${HTTP_HOSTNAME:-*}",
+      "path": "root/",
 
       //The interface to bind to, you may not mix TLS and non-TLS connections on the same interface
       "interfaces": [
@@ -67,16 +72,6 @@
       //Collection of "trusted" servers to allow proxy header support from
       "downstream_servers": ${HTTP_DOWNSTREAM_SERVERS:-[]},
 
-      //The hostname to listen for, "*" as wildcard, and "[system]" as the default hostname for the current machine
-      "hostname": "${HTTP_HOSTNAME:-*}",
-      "path": "root/",
-
-      "cors": {
-        "enabled": false,                   //Enables cors protections for this host
-        "deny_cors_connections": false,     //If true, all cors connections will be denied
-        "allowed_origins": [ ]
-      },
-
       //Key-value headers object, some headers are special and are controlled by the vh processor
       "headers": {
         "Server": "VNCache/0.1.0",
@@ -94,7 +89,6 @@
   //Defines the directory where plugin's are to be loaded from
   "plugins": {
     "enabled": ${PLUGINS_ENABLED:-true},
-    //Hot-reload creates collectable assemblies that allow full re-load support in the host application, should only be used for development purposes!
     "hot_reload": false,
     "path": "plugins/",
     "config_dir": "config/",

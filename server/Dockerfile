@@ -2,7 +2,7 @@
 #Licensed under the GNU AGPL V3.0
 
 #use plain ubuntu latest to build native libraries in
-FROM ubuntu:22.04 as native-cont
+FROM ubuntu:24.04 as native-cont
 
 #install public libs and build tools
 RUN apt update \
@@ -11,8 +11,8 @@ RUN apt update \
 WORKDIR /build
 
 #download and install task (t its easier an faster without npm)
-ADD --checksum=sha256:d4ea84524cc4e0969e84f063fc99b9aba2090ec259c00a2e12d9ed1a182cf6af \
-  https://github.com/go-task/task/releases/download/v3.39.2/task_linux_amd64.deb \
+ADD --checksum=sha256:fe61611118e586e51eec55678a8a00409111ff723ada07bfb6cda2897814b42a \
+  https://github.com/go-task/task/releases/download/v3.41.0/task_linux_amd64.deb \
   task_linux_amd64.deb
 
 RUN dpkg -i task_linux_amd64.deb
@@ -25,7 +25,7 @@ RUN task setup
 
 #APP CONTAINER
 #move into a clean dotnet ubuntu lean image
-FROM mcr.microsoft.com/dotnet/runtime:8.0.10-jammy as app-cont
+FROM mcr.microsoft.com/dotnet/runtime:8.0.11-noble as app-cont
 
 LABEL name="vnuge/vncache"
 LABEL maintainer="Vaughn Nugent <vnpublic@proton.me>"
