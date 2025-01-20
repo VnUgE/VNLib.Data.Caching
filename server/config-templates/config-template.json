@@ -23,7 +23,7 @@
     "max_request_header_count": 50,                 //The maxium number of headers allowed in an HTTP request message
     "max_connections": ${HTTP_MAX_CONS:-5000},       //The maxium number of allowed network connections, before 503s will be issued automatically and connections closed   
     "response_header_buf_size": 8128,               //The size (in bytes) of the buffer used to store all response header data
-    "max_uploads_per_request": 0,                  //Max number of multi-part file uploads allowed per request
+    "max_uploads_per_request": 1,                  //Max number of multi-part file uploads allowed per request
     "keepalive_ms": ${HTTP_KEEPALIVE_MS:-1000000},  //Keepalive ms for HTTP1.1 keepalive connections
     "recv_timeout_ms": 5000,                        //Time (in ms) to wait for a response from an active connection in recv mode, before dropping it
     "send_timeout_ms": 60000,                       //Time (in ms) to wait for the client to accept transport data before terminating the connection

@@ -12,7 +12,7 @@ WORKDIR /build
 
 #download and install task (t its easier an faster without npm)
 ADD --checksum=sha256:fe61611118e586e51eec55678a8a00409111ff723ada07bfb6cda2897814b42a \
-  https://github.com/go-task/task/releases/download/v3.41./task_linux_amd64.deb \
+  https://github.com/go-task/task/releases/download/v3.41.0/task_linux_amd64.deb \
   task_linux_amd64.deb
 
 RUN dpkg -i task_linux_amd64.deb
