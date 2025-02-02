@@ -27,22 +27,15 @@ jobs:
       commands: |
         git clone @server_url@/VNLib.Core core --branch master
         git clone @server_url@/VNLib.Plugins.Extensions --branch master
+        git clone @server_url@/@project_name@ --branch @branch@
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
-  - !CheckoutStep
-    name: checkout
-    cloneCredential: !DefaultCredential {}
-    withLfs: false
-    withSubmodules: false
-    checkoutPath: '@project_name@'
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   - !CommandStep
     name: run unit tests
     runInContainer: false
     interpreter: !DefaultInterpreter
       commands: |
-        cd @project_name@
-        task -t Module.Taskfile.yaml test
+        vnbuild test --include @project_name@
     useTTY: true
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   triggers:
@@ -61,14 +54,8 @@ jobs:
       commands: |
         git clone @server_url@/VNLib.Core core --branch master
         git clone @server_url@/VNLib.Plugins.Extensions --branch master
+        git clone @server_url@/@project_name@ --branch @branch@
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
-  - !CheckoutStep
-    name: checkout
-    cloneCredential: !DefaultCredential {}
-    withLfs: false
-    withSubmodules: false
-    checkoutPath: '@project_name@'
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   - !CommandStep
     name: VNBuild build
@@ -107,14 +94,8 @@ jobs:
       commands: |
         git clone @server_url@/VNLib.Core core --branch master
         git clone @server_url@/VNLib.Plugins.Extensions --branch master
+        git clone @server_url@/@project_name@ --branch @branch@
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
-  - !CheckoutStep
-    name: checkout
-    cloneCredential: !DefaultCredential {}
-    withLfs: false
-    withSubmodules: false
-    checkoutPath: '@project_name@'
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   - !CommandStep
     name: VNBuild build
