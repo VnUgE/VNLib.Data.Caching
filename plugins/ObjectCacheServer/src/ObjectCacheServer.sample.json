@@ -1,4 +1,4 @@
-﻿{
+{
   //enables cache server cluster node data
   "cluster": {
     //Delay to re-discover peers
@@ -23,7 +23,10 @@
     "discovery_path": "/discover",
 
     //Optionally change the well-known path (clients must know this)
-    "well_known_path": null
+    "well_known_path": null,
+
+    //The local port this server is running on for gossip urls
+    "local_port": 2557
   },
 
   //Cache configuration object, FBM protocol variables

@@ -17,7 +17,6 @@ services:
       #- ./ssl:/app/ssl:ro                # optional only if SSL is enabled (currently not a feature)
     ports:
       - 2557:2557
-    cmd: ['--verbose']
     environment:
       # System memory consumption is calculated as follows:
       # MAX_ENTIRES x CACHE_BUCKETS x CACHE_MAX_MESSAGE = max memory consumption
@@ -43,7 +42,5 @@ services:
 
       #HTTP
       #HTTP_DOWNSTREAM_SERVERS: '[]'
-      HTTP_BIND_ADDR: "0.0.0.0"
-      HTTP_BIND_PORT: "2557"
       HTTP_MAX_CONNS: "5000"
 

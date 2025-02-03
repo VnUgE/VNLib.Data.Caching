@@ -54,6 +54,7 @@ tasks:
         cmd: powershell cp -Force {{ .ITEM }} build/container
 
       # copy the compile script and taskfile, rename the taskfile to Taskfile.yaml
+      - cmd: wsl dos2unix compile.sh
       - cmd: powershell cp -Force 'compile.sh' 'build/container/app'
       - cmd: powershell cp -Force release.taskfile.yaml "build/container/app/Taskfile.yaml"
 

@@ -3,15 +3,16 @@
 
   //enables cache server cluster node data
   "cluster": {
-    "max_concurrent_connections": ${MAX_CLIENT_CONNECTIONS:-1000}, //The maxium number of connections to this node
-    "discovery_interval_sec": ${DISCOVERY_INTERVAL_SEC:-360}, //Delay to re-discover peers
-    "max_peers": ${MAX_PEER_NODES:-10},                 //The maxium number of peers to connect to
-    "max_queue_depth": 10000,                           //Max ev queue depth before LRU eviction
-    "queue_purge_interval_sec": 360000,                 //Time between queue purge
-    "verify_ip": ${VERIFY_IP:-true},                    //Forces strict ip address verification on upgrades (best to leave on)
-    "connect_path": "${CACHE_CONNECT_PATH:-/cache}",    //The cache websocket endpoint path
-    "discovery_path": "${DISCOVER_PATH:-/discover}",    //Optional to allow nodes to discover nodes we adverties
-    "well_known_path": ${WELL_KNOWN_PATH:-null},        //Optionally change the well-known path (clients must know this)
+    "max_concurrent_connections": ${MAX_CLIENT_CONNECTIONS:-1000},  //The maxium number of connections to this node
+    "discovery_interval_sec": ${DISCOVERY_INTERVAL_SEC:-360},       //Delay to re-discover peers
+    "max_peers": ${MAX_PEER_NODES:-10},                             //The maxium number of peers to connect to
+    "max_queue_depth": 10000,                                       //Max ev queue depth before LRU eviction
+    "queue_purge_interval_sec": 360000,                             //Time between queue purge
+    "verify_ip": ${VERIFY_IP:-true},                                //Forces strict ip address verification on upgrades (best to leave on)
+    "connect_path": "${CACHE_CONNECT_PATH:-/cache}",                //The cache websocket endpoint path
+    "discovery_path": "${DISCOVER_PATH:-/discover}",                //Optional to allow nodes to discover nodes we adverties
+    "well_known_path": "${WELL_KNOWN_PATH:-/.well-known/vncache}",  //Optionally change the well-known path (clients must know this)
+    "local_port": ${HTTP_BIND_PORT:-2557}                           //Must tell cluster config what port were listening on
   },
 
   //Known peers array, must point to well-known endpoint for discovery

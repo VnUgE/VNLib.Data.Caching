@@ -66,6 +66,9 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         [JsonPropertyName("max_peers")]
         public uint MaxPeerConnections { get; init; }
 
+
+        public ushort ServerPort { get; } = config.GetRequiredProperty("local_port", p => p.GetUInt16());
+
         /// <summary>
         /// The maxium number of concurrent client connections to allow
         /// before rejecting new connections
@@ -111,27 +114,14 @@ Cluster Configuration:
             CacheNodeConfiguration conf = new();
 
             //Get the port of the primary webserver
-            int port;
-            bool usingTls;
-            {
-                //Get the port number of the first virtual host
-                JsonElement firstHost = plugin.HostConfig.GetProperty("virtual_hosts")
-                                            .EnumerateArray()
-                                            .First();
-
-                port = firstHost.GetProperty("interface")
-                        .GetProperty("port")
-                        .GetInt32();
-
-                //If the ssl element is present, ssl is enabled for the server
-                usingTls = firstHost.TryGetProperty("ssl", out _);
-            }
+            bool usingTls = false; //TLS is not yet supported
+          
             string hostname = Dns.GetHostName();
 
             //Server id is just dns name for now
-            string nodeId = $"{hostname}:{port}";
+            string nodeId = $"{hostname}:{ServerPort}";
 
-            Uri connectEp = BuildUri(usingTls, hostname, port, ConnectPath);
+            Uri connectEp = BuildUri(usingTls, hostname, ServerPort, ConnectPath);
             Uri? discoveryEp = null;
          
             
@@ -143,7 +133,7 @@ Cluster Configuration:
             if (!string.IsNullOrWhiteSpace(DiscoveryPath))
             {
                 //Build the discovery endpoint, it must be an absolute uri
-                discoveryEp = BuildUri(usingTls, hostname, port, DiscoveryPath);
+                discoveryEp = BuildUri(usingTls, hostname, ServerPort, DiscoveryPath);
                 conf.EnableAdvertisment(discoveryEp);
             }
 
@@ -164,7 +154,7 @@ Cluster Configuration:
             return conf;
         }
 
-        private static Uri BuildUri(bool tls, string host, int port, string path)
+        private static Uri BuildUri(bool tls, string host, ushort port, string path)
         {
             return new UriBuilder
             {
