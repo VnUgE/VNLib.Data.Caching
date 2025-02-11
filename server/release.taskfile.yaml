@@ -9,15 +9,10 @@ vars:
   DATA_DIR: "data"
 
 tasks:
-  default:
-    desc: "Runs the server in release mode"
-    interactive: true
-    cmds:
-    - task: run
 
   run:
+    aliases: [ default ]
     desc: "Runs the server in release mode"
-    silent: true
     interactive: true
     env: 
       #libraries intentionally do not have extensions, for cross-platform compatibility, the server will load them regardless
