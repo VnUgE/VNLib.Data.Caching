@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
@@ -27,38 +27,24 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace VNLib.Data.Caching.ObjectCache
 {
+
     /// <summary>
     /// Holds an exclusive lock on a <see cref="IBlobCacheBucket"/>, and exposes
     /// acess to its internal <see cref="IBlobCache"/>
     /// </summary>
-    public readonly struct CacheBucketHandle : IDisposable, IEquatable<CacheBucketHandle> 
+    /// <remarks>
+    /// Creates a new bucket lock handle to be released on dispose
+    /// </remarks>
+    /// <param name="bucket">The bucket to release access to on dispose</param>
+    /// <param name="cache">The underlying <see cref="IBlobCache"/> provide exclusive access to</param>
+    public readonly struct CacheBucketHandle(IBlobCacheBucket bucket, IBlobCache cache) : IDisposable, IEquatable<CacheBucketHandle> 
     {
-        private readonly IBlobCacheBucket? _bucket;
+        private readonly IBlobCacheBucket? _bucket = bucket;
 
         /// <summary>
         /// The <see cref="IBlobCache"/> held by the current handle
         /// </summary>
-        public readonly IBlobCache Cache { get; }
-
-        /// <summary>
-        /// Initializes an empty blobcache handle
-        /// </summary>
-        public CacheBucketHandle()
-        {
-            _bucket = null;
-            Cache = null!;
-        }
-
-        /// <summary>
-        /// Creates a new bucket lock handle to be released on dispose
-        /// </summary>
-        /// <param name="bucket">The bucket to release access to on dispose</param>
-        /// <param name="cache">The underlying <see cref="IBlobCache"/> provide exclusive access to</param>
-        public CacheBucketHandle(IBlobCacheBucket bucket, IBlobCache cache)
-        {
-            _bucket = bucket;
-            Cache = cache;
-        }
+        public readonly IBlobCache Cache { get; } = cache;
 
         /// <summary>
         /// Releases the exlusive lock held on the bucket
@@ -83,7 +69,8 @@ namespace VNLib.Data.Caching.ObjectCache
         /// </summary>
         /// <param name="obj">The other handle to compare</param>
         /// <returns>True if the handles hold a referrence to the same bucket</returns>
-        public override bool Equals([NotNullWhen(true)] object? obj) => obj is CacheBucketHandle other && Equals(other);
+        public override bool Equals([NotNullWhen(true)] object? obj) 
+            => obj is CacheBucketHandle other && Equals(other);
 
         /// <summary>
         /// Gets the hashcode of the underlying bucket
@@ -98,7 +85,8 @@ namespace VNLib.Data.Caching.ObjectCache
         /// <param name="left"></param>
         /// <param name="right"></param>
         /// <returns>True if the internal bucket references are equal</returns>
-        public static bool operator ==(CacheBucketHandle left, CacheBucketHandle right) => left.Equals(right);
+        public static bool operator ==(in CacheBucketHandle left, in CacheBucketHandle right) 
+            => left.Equals(right);
 
         /// <summary>
         /// Determines if the handles are equal by the <see cref="Equals(CacheBucketHandle)"/>
@@ -107,6 +95,7 @@ namespace VNLib.Data.Caching.ObjectCache
         /// <param name="left"></param>
         /// <param name="right"></param>
         /// <returns>True if the internal bucket references are NOT equal</returns>
-        public static bool operator !=(CacheBucketHandle left, CacheBucketHandle right) => !(left == right);
+        public static bool operator !=(in CacheBucketHandle left, in CacheBucketHandle right) 
+            => !(left == right);
     }
 }

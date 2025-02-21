@@ -10,7 +10,7 @@ Debug build w/ symbols & xml docs, release builds, NuGet packages, and individua
 ## Links
 [Home Page](https://www.vaughnnugent.com) - Website home page  
 [Documentation](https://www.vaughnnugent.com/resources/software/articles?tags=docs,_VNLib.Data.Caching) - Docs and articles for this module  
-[Builds for VNLib.Data.Caching](https://www.vaughnnugent.com/resources/software/modules/VNLib.Data.Caching) - Per-project build artifacts  
+[Builds for VNLib.Data.Caching](https://www.vaughnnugent.com/resources/software/modules/VNLib.Data.Caching?tab=downloads) - Per-project build artifacts  
 [Links for Nuget Feeds](https://www.vaughnnugent.com/resources/software/modules) - Get my NuGet feed links  
 
 ## Licensing
