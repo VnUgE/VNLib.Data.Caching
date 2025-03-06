@@ -63,8 +63,8 @@ jobs:
     interpreter: !DefaultInterpreter
       commands: |
         dotnet-gitversion.exe VNLib.Plugins.Extensions /updateprojectfiles
-        vnbuild build -S --include vnlib.core
-        vnbuild build -S --include @project_name@ --verbose
+        vnbuild build --no-delay --include vnlib.core
+        vnbuild build --no-delay --include @project_name@ --verbose
     useTTY: true
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   - !CommandStep
@@ -103,8 +103,8 @@ jobs:
     interpreter: !DefaultInterpreter
       commands: |
         dotnet-gitversion.exe VNLib.Plugins.Extensions /updateprojectfiles
-        vnbuild build -S --include vnlib.core
-        vnbuild build -S --include @project_name@
+        vnbuild build --no-delay --include vnlib.core
+        vnbuild build --no-delay --include @project_name@
     useTTY: true
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   - !CommandStep

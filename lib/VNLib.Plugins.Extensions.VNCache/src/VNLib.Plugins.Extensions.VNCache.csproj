@@ -14,7 +14,7 @@
     <Product>VNLib.Plugins.Extensions.VNCache</Product>
     <PackageId>VNLib.Plugins.Extensions.VNCache</PackageId>
     <Description>An Essentials framework extension library for integrating dynamically loaded cache providers such as VNCache or Redis. Helpers and entity caching data structures are also included</Description>
-    <Copyright>Copyright © 2024 Vaughn Nugent</Copyright>
+    <Copyright>Copyright © 2025 Vaughn Nugent</Copyright>
     <PackageProjectUrl>https://www.vaughnnugent.com/resources/software/modules/VNLib.Data.Caching</PackageProjectUrl>
     <RepositoryUrl>https://github.com/VnUgE/VNLib.Data.Caching/tree/master/lib/VNLib.Plugins.Extensions.VNCache</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>

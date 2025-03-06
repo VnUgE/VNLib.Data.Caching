@@ -16,7 +16,7 @@
     <Product>VNLib.Data.Caching.ObjectCache.Server</Product>
     <PackageId>VNLib.Data.Caching.ObjectCache.Server</PackageId>
     <Description>An Essentials framework plugin for implementing a distributed in-memory data caching server disoverable in cache brokers. It provides automatic live replication between cache server nodes.</Description>
-    <Copyright>Copyright © 2024 Vaughn Nugent</Copyright>
+    <Copyright>Copyright © 2025 Vaughn Nugent</Copyright>
     <PackageProjectUrl>https://www.vaughnnugent.com/resources/software/modules/VNLib.Data.Caching</PackageProjectUrl>
     <RepositoryUrl>https://github.com/VnUgE/VNLib.Data.Caching/tree/master/plugins/ObjectCacheServer</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>

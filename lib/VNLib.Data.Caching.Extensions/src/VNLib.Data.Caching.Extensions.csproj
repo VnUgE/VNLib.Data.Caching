@@ -14,7 +14,7 @@
     <Company>Vaughn Nugent</Company>
     <Product>VNLib distributed caching extension library</Product>
     <Description>A libray for working with VNCache distributed object cache networks.</Description>
-    <Copyright>Copyright © 2024 Vaughn Nugent</Copyright>
+    <Copyright>Copyright © 2025 Vaughn Nugent</Copyright>
     <PackageProjectUrl>https://www.vaughnnugent.com/resources/software/modules/VNLib.Data.Caching</PackageProjectUrl>
     <RepositoryUrl>https://github.com/VnUgE/VNLib.Data.Caching/tree/master/lib/VNLib.Data.Caching.Extensions</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
