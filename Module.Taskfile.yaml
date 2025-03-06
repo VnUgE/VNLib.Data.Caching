@@ -62,7 +62,6 @@ tasks:
         --include-symbols
         --configuration release
         --output "{{ .PACK_OUT }}/release/" 
-        -p:PackageVersion={{ .BUILD_VERSION }}
         {{ .MS_ARGS }}
 
   publish:
@@ -76,12 +75,22 @@ tasks:
     vars:
       HOST_CONFIG_FILE: '{{ .USER_WORKING_DIR }}/tests/plugin-tests/Test.DataCaching.Config.json'
     cmds:
+     - cmd: dotnet build 
+        {{ .MS_ARGS }}
+         /p:NoWarn=CS1591 
+        --nologo
+        --configuration debug
+        --verbosity quiet
+
      - cmd: dotnet test
         {{ .CLI_ARGS }}
+        {{ .MS_ARGS }}
+        --no-build
+        --nologo
         --logger "console;verbosity=detailed"
         --configuration debug
-        --verbosity normal
-        --framework {{ .TARGET_FRAMEWORK | default "net8.0" }}
+        --framework {{ .TARGET_FRAMEWORK | default "net8.0" }}    
+        --environment VNLIB_SHARED_HEAP_DIAGNOSTICS="1"
         --environment TEST_HOST_CONFIG_FILE="{{ .HOST_CONFIG_FILE }}"
 
 #called by build pipeline to clean module

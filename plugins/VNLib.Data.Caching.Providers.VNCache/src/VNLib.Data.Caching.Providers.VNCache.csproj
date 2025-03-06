@@ -21,7 +21,7 @@
     <Product>VNLib.Data.Caching.Providers.VNCache</Product>
     <PackageId>VNLib.Data.Caching.Providers.VNCache</PackageId>
     <Description>A runtime asset VNCache client library that exposes an IGlobalCacheProvider that works with VNCache clusters, write through memory-cache, and memory only cache</Description>
-    <Copyright>Copyright © 2024 Vaughn Nugent</Copyright>
+    <Copyright>Copyright © 2025 Vaughn Nugent</Copyright>
     <PackageProjectUrl>https://www.vaughnnugent.com/resources/software/modules/VNLib.Data.Caching</PackageProjectUrl>
     <RepositoryUrl>https://github.com/VnUgE/VNLib.Data.Caching/tree/master/plugins/VNLib.Data.Caching.Providers.VNCache</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
