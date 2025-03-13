@@ -27,8 +27,9 @@ using System.Linq;
 using System.Text.Json.Serialization;
 
 using VNLib.Plugins.Extensions.Loading.Configuration;
+using VNLib.Utils.Logging;
 
-namespace VNLib.Data.Caching.Providers.VNCache
+namespace VNLib.Data.Caching.Providers.VNCache.Internal
 {
     /// <summary>
     /// Represents a remote VNCache client configuration
@@ -36,6 +37,14 @@ namespace VNLib.Data.Caching.Providers.VNCache
     public class VnCacheClientConfig : VNCacheConfig
     {
         const string DefaultWellKnownEndpoint = "/.well-known/vncache";
+
+        /// <summary>
+        /// Specifies a logging provider for the the cache client to write 
+        /// internal debugging information to. This log is strictly for 
+        /// client internal debugging.
+        /// </summary>
+        [JsonIgnore]
+        public ILogProvider? ClientDebugLog { get; set; }
 
         /// <summary>
         /// The broker server address

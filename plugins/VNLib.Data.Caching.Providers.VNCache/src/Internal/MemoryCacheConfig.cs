@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -25,15 +25,23 @@
 using System;
 using System.Text.Json.Serialization;
 
+using VNLib.Data.Caching.ObjectCache;
 using VNLib.Plugins.Extensions.Loading.Configuration;
 
-namespace VNLib.Data.Caching.Providers.VNCache
+namespace VNLib.Data.Caching.Providers.VNCache.Internal
 {
     /// <summary>
     /// Memorycache configuration object
     /// </summary>
     public sealed class MemoryCacheConfig : VNCacheConfig
     {
+        /// <summary>
+        /// Optionally sets the memory manager the cache provider will use
+        /// to manage memory
+        /// </summary>
+        [JsonIgnore]
+        public ICacheMemoryManagerFactory? MemoryManagerFactory { get; set; }
+
         /// <summary>
         /// The number of buckets within the cache table
         /// </summary>

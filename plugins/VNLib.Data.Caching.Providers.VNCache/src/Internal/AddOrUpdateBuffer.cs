@@ -29,7 +29,7 @@ using VNLib.Utils;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Extensions;
 
-namespace VNLib.Data.Caching.Providers.VNCache
+namespace VNLib.Data.Caching.Providers.VNCache.Internal
 {
     /// <summary>
     /// Implements a buffer writer that serves to serialize object data and 

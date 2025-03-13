@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -25,12 +25,11 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-using VNLib.Plugins;
-using VNLib.Plugins.Extensions.Loading;
+using VNLib.Utils.Logging;
 
-namespace VNLib.Data.Caching.Providers.VNCache
+namespace VNLib.Data.Caching.Providers.VNCache.Internal
 {
-    internal abstract class VNCacheBase(VNCacheConfig conf) : IGlobalCacheProvider
+    internal abstract class VNCacheBase(VNCacheConfig conf) : IInternalCacheClient
     {
         ///<inheritdoc/>
         public abstract bool IsConnected { get; }
@@ -59,35 +58,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
         ///<inheritdoc/>
         public abstract object GetUnderlyingStore();
 
-        /// <summary>
-        /// Initializes a set of cache object serializers and deserializers
-        /// for the configuration instance and loads external serializers if specified
-        /// by the user.
-        /// </summary>
-        /// <param name="config">The configuration instance to initialzie</param>
-        /// <param name="plugin">Optional plugin for loading external serializers</param>
-        protected static void InitSerializers(VNCacheConfig config, PluginBase? plugin)
-        {
-            //See if user has specified a custom serializer assembly
-            if (!string.IsNullOrWhiteSpace(config.SerializerDllPath))
-            {
-                //Load the custom serializer assembly and get the serializer and deserializer instances
-                config.CacheObjectSerializer = plugin.CreateServiceExternal<ICacheObjectSerializer>(config.SerializerDllPath);
-
-                //Avoid creating another instance if the deserializer is the same as the serializer
-                if(config.CacheObjectSerializer is ICacheObjectDeserializer cod)
-                {
-                    config.CacheObjectDeserializer = cod;
-                }
-                else
-                {
-                    config.CacheObjectDeserializer = plugin.CreateServiceExternal<ICacheObjectDeserializer>(config.SerializerDllPath);
-                }
-            }
-
-            //If no default serializer is set, use the default JSON serializer
-            config.CacheObjectSerializer ??= new JsonCacheObjectSerializer(256);
-            config.CacheObjectDeserializer ??= new JsonCacheObjectSerializer(256);
-        }
+        ///<inheritdoc/>
+        public abstract Task RunAsync(ILogProvider operationLog, CancellationToken exitToken);
+        
     }
 }

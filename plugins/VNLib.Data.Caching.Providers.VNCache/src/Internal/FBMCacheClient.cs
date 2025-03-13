@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -25,6 +25,7 @@
 using System;
 using System.IO;
 using System.Net.Http;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Sockets;
@@ -45,23 +46,26 @@ using VNLib.Plugins.Extensions.Loading.Events;
 
 using VNLib.Data.Caching.Providers.VNCache.Clustering;
 
-namespace VNLib.Data.Caching.Providers.VNCache
+namespace VNLib.Data.Caching.Providers.VNCache.Internal
 {
 
     /// <summary>
     /// A base class that manages 
     /// </summary>
-    [ConfigurationName(VNCacheClient.CACHE_CONFIG_KEY)]
-    internal sealed class FBMCacheClient : VNCacheBase, IAsyncBackgroundWork
+    internal sealed class FBMCacheClient : VNCacheBase
     {
-        private const string LOG_NAME = "CLIENT";
+        private const string LOG_NAME = "FBMCache";
         private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(10);
         private static readonly TimeSpan NoNodeDelay = TimeSpan.FromSeconds(10);
 
-        private readonly VnCacheClientConfig _config;
-        private readonly IClusterNodeIndex _index;
-        private readonly VNCacheClusterClient _cluster;
-        private readonly TimeSpan _initNodeDelay;
+        private readonly VnCacheClientConfig _config;      
+
+        /*
+         * This client may or may not be called in a plugin context.
+         * We need to support both. There are extra features we can 
+         * take advantage of if runnin in a plugin context
+         */
+        private readonly (PluginBase, ILogProvider)? _plugin;
 
         private bool _isConnected;
         private FBMClient? _client;
@@ -76,52 +80,49 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// </summary>
         public override bool IsConnected => _isConnected;
 
-        public FBMCacheClient(PluginBase plugin, IConfigScope config)
-        : this(
-            config.Deserialze<VnCacheClientConfig>(),
-            plugin.IsDebug() ? plugin.Log.CreateScope("FBM-DEBUG") : null,
-            plugin
-        )
+        internal FBMCacheClient(PluginBase plugin, VnCacheClientConfig config) : this(config)
         {
-            ILogProvider scoped = plugin.Log.CreateScope(LOG_NAME);
+            _plugin = (plugin, plugin.Log.CreateScope(LOG_NAME));           
 
-            //When in plugin context, we can use plugin local secrets and a log-based error handler
-            _cluster.Config.WithAuthenticator(new AuthManager(plugin))
-                .WithErrorHandler(new DiscoveryErrHAndler(scoped));
+            /*
+            * When running in plugin context, the user may have specified a custom 
+            * serializer assembly to load. If so, we need to load the assembly and
+            * get the serializer instances.
+            */
 
-            //Only the master index is schedulable
-            if (_index is IIntervalScheduleable sch)
+            if (!string.IsNullOrWhiteSpace(_config.SerializerDllPath))
             {
-                //Schedule discovery interval
-                plugin.ScheduleInterval(sch, _config.DiscoveryInterval);
+                //Load the custom serializer assembly and get the serializer and deserializer instances
+                _config.CacheObjectSerializer = plugin.CreateServiceExternal<ICacheObjectSerializer>(_config.SerializerDllPath);
 
-                //Run discovery after initial delay if interval is greater than initial delay
-                if (_config.DiscoveryInterval > _initNodeDelay)
+                //Avoid creating another instance if the deserializer is the same as the serializer
+                if (_config.CacheObjectSerializer is ICacheObjectDeserializer cod)
                 {
-                    //Run a manual initial load
-                    scoped.Information("Running initial discovery in {delay}", _initNodeDelay);
-                    _ = plugin.ObserveWork(() => sch.OnIntervalAsync(scoped, plugin.UnloadToken), (int)_initNodeDelay.TotalMilliseconds);
+                    _config.CacheObjectDeserializer = cod;
+                }
+                else
+                {
+                    _config.CacheObjectDeserializer = plugin.CreateServiceExternal<ICacheObjectDeserializer>(_config.SerializerDllPath);
                 }
             }
         }
 
-        public FBMCacheClient(VnCacheClientConfig config, ILogProvider? debugLog) : this(config, debugLog, null)
-        { }
-
-        private FBMCacheClient(VnCacheClientConfig config, ILogProvider? debugLog, PluginBase? plugin) : base(config)
+        internal FBMCacheClient(VnCacheClientConfig config): base(config)
         {
-            //Validate config
-            (config as IOnConfigValidation).OnValidate();
+            Debug.Assert(config != null);
+            _config = config;           
+        }        
 
-            _config = config;
-
-            //Set a default node delay if null
-            _initNodeDelay = _config.InitialNodeDelay.HasValue
-                ? TimeSpan.FromSeconds(_config.InitialNodeDelay.Value)
-                : InitialDelay;
-
+        
+        private void ConfigureCluster(ref IClusterNodeIndex index, ref VNCacheClusterClient cluster)
+        {
             //Init the client with default settings
-            FBMClientConfig conf = FBMDataCacheExtensions.GetDefaultConfig(BufferHeap, (int)config.MaxBlobSize, config.RequestTimeout, debugLog);
+            FBMClientConfig conf = FBMDataCacheExtensions.GetDefaultConfig(
+                BufferHeap,
+                maxMessageSize: (int)_config.MaxBlobSize,
+                timeout: _config.RequestTimeout,
+                debugLog: _config.ClientDebugLog
+            );
 
             FBMClientFactory clientFactory = new(
                 in conf,
@@ -129,32 +130,86 @@ namespace VNLib.Data.Caching.Providers.VNCache
                 maxClients: 10
             );
 
-            _cluster = new CacheClientConfiguration()
-                .WithTls(config.UseTls)
-                .WithInitialPeers(config.GetInitialNodeUris())
-                .ToClusterClient(clientFactory);
+            CacheClientConfiguration clusterConfig = new CacheClientConfiguration()
+                .WithTls(_config.UseTls)
+                .WithInitialPeers(_config.GetInitialNodeUris());           
 
-            //Init index
-            _index = ClusterNodeIndex.CreateIndex(_cluster);
+            //See if were executing in the context of a plugin
+            if(_plugin.HasValue)
+            {
+                (PluginBase plugin, ILogProvider scoped) = _plugin.Value;
 
-            //Init serializers
-            InitSerializers(config, plugin);
+                //When in plugin context, we can use plugin local secrets and a log-based error handler
+                clusterConfig
+                    .WithAuthenticator(new AuthManager(plugin))
+                    .WithErrorHandler(new DiscoveryErrHAndler(scoped));                            
+            }
+
+            /*
+             * If the user did not assign serializers, or it was not loaded from an 
+             * external assembly in a plugin context, the serializers may be assigned 
+             * null. So this ensures seralizer instances are defined before running.
+             */
+            _config.CacheObjectSerializer ??= new JsonCacheObjectSerializer(256);
+            _config.CacheObjectDeserializer ??= new JsonCacheObjectSerializer(256);
+
+
+            cluster = clusterConfig.ToClusterClient(clientFactory);
+
+            index = ClusterNodeIndex.CreateIndex(cluster);
         }
+     
 
-        /*
-         * Background work method manages the remote cache connection
-         * to the cache cluster
-         */
-        public async Task DoWorkAsync(ILogProvider pluginLog, CancellationToken exitToken)
+        /// <summary>
+        /// Begins the lifecycle of a cache cluster client by discovering cluster nodes
+        /// choosing a node, and running a connection loop with the cluster. 
+        /// <para>
+        /// Unless running in a plugin context, you must call this function to begin the
+        /// cache client. DO NOT call this function if running in plugin context, it will
+        /// be scheduled in the background.
+        /// </para>
+        /// <para>
+        /// This function will not exit unless an unrecoverable error occurs, 
+        /// or the exit token is cancelled. You should always provide a cancellation
+        /// token to this function to allow for graceful shutdown.
+        /// </para>
+        /// </summary>
+        /// <param name="operationLog">A log provider to write connection and logging data to</param>
+        /// <param name="exitToken">A token that will gracefully stop a client connection when cancelled</param>
+        /// <returns>A task that represents this background operation</returns>
+        public override async Task RunAsync(ILogProvider operationLog, CancellationToken exitToken)
         {
-            //Scope log
-            pluginLog = pluginLog.CreateScope(LOG_NAME);
+            IClusterNodeIndex index = null!;
+            VNCacheClusterClient cluster = null!;
+
+            ConfigureCluster(ref index, ref cluster);
+
+            //Set a default node delay if null
+            TimeSpan initNodeDelay = _config.InitialNodeDelay.HasValue
+                ? TimeSpan.FromSeconds(_config.InitialNodeDelay.Value)
+                : InitialDelay;
+
+            if (_plugin.HasValue && index is IIntervalScheduleable mstr)
+            {
+                (PluginBase plugin, ILogProvider scoped) = _plugin.Value;
+
+                //Schedule discovery interval
+                plugin.ScheduleInterval(mstr, _config.DiscoveryInterval);
+
+                //Run discovery after initial delay if interval is greater than initial delay
+                if (_config.DiscoveryInterval > initNodeDelay)
+                {
+                    //Run a manual initial load
+                    scoped.Information("Running initial discovery in {delay}", initNodeDelay);
+                    _ = plugin.ObserveWork(() => mstr.OnIntervalAsync(scoped, plugin.UnloadToken), (int)initNodeDelay.TotalMilliseconds);
+                }
+            }
 
             try
             {
                 //Initial delay
-                pluginLog.Debug("Worker started, waiting for startup delay");
-                await Task.Delay(_initNodeDelay, exitToken);
+                operationLog.Debug("Worker started, waiting for startup delay");
+                await Task.Delay(initNodeDelay, exitToken);
 
                 CacheNodeAdvertisment? node = null;
 
@@ -165,34 +220,34 @@ namespace VNLib.Data.Caching.Providers.VNCache
                      * instance is holding the master index, it will be scheduleable, and 
                      * can be manually invoked if no nodes are found
                      */
-                    if (_index is IIntervalScheduleable sch)
+                    if (index is IIntervalScheduleable sch)
                     {
                         try
                         {
                             //Wait for a discovery to complete  
-                            await _index.WaitForDiscoveryAsync(exitToken);
+                            await index.WaitForDiscoveryAsync(exitToken);
                         }
                         catch (CacheDiscoveryFailureException cdfe)
                         {
-                            pluginLog.Error("Failed to discover nodes, will try again\n{err}", cdfe.Message);
+                            operationLog.Error("Failed to discover nodes, will try again\n{err}", cdfe.Message);
                             //Continue
                         }
 
                         //Get the next node to connect to
-                        node = _index.GetNextNode();
+                        node = index.GetNextNode();
 
                         if (node is null)
                         {
-                            pluginLog.Warn("No nodes available to connect to, trying again in {delay}", NoNodeDelay);
+                            operationLog.Warn("No nodes available to connect to, trying again in {delay}", NoNodeDelay);
                             await Task.Delay(NoNodeDelay, exitToken);
 
                             //Run another manual discovery if the interval is greater than the delay
                             if (_config.DiscoveryInterval > NoNodeDelay)
                             {
-                                pluginLog.Debug("Forcing a manual discovery");
+                                operationLog.Debug("Forcing a manual discovery");
 
                                 //We dont need to await this because it is awaited at the top of the loop
-                                _ = sch.OnIntervalAsync(pluginLog, exitToken);
+                                _ = sch.OnIntervalAsync(operationLog, exitToken);
                             }
 
                             continue;
@@ -203,17 +258,17 @@ namespace VNLib.Data.Caching.Providers.VNCache
                         try
                         {
                             //Wait for a discovery to complete  
-                            await _index.WaitForDiscoveryAsync(exitToken);
+                            await index.WaitForDiscoveryAsync(exitToken);
                         }
                         catch (Exception ex)
                         {
-                            pluginLog.Debug("Failed to wait for discovery\n{err}", ex.Message);
+                            operationLog.Debug("Failed to wait for discovery\n{err}", ex.Message);
                             //Exception types from the other side so we can't really granually handle
                             //them, but master instance should so we just need to wait
                         }
 
                         //Get the next node to connect to
-                        node = _index.GetNextNode();
+                        node = index.GetNextNode();
 
                         //Again master instance will handle this condition, we just need to wait
                         if (node is null)
@@ -227,18 +282,18 @@ namespace VNLib.Data.Caching.Providers.VNCache
 
                     try
                     {
-                        pluginLog.Debug("Connecting to {node}", node);
+                        operationLog.Debug("Connecting to {node}", node);
 
                         //Connect to the node and save new client
-                        _client = await _cluster.ConnectToCacheAsync(node, exitToken);
+                        _client = await cluster.ConnectToCacheAsync(node, exitToken);
 
-                        if (pluginLog.IsEnabled(LogLevel.Debug))
+                        if (operationLog.IsEnabled(LogLevel.Debug))
                         {
-                            pluginLog.Debug("Connected server: {s}", node);
+                            operationLog.Debug("Connected server: {s}", node);
                         }
                         else
                         {
-                            pluginLog.Information("Successfully connected to cache node");
+                            operationLog.Information("Successfully connected to cache node");
                         }
 
                         //Set connection status flag
@@ -247,34 +302,34 @@ namespace VNLib.Data.Caching.Providers.VNCache
                         //Wait for disconnect
                         await _client.WaitForExitAsync(exitToken);
 
-                        pluginLog.Information("Cache server disconnected");
+                        operationLog.Information("Cache server disconnected");
                     }
                     catch (TimeoutException)
                     {
-                        pluginLog.Warn("Failed to establish a websocket connection to cache server within the timeout period");
+                        operationLog.Warn("Failed to establish a websocket connection to cache server within the timeout period");
                     }
                     catch (WebSocketException wse)
                     {
-                        pluginLog.Warn("Failed to establish a websocket connection to cache server {reason}", wse.Message);
-                        pluginLog.Verbose("Stack trace: {re}", wse);
+                        operationLog.Warn("Failed to establish a websocket connection to cache server {reason}", wse.Message);
+                        operationLog.Verbose("Stack trace: {re}", wse);
                     }
                     //SEs may be raised when the server is not available
                     catch (HttpRequestException he) when (he.InnerException is SocketException se)
                     {
-                        pluginLog.Debug("Failed to connect to random cache server because a TCP connection could not be established");
-                        pluginLog.Verbose("Stack trace: {re}", se);
+                        operationLog.Debug("Failed to connect to random cache server because a TCP connection could not be established");
+                        operationLog.Verbose("Stack trace: {re}", se);
                         await Task.Delay(1000, exitToken);
                     }
                     catch (HttpRequestException he) when (he.InnerException is IOException ioe && ioe.InnerException is SocketException se)
                     {
-                        pluginLog.Debug("Failed to connect to random cache server because a TCP connection could not be established");
-                        pluginLog.Verbose("Stack trace: {re}", se);
+                        operationLog.Debug("Failed to connect to random cache server because a TCP connection could not be established");
+                        operationLog.Verbose("Stack trace: {re}", se);
                         await Task.Delay(1000, exitToken);
                     }
                     catch (HttpRequestException he) when (he.StatusCode.HasValue)
                     {
-                        pluginLog.Warn("Failed to negotiate with cache server {reason}", he.Message);
-                        pluginLog.Verbose("Stack trace: {re}", he);
+                        operationLog.Warn("Failed to negotiate with cache server {reason}", he.Message);
+                        operationLog.Verbose("Stack trace: {re}", he);
                         await Task.Delay(1000, exitToken);
                     }
                     finally
@@ -294,14 +349,14 @@ namespace VNLib.Data.Caching.Providers.VNCache
             }
             catch (FBMServerNegiationException fne)
             {
-                pluginLog.Error("Failed to negotiate connection with cache server. Please check your configuration\n {reason}", fne.Message);
+                operationLog.Error("Failed to negotiate connection with cache server. Please check your configuration\n {reason}", fne.Message);
             }
             catch (Exception ex)
             {
-                pluginLog.Error(ex, "Unhandled exception occured in background cache client listening task");
+                operationLog.Error(ex, "Unhandled exception occured in background cache client listening task");
             }
 
-            pluginLog.Information("Cache client exited");
+            operationLog.Information("Cache client exited");
         }
 
 

@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -26,11 +26,13 @@ using System;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 using VNLib.Utils.Logging;
 using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
 
+using VNLib.Data.Caching.Providers.VNCache.Internal;
 /*
  * This package exports an IGlobalCacheProvider that is intended to be packaged by 
  * application distributors that want to use VNCache as a global cache for their 
@@ -54,37 +56,11 @@ namespace VNLib.Data.Caching.Providers.VNCache
     /// </summary>
     [ServiceExport]
     [ConfigurationName(CACHE_CONFIG_KEY)]
-    public sealed class VNCacheClient : IGlobalCacheProvider
+    public sealed class VNCacheClient : IGlobalCacheProvider, IAsyncBackgroundWork
     {
         internal const string CACHE_CONFIG_KEY = "cache";
         internal const string MEMORY_CACHE_CONFIG_KEY = "memory_cache";
-        internal const string MEMORY_CACHE_ONLY_KEY = "memory_only";
-
-        private readonly IGlobalCacheProvider _client;
-
-        public VNCacheClient(PluginBase plugin, IConfigScope config)
-        {
-            if (config.TryGetValue(MEMORY_CACHE_CONFIG_KEY, out _))
-            {
-                //Check for memory only flag
-                if (config.TryGetValue(MEMORY_CACHE_ONLY_KEY, out JsonElement memOnly) && memOnly.GetBoolean())
-                {
-                    //Create a memory-only cache
-                    _client = plugin.GetOrCreateSingleton<MemoryCache>();
-                }
-                else
-                {
-                    //Remote-backed memory cache
-                    _client = plugin.GetOrCreateSingleton<RemoteBackedMemoryCache>();
-                }
-            }
-            else
-            {
-                //Setup non-memory backed cache client
-                _client = plugin.GetOrCreateSingleton<FBMCacheClient>();
-            }
-        }
-
+        internal const string MEMORY_CACHE_ONLY_KEY = "memory_only";         
 
         /// <summary>
         /// Allows you to programatically create a remote-only VNCache instance
@@ -94,18 +70,13 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// <returns>An opreator handle that can schedule the remote cache worker task</returns>
         /// <exception cref="ArgumentNullException"></exception>
         /// <remarks>
-        /// The returned <see cref="RemoteCacheOperator"/> implements the <see cref="IAsyncBackgroundWork"/>
+        /// The returned <see cref="CacheClientHandle"/> implements the <see cref="IAsyncBackgroundWork"/>
         /// interface and must be scheduled in order to maintain a connection with the remote cache store.
         /// </remarks>
-        public static RemoteCacheOperator CreateRemoteCache(VnCacheClientConfig config, ILogProvider? debugLog = null)
+        public static CacheClientHandle CreateRemoteCache(VnCacheClientConfig config)
         {
-            _ = config ?? throw new ArgumentNullException(nameof(config));
-
-            //Init client
-            FBMCacheClient client = new(config, debugLog);
-
-            //Return single handle
-            return new(client, null);
+            ArgumentNullException.ThrowIfNull(config);           
+            return new(new FBMCacheClient(config));
         }
 
         /// <summary>
@@ -118,22 +89,15 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// <returns>An opreator handle that can schedule the remote cache worker task</returns>
         /// <exception cref="ArgumentNullException"></exception>
         /// <remarks>
-        /// The returned <see cref="RemoteCacheOperator"/> implements the <see cref="IAsyncBackgroundWork"/>
+        /// The returned <see cref="CacheClientHandle"/> implements the <see cref="IAsyncBackgroundWork"/>
         /// interface and must be scheduled in order to maintain a connection with the remote cache store. The memory cache 
         /// resources are released when the worker task exits.
         /// </remarks>
-        public static RemoteCacheOperator CreateRemoteBackedMemoryCache(VnCacheClientConfig remote, MemoryCacheConfig memory, ILogProvider? debugLog)
+        public static CacheClientHandle CreateRemoteBackedMemoryCache(VnCacheClientConfig remote, MemoryCacheConfig memory)
         {
-            _ = remote ?? throw new ArgumentNullException(nameof(remote));
-            _ = memory ?? throw new ArgumentNullException(nameof(memory));
-
-            FBMCacheClient client = new(remote, debugLog);
-
-            //Init client
-            RemoteBackedMemoryCache memCache = new(memory, client);
-
-            //Return single handle
-            return new(client, memCache);
+            ArgumentNullException.ThrowIfNull(remote);
+            ArgumentNullException.ThrowIfNull(memory);
+            return CreateRemoteBackedMemoryCache(remote, memory, plugin: null);
         }
 
         /// <summary>
@@ -146,15 +110,115 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// This operator must be disposed to release held resources.
         /// </returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static MemoryCacheOperator CreateMemoryCache(MemoryCacheConfig config)
+        public static CacheClientHandle CreateMemoryCache(MemoryCacheConfig config)
         {
-            _ = config ?? throw new ArgumentNullException(nameof(config));
+            ArgumentNullException.ThrowIfNull(config);
+            return CreateMemoryCache(config, plugin: null);
+        }
 
-            //Init client
-            MemoryCache cache = new(config);
+        /*
+         * This private functions serve to streaming the call surface area 
+         * so as many functions as possible are tested in the public API
+         * and for consitency. Whatever we expect the public to use, we should
+         * also use internally.
+         */
 
-            //Return single handle
-            return new(cache);
+        private static CacheClientHandle CreateMemoryCache(MemoryCacheConfig config, PluginBase? plugin)
+        {
+            Debug.Assert(config != null);
+          
+            config.OnValidate();
+
+            return new CacheClientHandle(cache: new MemoryCache(config, plugin));
+        }
+       
+        private static CacheClientHandle CreateRemoteCache(VnCacheClientConfig config, PluginBase? plugin)
+        {
+            Debug.Assert(config != null);
+
+            config.OnValidate();
+
+            //Create a new client that depends on the plugin context
+            FBMCacheClient client = plugin is not null 
+                ? new(plugin, config) 
+                : new(config);
+
+            return new(client);
+        }
+
+        private static CacheClientHandle CreateRemoteBackedMemoryCache(VnCacheClientConfig remote, MemoryCacheConfig memory, PluginBase? plugin)
+        {
+            Debug.Assert(remote != null);
+            Debug.Assert(memory != null);
+            
+            remote.OnValidate();
+            memory.OnValidate();
+
+            //Create a new client that depends on the plugin context
+            FBMCacheClient fbmCache = plugin is not null
+                ? new(plugin, remote)
+                : new(remote);
+
+            RemoteBackedMemoryCache cache = new(memory, fbmCache);
+            return new (cache);
+        }
+
+
+        private readonly IGlobalCacheProvider _client;
+        private readonly CacheClientHandle _handle;
+
+        public VNCacheClient(PluginBase plugin, IConfigScope config)
+        {
+            ArgumentNullException.ThrowIfNull(plugin);
+            ArgumentNullException.ThrowIfNull(config);
+
+            //Read the cache client configuration object
+            VnCacheClientConfig cacheClientConfig = config.Deserialze<VnCacheClientConfig>()!;
+
+            //Always assign a debug log in plugin context
+            cacheClientConfig.ClientDebugLog = plugin.Log.CreateScope("CLIENT");
+
+            if (config.TryGetValue(MEMORY_CACHE_CONFIG_KEY, out JsonElement memCacheConfEl))
+            {
+                MemoryCacheConfig memoryConfig = memCacheConfEl.Deserialize<MemoryCacheConfig>()!;
+
+                //Use the plugin configuration to create the memory manager
+                memoryConfig.MemoryManagerFactory = plugin.GetOrCreateSingleton<BucketLocalManagerFactory>();
+
+                if (config.TryGetValue(MEMORY_CACHE_ONLY_KEY, out JsonElement memOnly) && memOnly.GetBoolean())
+                {
+                    _handle = CreateMemoryCache(memoryConfig, plugin);
+                }
+                else
+                {
+                    _handle = CreateRemoteBackedMemoryCache(
+                        remote: cacheClientConfig,
+                        memory: memoryConfig,
+                        plugin
+                    );
+                }
+            }
+            else
+            {
+                _handle = CreateRemoteCache(cacheClientConfig, plugin);
+            }
+
+            _client = _handle.Cache;
+        }
+
+
+        ///<inheritdoc/>
+        Task IAsyncBackgroundWork.DoWorkAsync(ILogProvider pluginLog, CancellationToken exitToken)
+        {
+            /*
+             * When running in plugin context, this function will be called. It will
+             * invoke the run function for the backing cache store (using the operator 
+             * handle)
+             */
+            return _handle.RunAsync(
+                pluginLog.CreateScope("VNCache"), 
+                exitToken
+            );
         }
 
         ///<inheritdoc/>
@@ -200,6 +264,6 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public object GetUnderlyingStore()
         {
             return _client.GetUnderlyingStore();
-        }
+        }       
     }
 }

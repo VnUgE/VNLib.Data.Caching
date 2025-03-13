@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -25,7 +25,6 @@
 using System;
 using System.Linq;
 using System.Buffers;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.CompilerServices;
@@ -36,11 +35,8 @@ using VNLib.Utils.Logging;
 using VNLib.Utils.Extensions;
 using VNLib.Data.Caching;
 using VNLib.Data.Caching.ObjectCache;
-using VNLib.Plugins;
-using VNLib.Plugins.Extensions.Loading;
-using VNLib.Plugins.Extensions.Loading.Events;
 
-namespace VNLib.Data.Caching.Providers.VNCache
+namespace VNLib.Data.Caching.Providers.VNCache.Internal
 {
 
     /*
@@ -53,68 +49,98 @@ namespace VNLib.Data.Caching.Providers.VNCache
      * lost or is exiting
      */
 
-    [ConfigurationName(VNCacheClient.CACHE_CONFIG_KEY)]
-    internal sealed class RemoteBackedMemoryCache : VNCacheBase, IDisposable, IIntervalScheduleable
+    internal sealed class RemoteBackedMemoryCache : VNCacheBase, IDisposable
     {
         private readonly MemoryCacheConfig _cacheConfig;
-        private readonly IBlobCacheTable _memCache;
+        private readonly BlobCacheTable _memCache;
         private readonly IGlobalCacheProvider _backing;
         private readonly IUnmangedHeap _bufferHeap;
-        private readonly BucketLocalManagerFactory? _bucketFactory;
+        private readonly BucketLocalManagerFactory? _blobCacheMemManager;       
 
-        public RemoteBackedMemoryCache(PluginBase plugin, IConfigScope config)
-            : this(
-                config.GetRequiredProperty<MemoryCacheConfig>(VNCacheClient.MEMORY_CACHE_CONFIG_KEY),
-                plugin.GetOrCreateSingleton<FBMCacheClient>(),   //Cache client is backing store
-                plugin.GetOrCreateSingleton<BucketLocalManagerFactory>()
-            )
+        internal RemoteBackedMemoryCache(MemoryCacheConfig config, IGlobalCacheProvider backingStore)
+            :base(config)
         {
-
-            //Schedule cache purge interval
-            if (_cacheConfig.RefreshInterval > TimeSpan.Zero)
-            {
-                plugin.ScheduleInterval(this, _cacheConfig.RefreshInterval);
-            }
-        }
-
-
-        public RemoteBackedMemoryCache(MemoryCacheConfig memCache, IGlobalCacheProvider backingStore) : this(memCache, backingStore, null)
-        { }
-
-        public RemoteBackedMemoryCache(MemoryCacheConfig memCache, IGlobalCacheProvider backingStore, BucketLocalManagerFactory? factory):base(memCache)
-        {
-            ArgumentNullException.ThrowIfNull(memCache);
+            ArgumentNullException.ThrowIfNull(config);
             ArgumentNullException.ThrowIfNull(backingStore);
 
-            memCache.OnValidate();
+            _cacheConfig = config;
+            _backing = backingStore;
 
             /*
              * If no buffer factory was supplied, we can create one, but it has to be 
              * disposed manually on exit. If one was supplied, we can use it but we do not
              * manage it's lifetime
              */
-
-            factory ??= _bucketFactory = BucketLocalManagerFactory.Create(memCache.ZeroAllAllocations);
-
-            //Setup mem cache table
-            _memCache = new BlobCacheTable(memCache.TableSize, memCache.BucketSize, factory, null);
+         
+            config.MemoryManagerFactory
+                ??= _blobCacheMemManager = BucketLocalManagerFactory.Create(config.ZeroAllAllocations);
+          
+            _memCache = new BlobCacheTable(
+                config.TableSize,
+                config.BucketSize,
+                factory: config.MemoryManagerFactory,
+                persistantCache: null
+            );
 
             //If backing store is a VnCacheClient, steal it's buffer heap
-            _bufferHeap = backingStore is FBMCacheClient client ? client.BufferHeap : MemoryUtil.Shared;
-
-            _cacheConfig = memCache;
-            _backing = backingStore;
+            _bufferHeap = backingStore is FBMCacheClient client 
+                ? client.BufferHeap 
+                : MemoryUtil.Shared;           
         }
 
         void IDisposable.Dispose()
         {
             //Dispose of the memory cache
             _memCache.Dispose();
-            _bucketFactory?.Dispose();
+            _blobCacheMemManager?.Dispose();
 
             if (_backing is IDisposable disposable)
             {
                 disposable.Dispose();
+            }
+        }
+
+        ///<inheritdoc/>
+        public override async Task RunAsync(ILogProvider clientLog, CancellationToken cancellation)
+        {
+            Task backingTask = RunBackingTaskAsync(clientLog, cancellation);
+            Task intervalTask = RunIntervalAsync(clientLog, cancellation);
+
+            await Task.WhenAny(backingTask, intervalTask);
+        }
+
+        private async Task RunIntervalAsync(ILogProvider clientLog, CancellationToken cancellation)
+        {
+            /*
+             * Runs background work to refresh the cache on an interval
+             */
+
+            clientLog.Debug("Refresh interval scheduled at {interval}", _cacheConfig.RefreshInterval);
+
+            try
+            {
+                while (true)
+                {
+                    await Task.Delay(_cacheConfig.RefreshInterval, cancellation);
+
+                    await OnIntervalAsync(clientLog, cancellation);
+                }
+            }
+            //Its normal to throw when the plugin exits or is cancelled
+            catch (TaskCanceledException)
+            { }
+        }
+
+        private Task RunBackingTaskAsync(ILogProvider clientLog, CancellationToken cancellation)
+        {
+            if (_backing is IInternalCacheClient store)
+            {
+                return store.RunAsync(clientLog, cancellation);
+            }
+            else
+            {
+                //Dummy wait for exit
+                return cancellation.WaitHandle.NoSpinWaitAsync(Timeout.Infinite);
             }
         }
 
@@ -143,7 +169,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
             Task<bool> remote = _backing.DeleteAsync(key, cancellation);
 
             //task when both complete
-            return Task.WhenAll(local, remote).ContinueWith(static p => p.Result.First(), TaskScheduler.Default);
+            return Task.WhenAll(local, remote)
+                .ContinueWith(static p => p.Result.First(), TaskScheduler.Default);
         }
 
         ///<inheritdoc/>
@@ -242,7 +269,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
             }
         }
 
-        async Task IIntervalScheduleable.OnIntervalAsync(ILogProvider log, CancellationToken cancellationToken)
+        private async Task OnIntervalAsync(ILogProvider log, CancellationToken cancellationToken)
         {
             if (!IsConnected)
             {

@@ -35,7 +35,7 @@ using VNLib.Utils.Extensions;
 using VNLib.Data.Caching.ObjectCache;
 using VNLib.Plugins.Extensions.Loading;
 
-namespace VNLib.Data.Caching.Providers.VNCache
+namespace VNLib.Data.Caching.Providers.VNCache.Internal
 {
     /*
      * How it works.

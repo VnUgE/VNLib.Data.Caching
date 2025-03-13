@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -23,10 +23,10 @@
 */
 
 using System;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
+using VNLib.Utils.Extensions;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
 using VNLib.Utils.Memory.Diagnostics;
@@ -35,15 +35,47 @@ using VNLib.Data.Caching.ObjectCache;
 using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
 
-namespace VNLib.Data.Caching.Providers.VNCache
+namespace VNLib.Data.Caching.Providers.VNCache.Internal
 {
-
-    [ConfigurationName(VNCacheClient.CACHE_CONFIG_KEY)]
+   
     internal sealed class MemoryCache : VNCacheBase, IDisposable
     {
         const int MB_DIVISOR = 1000 * 1024;
 
-        const string DEBUG_TEMPLATE =@"Configuring Memory-Only Cache
+        private readonly BlobCacheTable _memCache;
+        private readonly IUnmangedHeap _bufferHeap;
+        private readonly BucketLocalManagerFactory? _blobCacheMemManager;
+     
+        internal MemoryCache(MemoryCacheConfig config, PluginBase? plugin) : base(config)
+        {
+            //Assign a default memory manager if none is provided
+            config.MemoryManagerFactory 
+                ??= _blobCacheMemManager = BucketLocalManagerFactory.Create(config.ZeroAllAllocations);
+
+            //Setup cache table using plugin generated memory manager
+            _memCache = new BlobCacheTable(
+                config.TableSize,
+                config.BucketSize,
+                factory: config.MemoryManagerFactory,
+                persistantCache: null
+            );
+
+            //Init new "private" heap to alloc buffer from
+            _bufferHeap = MemoryUtil.InitializeNewHeapForProcess(config.ZeroAllAllocations);
+
+            if (plugin?.IsDebug() == true)
+            {
+                // If plugin debugging is enabled, wrap the heap in a tracked
+                // heap wrapper for debugging purposes
+                _bufferHeap = new TrackedHeapWrapper(heap: _bufferHeap, ownsHeap: true);
+            }           
+
+            PrintDebug(plugin?.Log, config);
+        }
+
+        private static void PrintDebug(ILogProvider? log, MemoryCacheConfig config)
+        {
+            const string DEBUG_TEMPLATE = @"Configuring Memory-Only Cache
  | -----------------------------
  | Configuration:
  |   Table Size:  {ts}
@@ -56,59 +88,21 @@ namespace VNLib.Data.Caching.Providers.VNCache
  | -----------------------------
 ";
 
-        private readonly IBlobCacheTable _memCache;
-        private readonly IUnmangedHeap _bufferHeap;
-        private readonly BucketLocalManagerFactory? _blobCacheMemManager;
-
-        public MemoryCache(PluginBase pbase, IConfigScope config)
-            : this(
-                config[VNCacheClient.MEMORY_CACHE_CONFIG_KEY].Deserialize<MemoryCacheConfig>()!,
-                pbase.IsDebug(),
-                pbase.Log,
-                pbase.GetOrCreateSingleton<BucketLocalManagerFactory>()
-            )
-        { }
-
-        public MemoryCache(MemoryCacheConfig config) : this(config, false, null, null)
-        { }
-
-        private MemoryCache(MemoryCacheConfig config, bool isDebug, ILogProvider? log, BucketLocalManagerFactory? factory) : base(config)
-        {
-            //Validate config
-            config.OnValidate();
-
-            if (isDebug)
-            {
-                //Use the debug heap
-                IUnmangedHeap newHeap = MemoryUtil.InitializeNewHeapForProcess();
-
-                //Wrap in diag heap
-                _bufferHeap = new TrackedHeapWrapper(newHeap, true);
-            }
-            else
-            {
-                //Init new "private" heap to alloc buffer from
-                _bufferHeap = MemoryUtil.InitializeNewHeapForProcess();
-            }
-
-            //Fallback to creating a local/single instance of the manager
-            factory ??= _blobCacheMemManager = BucketLocalManagerFactory.Create(config.ZeroAllAllocations);
-
-            //Setup cache table
-            _memCache = new BlobCacheTable(config.TableSize, config.BucketSize, factory, null);
-
-            PrintDebug(log, config);
-        }
-
-        private static void PrintDebug(ILogProvider? log, MemoryCacheConfig config)
-        {
             long maxObjects = config.BucketSize * config.TableSize;
 
             long size4kMb = maxObjects * 4096/MB_DIVISOR;
             long size8kMb = maxObjects * 8128/MB_DIVISOR;
             long size16kMb = maxObjects * 16384/MB_DIVISOR;
 
-            log?.Debug(DEBUG_TEMPLATE, config.TableSize, config.BucketSize, maxObjects, size4kMb, size8kMb, size16kMb);
+            log?.Debug(
+                DEBUG_TEMPLATE, 
+                config.TableSize, 
+                config.BucketSize, 
+                maxObjects, 
+                size4kMb, 
+                size8kMb, 
+                size16kMb
+            );
         }
 
         public void Dispose()
@@ -116,6 +110,15 @@ namespace VNLib.Data.Caching.Providers.VNCache
             _memCache.Dispose();
             _bufferHeap.Dispose();
             _blobCacheMemManager?.Dispose();
+        }
+
+        ///<inheritdoc/>
+        public override Task RunAsync(ILogProvider operationLog, CancellationToken exitToken)
+        {
+            /*
+             * Just a dummy task that waits until the token is cancelled to exit
+             */
+            return exitToken.WaitHandle.NoSpinWaitAsync(Timeout.Infinite);
         }
 
         ///<inheritdoc/>
@@ -134,7 +137,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
             serialzer.Serialize(value, buffer);
 
             //Update object data
-            await _memCache.AddOrUpdateObjectAsync(key, newKey, static b => b.GetData(), buffer, default, cancellation);
+            await _memCache.AddOrUpdateObjectAsync(key, newKey, static b => b.GetData(), buffer, time: default, cancellation);
         }
 
         ///<inheritdoc/>

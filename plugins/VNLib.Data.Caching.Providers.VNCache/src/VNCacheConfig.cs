@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -36,6 +36,12 @@ namespace VNLib.Data.Caching.Providers.VNCache
     /// </summary>
     public abstract class VNCacheConfig : ICacheRefreshPolicy, IOnConfigValidation
     {
+        /// <summary>
+        /// Whether the cache is in debug mode
+        /// </summary>
+        [JsonIgnore]
+        public bool IsDebug { get; set; }
+
         /*
          * Default disable refreshing
          */
@@ -90,19 +96,18 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// The maxium size (in bytes) of each cache entry within any bucket
         /// </summary>
         [JsonPropertyName("max_object_size")]
-        public virtual uint MaxBlobSize { get; set; } = 16 * 1024;
-
-        public virtual void OnValidate()
-        {
-
-            Validate.Range2<uint>(MaxBlobSize, 16, uint.MaxValue, "You must configure a maximum object size");
-
-        }
+        public virtual uint MaxBlobSize { get; set; } = 16 * 1024;      
 
         /// <summary>
         /// Optional external cache serializer library to load
         /// </summary>
         [JsonPropertyName("serializer_assebly_name")]
         public string? SerializerDllPath { get; set; }
+
+        public virtual void OnValidate()
+        {
+            Validate.Range2<uint>(MaxBlobSize, 16, uint.MaxValue, "You must configure a maximum object size");         
+
+        }
     }
 }
