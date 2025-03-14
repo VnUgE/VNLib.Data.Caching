@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -46,7 +46,8 @@ namespace VNLib.Data.Caching
         /// Initializes a new <see cref="JsonCacheObjectSerializer"/>
         /// </summary>
         /// <param name="options">JSON serialization/deserialization options</param>
-        public JsonCacheObjectSerializer(JsonSerializerOptions options) => _options = options;
+        public JsonCacheObjectSerializer(JsonSerializerOptions options) 
+            => _options = options;
 
         /// <summary>
         /// Initializes a new <see cref="JsonCacheObjectSerializer"/> using 
@@ -70,7 +71,8 @@ namespace VNLib.Data.Caching
         }
 
         ///<inheritdoc/>
-        public virtual T? Deserialize<T>(ReadOnlySpan<byte> objectData) => JsonSerializer.Deserialize<T>(objectData, _options);
+        public virtual T? Deserialize<T>(ReadOnlySpan<byte> objectData) 
+            => JsonSerializer.Deserialize<T>(objectData, _options);
 
         ///<inheritdoc/>
         public virtual void Serialize<T>(T obj, IBufferWriter<byte> finiteWriter)
@@ -91,7 +93,7 @@ namespace VNLib.Data.Caching
             finally
             {
                 //Unlink the writer
-                localWriter.Reset(Stream.Null);
+                localWriter.Reset();
             }
         }
     }

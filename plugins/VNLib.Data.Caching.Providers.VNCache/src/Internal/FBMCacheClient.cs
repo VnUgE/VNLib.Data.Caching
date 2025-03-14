@@ -58,7 +58,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(10);
         private static readonly TimeSpan NoNodeDelay = TimeSpan.FromSeconds(10);
 
-        private readonly VnCacheClientConfig _config;      
+        private readonly VnCacheClientConfig _config;
 
         /*
          * This client may or may not be called in a plugin context.
@@ -82,7 +82,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
 
         internal FBMCacheClient(PluginBase plugin, VnCacheClientConfig config) : this(config)
         {
-            _plugin = (plugin, plugin.Log.CreateScope(LOG_NAME));           
+            _plugin = (plugin, plugin.Log.CreateScope(LOG_NAME));
 
             /*
             * When running in plugin context, the user may have specified a custom 
@@ -107,13 +107,13 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             }
         }
 
-        internal FBMCacheClient(VnCacheClientConfig config): base(config)
+        internal FBMCacheClient(VnCacheClientConfig config) : base(config)
         {
             Debug.Assert(config != null);
-            _config = config;           
-        }        
+            _config = config;
+        }
 
-        
+
         private void ConfigureCluster(ref IClusterNodeIndex index, ref VNCacheClusterClient cluster)
         {
             //Init the client with default settings
@@ -132,17 +132,17 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
 
             CacheClientConfiguration clusterConfig = new CacheClientConfiguration()
                 .WithTls(_config.UseTls)
-                .WithInitialPeers(_config.GetInitialNodeUris());           
+                .WithInitialPeers(_config.GetInitialNodeUris());
 
             //See if were executing in the context of a plugin
-            if(_plugin.HasValue)
+            if (_plugin.HasValue)
             {
                 (PluginBase plugin, ILogProvider scoped) = _plugin.Value;
 
                 //When in plugin context, we can use plugin local secrets and a log-based error handler
                 clusterConfig
                     .WithAuthenticator(new AuthManager(plugin))
-                    .WithErrorHandler(new DiscoveryErrHAndler(scoped));                            
+                    .WithErrorHandler(new DiscoveryErrHAndler(scoped));
             }
 
             /*
@@ -153,12 +153,11 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             _config.CacheObjectSerializer ??= new JsonCacheObjectSerializer(256);
             _config.CacheObjectDeserializer ??= new JsonCacheObjectSerializer(256);
 
-
             cluster = clusterConfig.ToClusterClient(clientFactory);
 
             index = ClusterNodeIndex.CreateIndex(cluster);
         }
-     
+
 
         /// <summary>
         /// Begins the lifecycle of a cache cluster client by discovering cluster nodes
@@ -478,10 +477,10 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
 
         private sealed record class DiscoveryErrHAndler(ILogProvider Logger) : ICacheDiscoveryErrorHandler
         {
-            public void OnDiscoveryError(CacheNodeAdvertisment errorNode, Exception ex) 
+            public void OnDiscoveryError(CacheNodeAdvertisment errorNode, Exception ex)
                 => OnDiscoveryError(ex, errorNode, address: null);
 
-            public void OnDiscoveryError(Uri errorAddress, Exception ex) 
+            public void OnDiscoveryError(Uri errorAddress, Exception ex)
                 => OnDiscoveryError(ex, errorNode: null, errorAddress);
 
             public void OnDiscoveryError(Exception ex, CacheNodeAdvertisment? errorNode, Uri? address)
@@ -490,7 +489,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
 
                 if (ex is HttpRequestException he)
                 {
-                    if(he.InnerException is SocketException se)
+                    if (he.InnerException is SocketException se)
                     {
                         LogErrorException(se);
                         return;

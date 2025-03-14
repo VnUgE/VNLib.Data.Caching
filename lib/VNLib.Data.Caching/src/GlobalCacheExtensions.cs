@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -77,7 +77,13 @@ namespace VNLib.Data.Caching
         /// <param name="cancellation">A token to cancel the async operation</param>
         /// <param name="rawData">The raw data to store at the given key</param>
         /// <returns>A task that completes when the update operation has compelted</returns>
-        public static Task AddOrUpdateAsync(this IGlobalCacheProvider cache, string key, string? newKey, ReadOnlyMemory<byte> rawData, CancellationToken cancellation)
+        public static Task AddOrUpdateAsync(
+            this IGlobalCacheProvider cache, 
+            string key, 
+            string? newKey, 
+            ReadOnlyMemory<byte> rawData, 
+            CancellationToken cancellation
+        )
         {
             ArgumentNullException.ThrowIfNull(cache);
             return cache.AddOrUpdateAsync(key, newKey, static cd => cd.Span, rawData, cancellation);
@@ -105,7 +111,7 @@ namespace VNLib.Data.Caching
             GetObjectFromData<T, TState> getter,
             TState state,
             CancellationToken cancellationToken = default
-            )
+        )
         {
             ArgumentNullException.ThrowIfNull(cache);
             ArgumentNullException.ThrowIfNull(getter);
@@ -145,7 +151,13 @@ namespace VNLib.Data.Caching
         /// <param name="cancellation">A token to cancel the async operation</param>
         /// <param name="value">The value to set at the given key</param>
         /// <returns>A task that completes when the update operation has compelted</returns>
-        public static Task AddOrUpdateAsync<T>(this IGlobalCacheProvider cache, string key, string? newKey, T value, CancellationToken cancellation)
+        public static Task AddOrUpdateAsync<T>(
+            this IGlobalCacheProvider cache, 
+            string key, 
+            string? newKey, 
+            T value, 
+            CancellationToken cancellation
+        )
         {
             ArgumentNullException.ThrowIfNull(cache);
             return cache.AddOrUpdateAsync(key, newKey, value, cache.DefaultSerializer, cancellation);

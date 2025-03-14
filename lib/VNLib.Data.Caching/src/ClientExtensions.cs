@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -109,9 +109,22 @@ namespace VNLib.Data.Caching
         /// <exception cref="InvalidResponseException"></exception>
         /// <exception cref="MessageTooLargeException"></exception>
         /// <exception cref="ObjectNotFoundException"></exception>
-        public static Task AddOrUpdateObjectAsync(this FBMClient client, string objectId, string? newId, IObjectData data, CancellationToken cancellationToken = default)
+        public static Task AddOrUpdateObjectAsync(
+            this FBMClient client, 
+            string objectId, 
+            string? newId, 
+            IObjectData data, 
+            CancellationToken cancellationToken = default
+        )
         {
-            return AddOrUpdateObjectAsync(client, objectId, newId, static d => d.GetData(), data, cancellationToken);
+            return AddOrUpdateObjectAsync(
+                client, 
+                objectId, 
+                newId, 
+                callback: static d => d.GetData(), 
+                state: data, 
+                cancellationToken
+            );
         }
 
 
@@ -306,7 +319,12 @@ namespace VNLib.Data.Caching
         /// <exception cref="InvalidStatusException"></exception>
         /// <exception cref="ObjectDisposedException"></exception>
         /// <exception cref="InvalidResponseException"></exception>
-        public static Task<T?> GetObjectAsync<T>(this FBMClient client, string objectId, ICacheObjectDeserializer deserialzer, CancellationToken cancellationToken = default)
+        public static Task<T?> GetObjectAsync<T>(
+            this FBMClient client, 
+            string objectId, 
+            ICacheObjectDeserializer deserialzer, 
+            CancellationToken cancellationToken = default
+        )
         {
             ArgumentNullException.ThrowIfNull(deserialzer);
 
@@ -329,7 +347,12 @@ namespace VNLib.Data.Caching
         /// <exception cref="InvalidStatusException"></exception>
         /// <exception cref="ObjectDisposedException"></exception>
         /// <exception cref="InvalidResponseException"></exception>
-        public static Task<bool> GetObjectAsync(this FBMClient client, string objectId, IObjectData data, CancellationToken cancellationToken = default)
+        public static Task<bool> GetObjectAsync(
+            this FBMClient client, 
+            string objectId, 
+            IObjectData data, 
+            CancellationToken cancellationToken = default
+        )
         {
             return GetObjectAsync(client, objectId, static (p, d) => p.SetData(d), data, cancellationToken);
         }
@@ -350,7 +373,13 @@ namespace VNLib.Data.Caching
         /// <exception cref="InvalidStatusException"></exception>
         /// <exception cref="ObjectDisposedException"></exception>
         /// <exception cref="InvalidResponseException"></exception>
-        public static async Task<bool> GetObjectAsync<T>(this FBMClient client, string objectId, ObjectDataSet<T> setter, T state, CancellationToken cancellationToken = default)
+        public static async Task<bool> GetObjectAsync<T>(
+            this FBMClient client, 
+            string objectId, 
+            ObjectDataSet<T> setter, 
+            T state,
+            CancellationToken cancellationToken = default
+        )
         {
             ArgumentNullException.ThrowIfNull(client);
             ArgumentNullException.ThrowIfNull(setter);
