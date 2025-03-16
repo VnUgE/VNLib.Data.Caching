@@ -291,7 +291,7 @@ namespace VNLib.Data.Caching
             GetObjectFromData<T, TState> getter,
             TState state,
             CancellationToken cancellationToken = default
-            )
+        )
         {
             ArgumentNullException.ThrowIfNull(getter);
 
@@ -299,7 +299,13 @@ namespace VNLib.Data.Caching
             GetObjectState<T, TState> st = new(state, getter);
 
             //Get the object, if successfull, compute the result
-            bool success = await GetObjectAsync(client, objectId, static (s, d) => s.ComputeResult(d), st, cancellationToken);
+            bool success = await GetObjectAsync(
+                client,
+                objectId, 
+                setter: static (s, d) => s.ComputeResult(d), 
+                state: st, 
+                cancellationToken
+            );
 
             //If the get operation failed, return a default value
             return success ? st.Result : default;
@@ -329,7 +335,13 @@ namespace VNLib.Data.Caching
             ArgumentNullException.ThrowIfNull(deserialzer);
 
             //Use the deserialzer to deserialize the data as a state parameter
-            return GetObjectAsync(client, objectId, static (s, d) => s.Deserialize<T>(d), deserialzer, cancellationToken);
+            return GetObjectAsync(
+                client, 
+                objectId, 
+                getter: static (s, d) => s.Deserialize<T>(d),
+                deserialzer, 
+                cancellationToken
+            );
         }
 
         /// <summary>

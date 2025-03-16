@@ -31,6 +31,7 @@ using System.Diagnostics;
 using VNLib.Utils.Logging;
 using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
+using VNLib.Plugins.Extensions.Loading.Configuration;
 
 using VNLib.Data.Caching.Providers.VNCache.Internal;
 /*
@@ -70,13 +71,13 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// <returns>An opreator handle that can schedule the remote cache worker task</returns>
         /// <exception cref="ArgumentNullException"></exception>
         /// <remarks>
-        /// The returned <see cref="CacheClientHandle"/> implements the <see cref="IAsyncBackgroundWork"/>
+        /// The returned <see cref="VNCacheClientHandle"/> implements the <see cref="IAsyncBackgroundWork"/>
         /// interface and must be scheduled in order to maintain a connection with the remote cache store.
         /// </remarks>
-        public static CacheClientHandle CreateRemoteCache(VnCacheClientConfig config)
+        public static VNCacheClientHandle CreateRemoteCache(VnCacheClientConfig config)
         {
-            ArgumentNullException.ThrowIfNull(config);           
-            return new(new FBMCacheClient(config));
+            ArgumentNullException.ThrowIfNull(config);
+            return CreateRemoteCache(config, plugin: null);
         }
 
         /// <summary>
@@ -89,11 +90,11 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// <returns>An opreator handle that can schedule the remote cache worker task</returns>
         /// <exception cref="ArgumentNullException"></exception>
         /// <remarks>
-        /// The returned <see cref="CacheClientHandle"/> implements the <see cref="IAsyncBackgroundWork"/>
+        /// The returned <see cref="VNCacheClientHandle"/> implements the <see cref="IAsyncBackgroundWork"/>
         /// interface and must be scheduled in order to maintain a connection with the remote cache store. The memory cache 
         /// resources are released when the worker task exits.
         /// </remarks>
-        public static CacheClientHandle CreateRemoteBackedMemoryCache(VnCacheClientConfig remote, MemoryCacheConfig memory)
+        public static VNCacheClientHandle CreateRemoteBackedMemoryCache(VnCacheClientConfig remote, MemoryCacheConfig memory)
         {
             ArgumentNullException.ThrowIfNull(remote);
             ArgumentNullException.ThrowIfNull(memory);
@@ -110,7 +111,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// This operator must be disposed to release held resources.
         /// </returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static CacheClientHandle CreateMemoryCache(MemoryCacheConfig config)
+        public static VNCacheClientHandle CreateMemoryCache(MemoryCacheConfig config)
         {
             ArgumentNullException.ThrowIfNull(config);
             return CreateMemoryCache(config, plugin: null);
@@ -123,30 +124,33 @@ namespace VNLib.Data.Caching.Providers.VNCache
          * also use internally.
          */
 
-        private static CacheClientHandle CreateMemoryCache(MemoryCacheConfig config, PluginBase? plugin)
+        private static VNCacheClientHandle CreateMemoryCache(MemoryCacheConfig config, PluginBase? plugin)
         {
             Debug.Assert(config != null);
           
             config.OnValidate();
 
-            return new CacheClientHandle(cache: new MemoryCache(config, plugin));
+            return new VNCacheClientHandle(cache: new MemoryCache(config, plugin));
         }
        
-        private static CacheClientHandle CreateRemoteCache(VnCacheClientConfig config, PluginBase? plugin)
+        private static VNCacheClientHandle CreateRemoteCache(VnCacheClientConfig config, PluginBase? plugin)
         {
             Debug.Assert(config != null);
 
             config.OnValidate();
 
+            //Remove cache requires an auth manager
+            Validate.NotNull(config.AuthManager, "You must explicitly configure an authentication manager");
+
             //Create a new client that depends on the plugin context
-            FBMCacheClient client = plugin is not null 
-                ? new(plugin, config) 
-                : new(config);
+            FBMCacheClient client = plugin is null
+                ? new(config) 
+                : new(plugin, config);
 
             return new(client);
         }
 
-        private static CacheClientHandle CreateRemoteBackedMemoryCache(VnCacheClientConfig remote, MemoryCacheConfig memory, PluginBase? plugin)
+        private static VNCacheClientHandle CreateRemoteBackedMemoryCache(VnCacheClientConfig remote, MemoryCacheConfig memory, PluginBase? plugin)
         {
             Debug.Assert(remote != null);
             Debug.Assert(memory != null);
@@ -154,10 +158,13 @@ namespace VNLib.Data.Caching.Providers.VNCache
             remote.OnValidate();
             memory.OnValidate();
 
+            //Remove cache requires an auth manager
+            Validate.NotNull(remote.AuthManager, "You must explicitly configure an authentication manager");
+
             //Create a new client that depends on the plugin context
-            FBMCacheClient fbmCache = plugin is not null
-                ? new(plugin, remote)
-                : new(remote);
+            FBMCacheClient fbmCache = plugin is null
+                ? new(remote)
+                : new(plugin, remote);
 
             RemoteBackedMemoryCache cache = new(memory, fbmCache);
             return new (cache);
@@ -165,7 +172,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
 
 
         private readonly IGlobalCacheProvider _client;
-        private readonly CacheClientHandle _handle;
+        private readonly VNCacheClientHandle _handle;
 
         public VNCacheClient(PluginBase plugin, IConfigScope config)
         {
@@ -177,6 +184,12 @@ namespace VNLib.Data.Caching.Providers.VNCache
 
             //Always assign a debug log in plugin context
             cacheClientConfig.ClientDebugLog = plugin.Log.CreateScope("CLIENT");
+
+            //Create a jwk authenticator from plugin secrets
+            cacheClientConfig.AuthManager = JwkAuthManager.FromLazyJwk(
+                sigKey: plugin.GetSecretAsync("client_private_key").ToLazy(static r => r.GetJsonWebKey()),
+                verifKey: plugin.GetSecretAsync("cache_public_key").ToLazy(static r => r.GetJsonWebKey())
+            );
 
             if (config.TryGetValue(MEMORY_CACHE_CONFIG_KEY, out JsonElement memCacheConfEl))
             {

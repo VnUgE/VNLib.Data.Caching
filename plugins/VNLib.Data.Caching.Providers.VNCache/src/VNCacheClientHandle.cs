@@ -23,6 +23,7 @@
 */
 
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -31,7 +32,6 @@ using VNLib.Utils.Logging;
 using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Data.Caching.Providers.VNCache.Internal;
-using System.Diagnostics;
 
 namespace VNLib.Data.Caching.Providers.VNCache
 {
@@ -45,7 +45,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
     /// The background work method must be sheduled for the cache client to be 
     /// connected to the backing store
     /// </remarks>
-    public sealed class CacheClientHandle(IGlobalCacheProvider cache) : VnDisposeable, IAsyncBackgroundWork
+    public sealed class VNCacheClientHandle(IGlobalCacheProvider cache) : VnDisposeable, IAsyncBackgroundWork
     {
         private CancellationTokenSource? _tokenSource;
 
@@ -77,7 +77,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// <param name="operationLog">A log provider to write connection and logging data to</param>
         /// <param name="exitToken">A token that will gracefully stop a client connection when cancelled</param>
         /// <returns>A task that represents this background operation</returns>
-        public async Task RunAsync(ILogProvider operationLog, CancellationToken exitToken)
+        public async Task RunAsync(ILogProvider operationLog, CancellationToken exitToken = default)
         {
             ArgumentNullException.ThrowIfNull(operationLog);
 
@@ -111,7 +111,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// <summary>
         /// Cancels the background cache client listener
         /// </summary>
-        public void CancelListener() => _tokenSource?.Cancel();
+        public void StopListening() => _tokenSource?.Cancel();
 
         protected override void Free()
         {

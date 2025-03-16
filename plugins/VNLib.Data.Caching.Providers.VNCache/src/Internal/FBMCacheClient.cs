@@ -30,11 +30,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Sockets;
 using System.Net.WebSockets;
-using System.Collections.Generic;
-using System.Security.Cryptography;
-
-using VNLib.Hashing;
-using VNLib.Hashing.IdentityUtility;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
 using VNLib.Net.Messaging.FBM.Client;
@@ -47,7 +42,7 @@ using VNLib.Plugins.Extensions.Loading.Events;
 using VNLib.Data.Caching.Providers.VNCache.Clustering;
 
 namespace VNLib.Data.Caching.Providers.VNCache.Internal
-{
+{    
 
     /// <summary>
     /// A base class that manages 
@@ -82,7 +77,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
 
         internal FBMCacheClient(PluginBase plugin, VnCacheClientConfig config) : this(config)
         {
-            _plugin = (plugin, plugin.Log.CreateScope(LOG_NAME));
+            _plugin = (plugin, plugin.Log.CreateScope(LOG_NAME));            
 
             /*
             * When running in plugin context, the user may have specified a custom 
@@ -132,16 +127,16 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
 
             CacheClientConfiguration clusterConfig = new CacheClientConfiguration()
                 .WithTls(_config.UseTls)
+                .WithAuthenticator(_config.AuthManager)
                 .WithInitialPeers(_config.GetInitialNodeUris());
 
             //See if were executing in the context of a plugin
             if (_plugin.HasValue)
             {
-                (PluginBase plugin, ILogProvider scoped) = _plugin.Value;
+                (_, ILogProvider scoped) = _plugin.Value;              
 
                 //When in plugin context, we can use plugin local secrets and a log-based error handler
-                clusterConfig
-                    .WithAuthenticator(new AuthManager(plugin))
+                clusterConfig                   
                     .WithErrorHandler(new DiscoveryErrHAndler(scoped));
             }
 
@@ -180,29 +175,14 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         {
             IClusterNodeIndex index = null!;
             VNCacheClusterClient cluster = null!;
+            CacheNodeAdvertisment? node = null;
 
             ConfigureCluster(ref index, ref cluster);
 
             //Set a default node delay if null
             TimeSpan initNodeDelay = _config.InitialNodeDelay.HasValue
-                ? TimeSpan.FromSeconds(_config.InitialNodeDelay.Value)
-                : InitialDelay;
-
-            if (_plugin.HasValue && index is IIntervalScheduleable mstr)
-            {
-                (PluginBase plugin, ILogProvider scoped) = _plugin.Value;
-
-                //Schedule discovery interval
-                plugin.ScheduleInterval(mstr, _config.DiscoveryInterval);
-
-                //Run discovery after initial delay if interval is greater than initial delay
-                if (_config.DiscoveryInterval > initNodeDelay)
-                {
-                    //Run a manual initial load
-                    scoped.Information("Running initial discovery in {delay}", initNodeDelay);
-                    _ = plugin.ObserveWork(() => mstr.OnIntervalAsync(scoped, plugin.UnloadToken), (int)initNodeDelay.TotalMilliseconds);
-                }
-            }
+                    ? TimeSpan.FromMilliseconds(_config.InitialNodeDelay.Value)
+                    : InitialDelay;
 
             try
             {
@@ -210,7 +190,27 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
                 operationLog.Debug("Worker started, waiting for startup delay");
                 await Task.Delay(initNodeDelay, exitToken);
 
-                CacheNodeAdvertisment? node = null;
+                //See if the current client index is a master index
+                if (index is IIntervalScheduleable masterIndex)
+                {
+                    if (_plugin.HasValue)
+                    {
+                        (PluginBase plugin, ILogProvider scoped) = _plugin.Value;
+
+                        //Schedule discovery interval on the plugin scheduler
+                        plugin.ScheduleInterval(masterIndex, _config.DiscoveryInterval);
+
+                        _ = plugin.ObserveWork(
+                            asyncTask: () => masterIndex.OnIntervalAsync(scoped, plugin.UnloadToken), 
+                            delayMs:(int)initNodeDelay.TotalMilliseconds
+                        );
+                    }
+                    else
+                    {
+                        //Trigger initial discovery manually
+                        _ = masterIndex.OnIntervalAsync(operationLog, exitToken);
+                    }
+                }             
 
                 while (true)
                 {
@@ -401,79 +401,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
 
         ///<inheritdoc/>
         public override object GetUnderlyingStore() => _client ?? throw new InvalidOperationException("The client is not currently connected");
-
-        private sealed class AuthManager(PluginBase plugin) : ICacheAuthManager
-        {
-
-            private IAsyncLazy<ReadOnlyJsonWebKey> _sigKey = plugin.GetSecretAsync("client_private_key").ToLazy(static r => r.GetJsonWebKey());
-            private IAsyncLazy<ReadOnlyJsonWebKey> _verKey = plugin.GetSecretAsync("cache_public_key").ToLazy(static r => r.GetJsonWebKey());
-
-            public async Task AwaitLazyKeyLoad()
-            {
-                await _sigKey;
-                await _verKey;
-            }
-
-            ///<inheritdoc/>
-            public IReadOnlyDictionary<string, string?> GetJwtHeader()
-            {
-                //Get the signing key jwt header
-                return _sigKey.Value.JwtHeader;
-            }
-
-            ///<inheritdoc/>
-            public void SignJwt(JsonWebToken jwt)
-            {
-                //Sign the jwt with signing key
-                jwt.SignFromJwk(_sigKey.Value);
-            }
-
-            ///<inheritdoc/>
-            public byte[] SignMessageHash(byte[] hash, HashAlg alg)
-            {
-                //try to get the rsa alg for the signing key
-                using RSA? rsa = _sigKey.Value.GetRSAPrivateKey();
-                if (rsa != null)
-                {
-                    return rsa.SignHash(hash, alg.GetAlgName(), RSASignaturePadding.Pkcs1);
-                }
-
-                //try to get the ecdsa alg for the signing key
-                using ECDsa? ecdsa = _sigKey.Value.GetECDsaPrivateKey();
-                if (ecdsa != null)
-                {
-                    return ecdsa.SignHash(hash);
-                }
-
-                throw new NotSupportedException("The signing key is not a valid RSA or ECDSA key");
-            }
-
-            ///<inheritdoc/>
-            public bool VerifyJwt(JsonWebToken jwt, bool isPeer)
-            {
-                return jwt.VerifyFromJwk(_verKey.Value);
-            }
-
-            ///<inheritdoc/>
-            public bool VerifyMessageHash(ReadOnlySpan<byte> hash, HashAlg alg, ReadOnlySpan<byte> signature, bool isPeer)
-            {
-                //try to get the rsa alg for the signing key
-                using RSA? rsa = _verKey.Value.GetRSAPublicKey();
-                if (rsa != null)
-                {
-                    return rsa.VerifyHash(hash, signature, alg.GetAlgName(), RSASignaturePadding.Pkcs1);
-                }
-
-                //try to get the ecdsa alg for the signing key
-                using ECDsa? ecdsa = _verKey.Value.GetECDsaPublicKey();
-                if (ecdsa != null)
-                {
-                    return ecdsa.VerifyHash(hash, signature);
-                }
-
-                throw new NotSupportedException("The current key is not an RSA or ECDSA key and is not supported");
-            }
-        }
+      
 
         private sealed record class DiscoveryErrHAndler(ILogProvider Logger) : ICacheDiscoveryErrorHandler
         {

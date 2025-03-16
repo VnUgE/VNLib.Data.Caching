@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -26,10 +26,11 @@ using System;
 using System.Linq;
 using System.Text.Json.Serialization;
 
-using VNLib.Plugins.Extensions.Loading.Configuration;
 using VNLib.Utils.Logging;
+using VNLib.Data.Caching.Extensions;
+using VNLib.Plugins.Extensions.Loading.Configuration;
 
-namespace VNLib.Data.Caching.Providers.VNCache.Internal
+namespace VNLib.Data.Caching.Providers.VNCache
 {
     /// <summary>
     /// Represents a remote VNCache client configuration
@@ -45,6 +46,12 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         /// </summary>
         [JsonIgnore]
         public ILogProvider? ClientDebugLog { get; set; }
+
+        /// <summary>
+        /// The authentication manager for the cache client
+        /// </summary>
+        [JsonIgnore]
+        public ICacheAuthManager AuthManager { get; set; } = null!;
 
         /// <summary>
         /// The broker server address
@@ -123,7 +130,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             Validate.Range(RequestTimeoutSeconds.Value, 1, int.MaxValue);
 
             Validate.NotNull(InitialNodes, "You must specify at least one initial cache node to connect to");
-            Validate.Assert(InitialNodes.Length > 0, "You must specify at least one initial cache node to connect to");
+            Validate.Assert(InitialNodes.Length > 0, "You must specify at least one initial cache node to connect to");           
 
             //Validate initial nodes
             foreach (Uri peer in GetInitialNodeUris())
