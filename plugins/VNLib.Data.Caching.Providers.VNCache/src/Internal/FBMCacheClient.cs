@@ -30,11 +30,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Sockets;
 using System.Net.WebSockets;
+
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
 using VNLib.Net.Messaging.FBM.Client;
 using VNLib.Data.Caching.Extensions;
 using VNLib.Data.Caching.Extensions.Clustering;
+
 using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Plugins.Extensions.Loading.Events;
@@ -133,10 +135,10 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             //See if were executing in the context of a plugin
             if (_plugin.HasValue)
             {
-                (_, ILogProvider scoped) = _plugin.Value;              
+                (_, ILogProvider scoped) = _plugin.Value;
 
                 //When in plugin context, we can use plugin local secrets and a log-based error handler
-                clusterConfig                   
+                clusterConfig
                     .WithErrorHandler(new DiscoveryErrHAndler(scoped));
             }
 

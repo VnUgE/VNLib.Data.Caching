@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Plugins.Extensions.VNCache
@@ -48,14 +48,14 @@ namespace VNLib.Plugins.Extensions.VNCache
         internal const string EXTERN_CACHE_LIB_PATH = "assembly_name";
 
         /// <summary>
-        /// Loads <see cref="IGlobalCacheProvider"/> from an external asset assembly package
+        /// Loads <see cref="ICacheClient"/> from an external asset assembly package
         /// </summary>
         /// <param name="plugin"></param>
         /// <param name="asmDllPath">The path to the assembly that exports the global cache provider instance</param>
         /// <param name="search">The directory search option</param>
-        /// <returns>The loaded <see cref="IGlobalCacheProvider"/> instance</returns>
-        public static IGlobalCacheProvider LoadCacheLibrary(this PluginBase plugin, string asmDllPath, SearchOption search = SearchOption.AllDirectories) 
-             => plugin.CreateServiceExternal<IGlobalCacheProvider>(asmDllPath, search, defaultCtx: null);
+        /// <returns>The loaded <see cref="ICacheClient"/> instance</returns>
+        public static ICacheClient LoadCacheLibrary(this PluginBase plugin, string asmDllPath, SearchOption search = SearchOption.AllDirectories) 
+             => plugin.CreateServiceExternal<ICacheClient>(asmDllPath, search, defaultCtx: null);
 
         /// <summary>
         /// Gets the configuration assigned global cache provider, if defined. If the configuration does not 
@@ -63,7 +63,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// </summary>
         /// <param name="plugin"></param>
         /// <returns>The assgined global cache provider or null if undefined</returns>
-        public static IGlobalCacheProvider? GetDefaultGlobalCache(this PluginBase plugin)
+        public static ICacheClient? GetDefaultGlobalCache(this PluginBase plugin)
         {
             if (plugin.TryGetConfig(CACHE_CONFIG_KEY) == null)
             {
@@ -73,7 +73,7 @@ namespace VNLib.Plugins.Extensions.VNCache
             return LoadingExtensions.GetOrCreateSingleton(plugin, SingletonCacheLoader);
         }
 
-        private static IGlobalCacheProvider SingletonCacheLoader(PluginBase plugin)
+        private static ICacheClient SingletonCacheLoader(PluginBase plugin)
         {
             //Get the cache configuration
             IConfigScope config = plugin.GetConfig(CACHE_CONFIG_KEY);
@@ -82,7 +82,7 @@ namespace VNLib.Plugins.Extensions.VNCache
 
             plugin.Log.Verbose("Loading external cache library: {cl}", dllPath);
 
-            IGlobalCacheProvider _client = plugin.LoadCacheLibrary(dllPath);
+            ICacheClient _client = plugin.LoadCacheLibrary(dllPath);
 
             //Try to call an init method if it exists
             ManagedLibrary.TryGetMethod<Action>(_client, "Init")?.Invoke();
@@ -110,7 +110,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// <param name="encoding">The string encoding method used to encode the hash output</param>
         /// <returns>The <see cref="ScopedCache"/> instance that will use the prefix to compute object ids</returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static ScopedCache GetPrefixedCache(this IGlobalCacheProvider cache, string prefix, HashAlg digest = HashAlg.SHA1, HashEncodingMode encoding = HashEncodingMode.Base64)
+        public static ScopedCache GetPrefixedCache(this ICacheClient cache, string prefix, HashAlg digest = HashAlg.SHA1, HashEncodingMode encoding = HashEncodingMode.Base64)
         {
             ArgumentNullException.ThrowIfNull(cache);
             ArgumentException.ThrowIfNullOrEmpty(prefix);

@@ -57,7 +57,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
     /// </summary>
     [ServiceExport]
     [ConfigurationName(CACHE_CONFIG_KEY)]
-    public sealed class VNCacheClient : IGlobalCacheProvider, IAsyncBackgroundWork
+    public sealed class VNCacheClient : ICacheClient, IAsyncBackgroundWork
     {
         internal const string CACHE_CONFIG_KEY = "cache";
         internal const string MEMORY_CACHE_CONFIG_KEY = "memory_cache";
@@ -67,7 +67,6 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// Allows you to programatically create a remote-only VNCache instance
         /// </summary>
         /// <param name="config">The remote cache configuration, required for VNCache remote cache servers</param>
-        /// <param name="debugLog">An optional FBMClient debugging log provider, should be null unless debug logging is desired </param>
         /// <returns>An opreator handle that can schedule the remote cache worker task</returns>
         /// <exception cref="ArgumentNullException"></exception>
         /// <remarks>
@@ -86,7 +85,6 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// </summary>
         /// <param name="remote">The remote cache configuration, required for VNCache remote cache servers</param>
         /// <param name="memory">The local memory backed configuration</param>
-        /// <param name="debugLog">An optional FBMClient debugging log provider, should be null unless debug logging is desired </param>
         /// <returns>An opreator handle that can schedule the remote cache worker task</returns>
         /// <exception cref="ArgumentNullException"></exception>
         /// <remarks>
@@ -102,7 +100,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         /// <summary>
-        /// Allows you to programatically create a memory only <see cref="IGlobalCacheProvider"/>
+        /// Allows you to programatically create a memory only <see cref="ICacheClient"/>
         /// cache instance.
         /// </summary>
         /// <param name="config">The memory cache configuration</param>
@@ -171,7 +169,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
 
-        private readonly IGlobalCacheProvider _client;
+        private readonly ICacheClient _client;
         private readonly VNCacheClientHandle _handle;
 
         public VNCacheClient(PluginBase plugin, IConfigScope config)
@@ -187,8 +185,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
 
             //Create a jwk authenticator from plugin secrets
             cacheClientConfig.AuthManager = JwkAuthManager.FromLazyJwk(
-                sigKey: plugin.GetSecretAsync("client_private_key").ToLazy(static r => r.GetJsonWebKey()),
-                verifKey: plugin.GetSecretAsync("cache_public_key").ToLazy(static r => r.GetJsonWebKey())
+                sigKey: plugin.GetSecretAsync("client_private_key").ToJsonWebKey().AsLazy(),
+                verifKey: plugin.GetSecretAsync("cache_public_key").ToJsonWebKey().AsLazy()
             );
 
             if (config.TryGetValue(MEMORY_CACHE_CONFIG_KEY, out JsonElement memCacheConfEl))
@@ -227,9 +225,12 @@ namespace VNLib.Data.Caching.Providers.VNCache
              * When running in plugin context, this function will be called. It will
              * invoke the run function for the backing cache store (using the operator 
              * handle)
+             * 
+             * The handle will internally link to the cancellation token so we don't need
+             * to explicitly call the StopListening function.
              */
             return _handle.RunAsync(
-                pluginLog.CreateScope("VNCache"), 
+                operationLog: pluginLog.CreateScope("VNCache"), 
                 exitToken
             );
         }

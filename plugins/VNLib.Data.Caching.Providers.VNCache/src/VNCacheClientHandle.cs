@@ -45,14 +45,14 @@ namespace VNLib.Data.Caching.Providers.VNCache
     /// The background work method must be sheduled for the cache client to be 
     /// connected to the backing store
     /// </remarks>
-    public sealed class VNCacheClientHandle(IGlobalCacheProvider cache) : VnDisposeable, IAsyncBackgroundWork
+    public sealed class VNCacheClientHandle(ICacheClient cache) : VnDisposeable, IAsyncBackgroundWork
     {
         private CancellationTokenSource? _tokenSource;
 
         /// <summary>
         /// The configured global cache instance
         /// </summary>
-        public IGlobalCacheProvider Cache { get; } = cache;
+        public ICacheClient Cache { get; } = cache;
 
         ///<inheritdoc/>
         Task IAsyncBackgroundWork.DoWorkAsync(ILogProvider pluginLog, CancellationToken exitToken)

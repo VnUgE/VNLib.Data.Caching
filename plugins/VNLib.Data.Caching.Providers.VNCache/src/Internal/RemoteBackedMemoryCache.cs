@@ -53,11 +53,11 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
     {
         private readonly MemoryCacheConfig _cacheConfig;
         private readonly BlobCacheTable _memCache;
-        private readonly IGlobalCacheProvider _backing;
+        private readonly ICacheClient _backing;
         private readonly IUnmangedHeap _bufferHeap;
         private readonly BucketLocalManagerFactory? _blobCacheMemManager;       
 
-        internal RemoteBackedMemoryCache(MemoryCacheConfig config, IGlobalCacheProvider backingStore)
+        internal RemoteBackedMemoryCache(MemoryCacheConfig config, ICacheClient backingStore)
             :base(config)
         {
             ArgumentNullException.ThrowIfNull(config);

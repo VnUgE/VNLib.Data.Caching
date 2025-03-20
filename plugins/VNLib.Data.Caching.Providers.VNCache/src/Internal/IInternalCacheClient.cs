@@ -29,7 +29,7 @@ using VNLib.Utils.Logging;
 
 namespace VNLib.Data.Caching.Providers.VNCache.Internal
 {
-    internal interface IInternalCacheClient : IGlobalCacheProvider
+    internal interface IInternalCacheClient : ICacheClient
     {
         /// <summary>
         /// Run client-specific logic for enabling long-running client work in 

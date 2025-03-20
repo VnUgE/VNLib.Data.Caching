@@ -33,7 +33,7 @@ using VNLib.Data.Caching.Exceptions;
 namespace VNLib.Data.Caching
 {
     /// <summary>
-    /// Exports extension methods for the <see cref="IGlobalCacheProvider"/> interface
+    /// Exports extension methods for the <see cref="ICacheClient"/> interface
     /// </summary>
     public static class GlobalCacheExtensions
     {
@@ -47,7 +47,7 @@ namespace VNLib.Data.Caching
         /// <param name="cancellation">A token to cancel the async operation</param>
         /// <returns>A task that complets when the object data has been written to the data buffer</returns>
         public static Task GetAsync(
-            this IGlobalCacheProvider cache, 
+            this ICacheClient cache, 
             string key, 
             IObjectData rawData,
             CancellationToken cancellation
@@ -73,7 +73,7 @@ namespace VNLib.Data.Caching
         /// <param name="rawData">The raw data to store at the given key</param>
         /// <returns>A task that completes when the update operation has compelted</returns>
         public static Task AddOrUpdateAsync(
-            this IGlobalCacheProvider cache, 
+            this ICacheClient cache, 
             string key, 
             string? newKey, 
             IObjectData rawData, 
@@ -102,7 +102,7 @@ namespace VNLib.Data.Caching
         /// <returns>A task that completes when the update operation has compelted</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Task AddOrUpdateAsync(
-            this IGlobalCacheProvider cache, 
+            this ICacheClient cache, 
             string key, 
             string? newKey, 
             ReadOnlyMemory<byte> rawData, 
@@ -131,7 +131,7 @@ namespace VNLib.Data.Caching
         /// <returns>A task that completes when the update operation has compelted</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Task AddOrUpdateAsync(
-            this IGlobalCacheProvider cache,
+            this ICacheClient cache,
             string key,
             string? newKey,
             Memory<byte> rawData,
@@ -160,7 +160,7 @@ namespace VNLib.Data.Caching
         /// <returns>A task that completes when the update operation has compelted</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Task AddOrUpdateAsync(
-            this IGlobalCacheProvider cache,
+            this ICacheClient cache,
             string key,
             string? newKey,
             byte[] rawData,
@@ -194,7 +194,7 @@ namespace VNLib.Data.Caching
         /// <exception cref="ObjectDisposedException"></exception>
         /// <exception cref="InvalidResponseException"></exception>
         public static async Task<T?> GetAsync<T, TState>(
-            this IGlobalCacheProvider cache,
+            this ICacheClient cache,
             string objectId,
             GetObjectFromData<T, TState> getter,
             TState state,
@@ -228,12 +228,11 @@ namespace VNLib.Data.Caching
         /// <param name="key">The key identifying the object to recover from cache</param>
         /// <param name="cancellation">A token to cancel the async operation</param>
         /// <returns>The value if found, or null if it does not exist in the store</returns>
-        public static Task<T?> GetAsync<T>(this IGlobalCacheProvider cache, string key, CancellationToken cancellation)
+        public static Task<T?> GetAsync<T>(this ICacheClient cache, string key, CancellationToken cancellation)
         {
             ArgumentNullException.ThrowIfNull(cache);
             return cache.GetAsync<T>(key, cache.DefaultDeserializer, cancellation);
-        }
-
+        }     
         /// <summary>
         /// Asynchronously sets (or updates) a cached value in the backing cache store
         /// </summary>
@@ -245,7 +244,7 @@ namespace VNLib.Data.Caching
         /// <param name="value">The value to set at the given key</param>
         /// <returns>A task that completes when the update operation has compelted</returns>
         public static Task AddOrUpdateAsync<T>(
-            this IGlobalCacheProvider cache, 
+            this ICacheClient cache, 
             string key, 
             string? newKey, 
             T value, 
