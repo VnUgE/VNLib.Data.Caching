@@ -27,7 +27,7 @@ LABEL name="vnuge/vncache"
 LABEL maintainer="Vaughn Nugent <vnpublic@proton.me>"
 LABEL description="A simple clustered network data caching service"
 
-#install dumb-init and task
+#install dumb-init
 RUN apt update && apt install -y dumb-init 
 
 #copy local artifacts again in run container
