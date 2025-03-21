@@ -77,7 +77,15 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// <param name="operationLog">A log provider to write connection and logging data to</param>
         /// <param name="exitToken">A token that will gracefully stop a client connection when cancelled</param>
         /// <returns>A task that represents this background operation</returns>
-        public async Task RunAsync(ILogProvider operationLog, CancellationToken exitToken = default)
+        public Task RunAsync(ILogProvider operationLog, CancellationToken exitToken = default)
+        {
+            return RunInternalAsync(null, operationLog, exitToken);
+        }
+
+        /*
+         * Allows for running in plugin context internally 
+         */
+        internal async Task RunInternalAsync(PluginBase? plugin, ILogProvider operationLog, CancellationToken exitToken = default)
         {
             ArgumentNullException.ThrowIfNull(operationLog);
 
@@ -92,17 +100,17 @@ namespace VNLib.Data.Caching.Providers.VNCache
                      * mode of operation for all cache clients.
                      */
 
-                    await vncache.RunAsync(operationLog, _tokenSource.Token)
+                    await vncache.RunAsync(plugin, operationLog, _tokenSource.Token)
                         .ConfigureAwait(false);
-                }               
+                }
                 else if (Cache is IAsyncBackgroundWork client)
                 {
                     Debug.Fail("Background work api is deprecated for internal providers");
 
                     await client.DoWorkAsync(operationLog, _tokenSource.Token)
                         .ConfigureAwait(false);
-                }               
-            }          
+                }
+            }
 
             //Remove cts
             _tokenSource = null;

@@ -23,6 +23,7 @@
 */
 
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -33,7 +34,6 @@ using VNLib.Utils.Memory.Diagnostics;
 using VNLib.Data.Caching;
 using VNLib.Data.Caching.ObjectCache;
 using VNLib.Plugins;
-using VNLib.Plugins.Extensions.Loading;
 
 namespace VNLib.Data.Caching.Providers.VNCache.Internal
 {
@@ -42,12 +42,18 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
     {
         const int MB_DIVISOR = 1000 * 1024;
 
+        private bool _isConnected;
+
+        private readonly VNMemoryCacheConfig _config;
         private readonly BlobCacheTable _memCache;
         private readonly IUnmangedHeap _bufferHeap;
         private readonly BucketLocalManagerFactory? _blobCacheMemManager;
      
-        internal MemoryCache(MemoryCacheConfig config, PluginBase? plugin) : base(config)
+        internal MemoryCache(VNMemoryCacheConfig config) : base(config)
         {
+            Debug.Assert(config != null);
+            _config = config;
+
             //Assign a default memory manager if none is provided
             config.MemoryManagerFactory 
                 ??= _blobCacheMemManager = BucketLocalManagerFactory.Create(config.ZeroAllAllocations);
@@ -62,18 +68,16 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
 
             //Init new "private" heap to alloc buffer from
             _bufferHeap = MemoryUtil.InitializeNewHeapForProcess(config.ZeroAllAllocations);
-
-            if (plugin?.IsDebug() == true)
+            
+            if (config.IsDebug)
             {
-                // If plugin debugging is enabled, wrap the heap in a tracked
+                // If debugging is enabled, wrap the heap in a tracked
                 // heap wrapper for debugging purposes
                 _bufferHeap = new TrackedHeapWrapper(heap: _bufferHeap, ownsHeap: true);
-            }           
-
-            PrintDebug(plugin?.Log, config);
+            }
         }
 
-        private static void PrintDebug(ILogProvider? log, MemoryCacheConfig config)
+        private static void PrintDebug(ILogProvider log, VNMemoryCacheConfig config)
         {
             const string DEBUG_TEMPLATE = @"Configuring Memory-Only Cache
  | -----------------------------
@@ -94,7 +98,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             long size8kMb = maxObjects * 8128/MB_DIVISOR;
             long size16kMb = maxObjects * 16384/MB_DIVISOR;
 
-            log?.Debug(
+            log.Debug(
                 DEBUG_TEMPLATE, 
                 config.TableSize, 
                 config.BucketSize, 
@@ -113,19 +117,30 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         }
 
         ///<inheritdoc/>
-        public override Task RunAsync(ILogProvider operationLog, CancellationToken exitToken)
+        public override async Task RunAsync(PluginBase? plugin, ILogProvider operationLog, CancellationToken exitToken)
         {
+            if(plugin is not null)
+            {
+                PrintDebug(plugin.Log, _config);
+            }
+
+            // Set connected flag
+            _isConnected = true;
+
             /*
              * Just a dummy task that waits until the token is cancelled to exit
              */
-            return exitToken.WaitHandle.NoSpinWaitAsync(Timeout.Infinite);
+            await exitToken.WaitHandle.NoSpinWaitAsync(Timeout.Infinite);
+
+            // Clear connected flag
+            _isConnected = false;
         }
 
         ///<inheritdoc/>
         public override object GetUnderlyingStore() => _memCache;
 
         ///<inheritdoc/>
-        public override bool IsConnected { get; } = true;
+        public override bool IsConnected => _isConnected;
 
         ///<inheritdoc/>
         public override async Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
@@ -137,7 +152,14 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             serialzer.Serialize(value, buffer);
 
             //Update object data
-            await _memCache.AddOrUpdateObjectAsync(key, newKey, static b => b.GetData(), buffer, time: default, cancellation);
+            await _memCache.AddOrUpdateObjectAsync(
+                key, 
+                newKey, 
+                static b => b.GetData(), 
+                state: buffer, 
+                time: default, 
+                cancellation
+            );
         }
 
         ///<inheritdoc/>
@@ -198,7 +220,14 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         public override Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataGet<T> callback, T state, CancellationToken cancellation)
         {
             //Update object data
-            return _memCache.AddOrUpdateObjectAsync(key, newKey, callback, state, default, cancellation).AsTask();
+            return _memCache.AddOrUpdateObjectAsync(
+                key, 
+                newKey, 
+                callback, 
+                state, 
+                time: default, 
+                cancellation
+            ).AsTask();
         }
     }
 }

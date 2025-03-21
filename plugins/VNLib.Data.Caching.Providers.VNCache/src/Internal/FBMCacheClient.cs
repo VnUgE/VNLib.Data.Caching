@@ -55,14 +55,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(10);
         private static readonly TimeSpan NoNodeDelay = TimeSpan.FromSeconds(10);
 
-        private readonly VnCacheClientConfig _config;
-
-        /*
-         * This client may or may not be called in a plugin context.
-         * We need to support both. There are extra features we can 
-         * take advantage of if runnin in a plugin context
-         */
-        private readonly (PluginBase, ILogProvider)? _plugin;
+        private readonly VNCacheClientConfig _config;  
 
         private bool _isConnected;
         private FBMClient? _client;
@@ -77,41 +70,13 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         /// </summary>
         public override bool IsConnected => _isConnected;
 
-        internal FBMCacheClient(PluginBase plugin, VnCacheClientConfig config) : this(config)
-        {
-            _plugin = (plugin, plugin.Log.CreateScope(LOG_NAME));            
-
-            /*
-            * When running in plugin context, the user may have specified a custom 
-            * serializer assembly to load. If so, we need to load the assembly and
-            * get the serializer instances.
-            */
-
-            if (!string.IsNullOrWhiteSpace(_config.SerializerDllPath))
-            {
-                //Load the custom serializer assembly and get the serializer and deserializer instances
-                _config.CacheObjectSerializer = plugin.CreateServiceExternal<ICacheObjectSerializer>(_config.SerializerDllPath);
-
-                //Avoid creating another instance if the deserializer is the same as the serializer
-                if (_config.CacheObjectSerializer is ICacheObjectDeserializer cod)
-                {
-                    _config.CacheObjectDeserializer = cod;
-                }
-                else
-                {
-                    _config.CacheObjectDeserializer = plugin.CreateServiceExternal<ICacheObjectDeserializer>(_config.SerializerDllPath);
-                }
-            }
-        }
-
-        internal FBMCacheClient(VnCacheClientConfig config) : base(config)
+        internal FBMCacheClient(VNCacheClientConfig config) : base(config)
         {
             Debug.Assert(config != null);
             _config = config;
         }
 
-
-        private void ConfigureCluster(ref IClusterNodeIndex index, ref VNCacheClusterClient cluster)
+        private void ConfigureCluster(PluginBase? plugin, ref IClusterNodeIndex index, ref VNCacheClusterClient cluster)
         {
             //Init the client with default settings
             FBMClientConfig conf = FBMDataCacheExtensions.GetDefaultConfig(
@@ -133,22 +98,14 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
                 .WithInitialPeers(_config.GetInitialNodeUris());
 
             //See if were executing in the context of a plugin
-            if (_plugin.HasValue)
+            if (plugin is not null)
             {
-                (_, ILogProvider scoped) = _plugin.Value;
+                ILogProvider scoped = plugin.Log.CreateScope(LOG_NAME);             
 
                 //When in plugin context, we can use plugin local secrets and a log-based error handler
                 clusterConfig
                     .WithErrorHandler(new DiscoveryErrHAndler(scoped));
-            }
-
-            /*
-             * If the user did not assign serializers, or it was not loaded from an 
-             * external assembly in a plugin context, the serializers may be assigned 
-             * null. So this ensures seralizer instances are defined before running.
-             */
-            _config.CacheObjectSerializer ??= new JsonCacheObjectSerializer(256);
-            _config.CacheObjectDeserializer ??= new JsonCacheObjectSerializer(256);
+            }      
 
             cluster = clusterConfig.ToClusterClient(clientFactory);
 
@@ -173,13 +130,13 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         /// <param name="operationLog">A log provider to write connection and logging data to</param>
         /// <param name="exitToken">A token that will gracefully stop a client connection when cancelled</param>
         /// <returns>A task that represents this background operation</returns>
-        public override async Task RunAsync(ILogProvider operationLog, CancellationToken exitToken)
+        public override async Task RunAsync(PluginBase? plugin, ILogProvider operationLog, CancellationToken exitToken)
         {
             IClusterNodeIndex index = null!;
             VNCacheClusterClient cluster = null!;
             CacheNodeAdvertisment? node = null;
 
-            ConfigureCluster(ref index, ref cluster);
+            ConfigureCluster(plugin, ref index, ref cluster);
 
             //Set a default node delay if null
             TimeSpan initNodeDelay = _config.InitialNodeDelay.HasValue
@@ -195,9 +152,9 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
                 //See if the current client index is a master index
                 if (index is IIntervalScheduleable masterIndex)
                 {
-                    if (_plugin.HasValue)
+                    if (plugin is not null)
                     {
-                        (PluginBase plugin, ILogProvider scoped) = _plugin.Value;
+                        ILogProvider scoped = plugin.Log.CreateScope(LOG_NAME);
 
                         //Schedule discovery interval on the plugin scheduler
                         plugin.ScheduleInterval(masterIndex, _config.DiscoveryInterval);

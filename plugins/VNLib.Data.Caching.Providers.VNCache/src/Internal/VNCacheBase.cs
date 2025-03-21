@@ -25,6 +25,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
+using VNLib.Plugins;
 using VNLib.Utils.Logging;
 
 namespace VNLib.Data.Caching.Providers.VNCache.Internal
@@ -59,7 +60,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         public abstract object GetUnderlyingStore();
 
         ///<inheritdoc/>
-        public abstract Task RunAsync(ILogProvider operationLog, CancellationToken exitToken);
+        public abstract Task RunAsync(PluginBase? plugin, ILogProvider operationLog, CancellationToken exitToken);
         
     }
 }

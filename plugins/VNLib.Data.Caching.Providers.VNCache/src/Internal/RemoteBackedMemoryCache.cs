@@ -35,6 +35,7 @@ using VNLib.Utils.Logging;
 using VNLib.Utils.Extensions;
 using VNLib.Data.Caching;
 using VNLib.Data.Caching.ObjectCache;
+using VNLib.Plugins;
 
 namespace VNLib.Data.Caching.Providers.VNCache.Internal
 {
@@ -51,13 +52,13 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
 
     internal sealed class RemoteBackedMemoryCache : VNCacheBase, IDisposable
     {
-        private readonly MemoryCacheConfig _cacheConfig;
+        private readonly VNMemoryCacheConfig _cacheConfig;
         private readonly BlobCacheTable _memCache;
-        private readonly ICacheClient _backing;
+        private readonly IInternalCacheClient _backing;
         private readonly IUnmangedHeap _bufferHeap;
         private readonly BucketLocalManagerFactory? _blobCacheMemManager;       
 
-        internal RemoteBackedMemoryCache(MemoryCacheConfig config, ICacheClient backingStore)
+        internal RemoteBackedMemoryCache(VNMemoryCacheConfig config, IInternalCacheClient backingStore)
             :base(config)
         {
             ArgumentNullException.ThrowIfNull(config);
@@ -101,9 +102,9 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         }
 
         ///<inheritdoc/>
-        public override async Task RunAsync(ILogProvider clientLog, CancellationToken cancellation)
+        public override async Task RunAsync(PluginBase? plugin, ILogProvider clientLog, CancellationToken cancellation)
         {
-            Task backingTask = RunBackingTaskAsync(clientLog, cancellation);
+            Task backingTask = _backing.RunAsync(plugin, clientLog, cancellation);
             Task intervalTask = RunIntervalAsync(clientLog, cancellation);
 
             await Task.WhenAny(backingTask, intervalTask);
@@ -129,20 +130,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             //Its normal to throw when the plugin exits or is cancelled
             catch (TaskCanceledException)
             { }
-        }
-
-        private Task RunBackingTaskAsync(ILogProvider clientLog, CancellationToken cancellation)
-        {
-            if (_backing is IInternalCacheClient store)
-            {
-                return store.RunAsync(clientLog, cancellation);
-            }
-            else
-            {
-                //Dummy wait for exit
-                return cancellation.WaitHandle.NoSpinWaitAsync(Timeout.Infinite);
-            }
-        }
+        }        
 
         ///<inheritdoc/>
         public override object GetUnderlyingStore() => _backing.GetUnderlyingStore();

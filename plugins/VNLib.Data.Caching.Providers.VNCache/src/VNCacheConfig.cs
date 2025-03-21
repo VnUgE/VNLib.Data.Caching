@@ -75,18 +75,6 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         /// <summary>
-        /// The cache object deserializer to use
-        /// </summary>
-        [JsonIgnore]
-        public ICacheObjectDeserializer? CacheObjectDeserializer { get; set; }
-
-        /// <summary>
-        /// The cache object serializer to use
-        /// </summary>
-        [JsonIgnore]
-        public ICacheObjectSerializer? CacheObjectSerializer { get; set; }
-
-        /// <summary>
         /// Zeros all cache entry memory allocations before they are used
         /// </summary>
         [JsonPropertyName("zero_all")]
@@ -96,18 +84,26 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// The maxium size (in bytes) of each cache entry within any bucket
         /// </summary>
         [JsonPropertyName("max_object_size")]
-        public virtual uint MaxBlobSize { get; set; } = 16 * 1024;      
+        public virtual uint MaxBlobSize { get; set; } = 16 * 1024;
 
         /// <summary>
-        /// Optional external cache serializer library to load
+        /// The cache object deserializer to use
         /// </summary>
-        [JsonPropertyName("serializer_assebly_name")]
-        public string? SerializerDllPath { get; set; }
+        [JsonIgnore]
+        public ICacheObjectDeserializer? CacheObjectDeserializer { get; set; }
+
+        /// <summary>
+        /// The cache object serializer to use
+        /// </summary>
+        [JsonIgnore]
+        public ICacheObjectSerializer? CacheObjectSerializer { get; set; }       
 
         public virtual void OnValidate()
         {
             Validate.Range2<uint>(MaxBlobSize, 16, uint.MaxValue, "You must configure a maximum object size");         
 
+            Validate.NotNull(CacheObjectDeserializer, "You must configure a cache object deserializer");
+            Validate.NotNull(CacheObjectSerializer, "You must configure a cache object serializer");
         }
     }
 }

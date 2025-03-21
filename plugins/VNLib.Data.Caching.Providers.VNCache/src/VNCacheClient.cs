@@ -26,14 +26,14 @@ using System;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Diagnostics;
+using System.Text.Json.Serialization;
 
 using VNLib.Utils.Logging;
 using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Plugins.Extensions.Loading.Configuration;
-
 using VNLib.Data.Caching.Providers.VNCache.Internal;
+
 /*
  * This package exports an IGlobalCacheProvider that is intended to be packaged by 
  * application distributors that want to use VNCache as a global cache for their 
@@ -56,12 +56,17 @@ namespace VNLib.Data.Caching.Providers.VNCache
     /// </para>
     /// </summary>
     [ServiceExport]
-    [ConfigurationName(CACHE_CONFIG_KEY)]
+    [ConfigurationName("cache")]
     public sealed class VNCacheClient : ICacheClient, IAsyncBackgroundWork
-    {
-        internal const string CACHE_CONFIG_KEY = "cache";
+    {       
         internal const string MEMORY_CACHE_CONFIG_KEY = "memory_cache";
-        internal const string MEMORY_CACHE_ONLY_KEY = "memory_only";         
+        internal const string MEMORY_CACHE_ONLY_KEY = "memory_only";
+
+        /*
+         * Sets the default buffer size for the cache object serializer
+         * when using the default serializer in plugin context.
+         */
+        private const int DefaultSerializerBufSize = 256;
 
         /// <summary>
         /// Allows you to programatically create a remote-only VNCache instance
@@ -73,10 +78,16 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// The returned <see cref="VNCacheClientHandle"/> implements the <see cref="IAsyncBackgroundWork"/>
         /// interface and must be scheduled in order to maintain a connection with the remote cache store.
         /// </remarks>
-        public static VNCacheClientHandle CreateRemoteCache(VnCacheClientConfig config)
+        public static VNCacheClientHandle CreateRemoteCache(VNCacheClientConfig config)
         {
             ArgumentNullException.ThrowIfNull(config);
-            return CreateRemoteCache(config, plugin: null);
+
+            config.OnValidate();
+          
+            //Create a new client that depends on the plugin context
+            FBMCacheClient client = new(config);
+
+            return new(client);
         }
 
         /// <summary>
@@ -92,11 +103,22 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// interface and must be scheduled in order to maintain a connection with the remote cache store. The memory cache 
         /// resources are released when the worker task exits.
         /// </remarks>
-        public static VNCacheClientHandle CreateRemoteBackedMemoryCache(VnCacheClientConfig remote, MemoryCacheConfig memory)
+        public static VNCacheClientHandle CreateRemoteBackedMemoryCache(VNCacheClientConfig remote, VNMemoryCacheConfig memory)
         {
             ArgumentNullException.ThrowIfNull(remote);
             ArgumentNullException.ThrowIfNull(memory);
-            return CreateRemoteBackedMemoryCache(remote, memory, plugin: null);
+          
+            remote.OnValidate();
+            memory.OnValidate();
+
+            //Remove cache requires an auth manager
+            Validate.NotNull(remote.AuthManager, "You must explicitly configure an authentication manager");
+
+            //Create a new client that depends on the plugin context
+            FBMCacheClient fbmCache = new(remote);
+
+            RemoteBackedMemoryCache cache = new(memory, fbmCache);
+            return new(cache);
         }
 
         /// <summary>
@@ -109,66 +131,16 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// This operator must be disposed to release held resources.
         /// </returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static VNCacheClientHandle CreateMemoryCache(MemoryCacheConfig config)
+        public static VNCacheClientHandle CreateMemoryCache(VNMemoryCacheConfig config)
         {
             ArgumentNullException.ThrowIfNull(config);
-            return CreateMemoryCache(config, plugin: null);
-        }
-
-        /*
-         * This private functions serve to streaming the call surface area 
-         * so as many functions as possible are tested in the public API
-         * and for consitency. Whatever we expect the public to use, we should
-         * also use internally.
-         */
-
-        private static VNCacheClientHandle CreateMemoryCache(MemoryCacheConfig config, PluginBase? plugin)
-        {
-            Debug.Assert(config != null);
-          
-            config.OnValidate();
-
-            return new VNCacheClientHandle(cache: new MemoryCache(config, plugin));
-        }
-       
-        private static VNCacheClientHandle CreateRemoteCache(VnCacheClientConfig config, PluginBase? plugin)
-        {
-            Debug.Assert(config != null);
 
             config.OnValidate();
 
-            //Remove cache requires an auth manager
-            Validate.NotNull(config.AuthManager, "You must explicitly configure an authentication manager");
-
-            //Create a new client that depends on the plugin context
-            FBMCacheClient client = plugin is null
-                ? new(config) 
-                : new(plugin, config);
-
-            return new(client);
+            return new VNCacheClientHandle(cache: new MemoryCache(config));
         }
 
-        private static VNCacheClientHandle CreateRemoteBackedMemoryCache(VnCacheClientConfig remote, MemoryCacheConfig memory, PluginBase? plugin)
-        {
-            Debug.Assert(remote != null);
-            Debug.Assert(memory != null);
-            
-            remote.OnValidate();
-            memory.OnValidate();
-
-            //Remove cache requires an auth manager
-            Validate.NotNull(remote.AuthManager, "You must explicitly configure an authentication manager");
-
-            //Create a new client that depends on the plugin context
-            FBMCacheClient fbmCache = plugin is null
-                ? new(remote)
-                : new(plugin, remote);
-
-            RemoteBackedMemoryCache cache = new(memory, fbmCache);
-            return new (cache);
-        }
-
-
+        private readonly PluginBase _plugin;
         private readonly ICacheClient _client;
         private readonly VNCacheClientHandle _handle;
 
@@ -178,7 +150,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
             ArgumentNullException.ThrowIfNull(config);
 
             //Read the cache client configuration object
-            VnCacheClientConfig cacheClientConfig = config.Deserialze<VnCacheClientConfig>()!;
+            VNCacheClientConfig cacheClientConfig = config.Deserialize<VNCacheClientConfig>()!;
+            PluginConfigJson extendedConfig = config.Deserialize<PluginConfigJson>()!;
 
             //Always assign a debug log in plugin context
             cacheClientConfig.ClientDebugLog = plugin.Log.CreateScope("CLIENT");
@@ -189,32 +162,74 @@ namespace VNLib.Data.Caching.Providers.VNCache
                 verifKey: plugin.GetSecretAsync("cache_public_key").ToJsonWebKey().AsLazy()
             );
 
+            // Set the debug flag if the plugin is in debug mode
+            cacheClientConfig.IsDebug |= plugin.IsDebug();
+
+            InitSerializers(plugin, extendedConfig, cacheClientConfig);
+
             if (config.TryGetValue(MEMORY_CACHE_CONFIG_KEY, out JsonElement memCacheConfEl))
             {
-                MemoryCacheConfig memoryConfig = memCacheConfEl.Deserialize<MemoryCacheConfig>()!;
+                VNMemoryCacheConfig memoryConfig = memCacheConfEl.Deserialize<VNMemoryCacheConfig>()!;
 
                 //Use the plugin configuration to create the memory manager
                 memoryConfig.MemoryManagerFactory = plugin.GetOrCreateSingleton<BucketLocalManagerFactory>();
 
-                if (config.TryGetValue(MEMORY_CACHE_ONLY_KEY, out JsonElement memOnly) && memOnly.GetBoolean())
-                {
-                    _handle = CreateMemoryCache(memoryConfig, plugin);
+                //Assign the serializers from the cache client config
+                memoryConfig.CacheObjectSerializer = cacheClientConfig.CacheObjectSerializer;
+                memoryConfig.CacheObjectDeserializer = cacheClientConfig.CacheObjectDeserializer;
+
+                if (extendedConfig.MemoryOnly)
+                {                   
+                    _handle = CreateMemoryCache(memoryConfig);
                 }
                 else
                 {
                     _handle = CreateRemoteBackedMemoryCache(
                         remote: cacheClientConfig,
-                        memory: memoryConfig,
-                        plugin
+                        memory: memoryConfig                  
                     );
+                }
+
+                plugin.Log.Verbose("Enabling memory cache. MemoryOnly={memOnly}", extendedConfig.MemoryOnly);
+            }
+            else
+            {
+                _handle = CreateRemoteCache(cacheClientConfig);
+            }
+
+            _plugin = plugin;
+            _client = _handle.Cache;
+        }
+
+        private static void InitSerializers(PluginBase plugin, PluginConfigJson pluginConfig, VNCacheClientConfig config)
+        {
+            /*
+             * When running in plugin context, the user may have specified a custom 
+             * serializer assembly to load. If so, we need to load the assembly and
+             * get the serializer instances.
+             */
+
+            if (!string.IsNullOrWhiteSpace(pluginConfig.SerializerDllPath))
+            {
+                //Load the custom serializer assembly and get the serializer and deserializer instances
+                config.CacheObjectSerializer = plugin.CreateServiceExternal<ICacheObjectSerializer>(pluginConfig.SerializerDllPath);
+
+                //Avoid creating another instance if the deserializer is the same as the serializer
+                if (config.CacheObjectSerializer is ICacheObjectDeserializer cod)
+                {
+                    config.CacheObjectDeserializer = cod;
+                }
+                else
+                {
+                    config.CacheObjectDeserializer = plugin.CreateServiceExternal<ICacheObjectDeserializer>(pluginConfig.SerializerDllPath);
                 }
             }
             else
             {
-                _handle = CreateRemoteCache(cacheClientConfig, plugin);
+                //Use the default serializer and deserializer
+                config.CacheObjectSerializer = new JsonCacheObjectSerializer(DefaultSerializerBufSize);
+                config.CacheObjectDeserializer = new JsonCacheObjectSerializer(DefaultSerializerBufSize);
             }
-
-            _client = _handle.Cache;
         }
 
 
@@ -229,7 +244,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
              * The handle will internally link to the cancellation token so we don't need
              * to explicitly call the StopListening function.
              */
-            return _handle.RunAsync(
+            return _handle.RunInternalAsync(
+                _plugin,
                 operationLog: pluginLog.CreateScope("VNCache"), 
                 exitToken
             );
@@ -278,6 +294,22 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public object GetUnderlyingStore()
         {
             return _client.GetUnderlyingStore();
-        }       
+        }
+        
+        private sealed class PluginConfigJson
+        {
+            /// <summary>
+            /// Optional external cache serializer library to load
+            /// </summary>
+            [JsonPropertyName("serializer_assembly")]
+            public string? SerializerDllPath { get; set; }
+
+            /// <summary>
+            /// A value that indicates if memory only caching is enabled
+            /// </summary>
+            [JsonPropertyName("memory_only")]
+            public bool MemoryOnly { get; set; }
+
+        }
     }
 }

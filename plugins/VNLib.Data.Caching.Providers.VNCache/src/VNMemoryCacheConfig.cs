@@ -3,9 +3,9 @@
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
-* File: MemoryCacheConfig.cs 
+* File: VNMemoryCacheConfig.cs 
 *
-* MemoryCacheConfig.cs is part of VNLib.Data.Caching.Providers.VNCache 
+* VNMemoryCacheConfig.cs is part of VNLib.Data.Caching.Providers.VNCache 
 * which is part of the larger VNLib collection of libraries and utilities.
 *
 * VNLib.Data.Caching.Providers.VNCache is free software: you can redistribute it and/or modify 
@@ -28,12 +28,12 @@ using System.Text.Json.Serialization;
 using VNLib.Data.Caching.ObjectCache;
 using VNLib.Plugins.Extensions.Loading.Configuration;
 
-namespace VNLib.Data.Caching.Providers.VNCache.Internal
+namespace VNLib.Data.Caching.Providers.VNCache
 {
     /// <summary>
     /// Memorycache configuration object
     /// </summary>
-    public sealed class MemoryCacheConfig : VNCacheConfig
+    public sealed class VNMemoryCacheConfig : VNCacheConfig
     {
         /// <summary>
         /// Optionally sets the memory manager the cache provider will use

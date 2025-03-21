@@ -25,6 +25,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
+using VNLib.Plugins;
 using VNLib.Utils.Logging;
 
 namespace VNLib.Data.Caching.Providers.VNCache.Internal
@@ -35,12 +36,13 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         /// Run client-specific logic for enabling long-running client work in 
         /// the background for the duration of the plugin lifecycle
         /// </summary>
+        /// <param name="plugin">The plugin that is running the client if running in plugin context</param>
         /// <param name="operationLog">A log to write client specific information to</param>
         /// <param name="exitToken">A token called to cancel the background work</param>
         /// <returns>
         /// A task that completes when the background work has completed. It is assumed when this task
         /// complets, that the client work is done and may be disposed.
         /// </returns>
-        internal Task RunAsync(ILogProvider operationLog, CancellationToken exitToken);
+        internal Task RunAsync(PluginBase? plugin, ILogProvider operationLog, CancellationToken exitToken);
     }
 }

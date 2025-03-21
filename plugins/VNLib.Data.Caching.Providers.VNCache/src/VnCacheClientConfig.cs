@@ -35,7 +35,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
     /// <summary>
     /// Represents a remote VNCache client configuration
     /// </summary>
-    public class VnCacheClientConfig : VNCacheConfig
+    public class VNCacheClientConfig : VNCacheConfig
     {
         const string DefaultWellKnownEndpoint = "/.well-known/vncache";
 
@@ -130,7 +130,9 @@ namespace VNLib.Data.Caching.Providers.VNCache
             Validate.Range(RequestTimeoutSeconds.Value, 1, int.MaxValue);
 
             Validate.NotNull(InitialNodes, "You must specify at least one initial cache node to connect to");
-            Validate.Assert(InitialNodes.Length > 0, "You must specify at least one initial cache node to connect to");           
+            Validate.Assert(InitialNodes.Length > 0, "You must specify at least one initial cache node to connect to");
+
+            Validate.NotNull(AuthManager, "You must configure an authentication manager");
 
             //Validate initial nodes
             foreach (Uri peer in GetInitialNodeUris())
