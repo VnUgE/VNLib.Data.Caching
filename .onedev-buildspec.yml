@@ -18,7 +18,9 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 3600
+
 - name: Unit Testing
+  jobExecutor: windows
   steps:
   - !CommandStep
     name: Clone local deps
@@ -45,7 +47,9 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 14400
+
 - name: Staging build
+  jobExecutor: windows
   steps:
   - !CommandStep
     name: Clone local deps
@@ -85,7 +89,9 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 14400
+
 - name: Publish master
+  jobExecutor: windows
   steps:
   - !CommandStep
     name: Clone local deps

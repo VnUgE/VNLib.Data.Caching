@@ -85,7 +85,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         /// </summary>
         public CachePeerMonitor PeerMonitor { get; } = new();
 
-        public CacheMemoryConfiguration MemoryConfiguration { get; } = config.Deserialze<CacheMemoryConfiguration>();
+        public CacheMemoryConfiguration MemoryConfiguration { get; } = config.Deserialize<CacheMemoryConfiguration>();
 
         /// <summary>
         /// The system wide peer event queue manager
@@ -137,7 +137,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         {
             //Get the known peers array from config, its allowed to be null for master nodes
             IConfigScope? config = plugin.TryGetConfig("known_peers");
-            string[] kownPeers = config?.Deserialze<string[]>() ?? [];
+            string[] kownPeers = config?.Deserialize<string[]>() ?? [];
 
             ILogProvider discLogger = plugin.Log.CreateScope(CacheConstants.LogScopes.PeerDiscovery);
 

@@ -89,7 +89,7 @@ tasks:
         --nologo
         --logger "console;verbosity=detailed"
         --configuration debug
-        --framework {{ .TARGET_FRAMEWORK | default "net8.0" }}    
+        --framework {{ .TARGET_FRAMEWORK | default "net8.0" }}
         --environment VNLIB_SHARED_HEAP_DIAGNOSTICS="1"
         --environment TEST_HOST_CONFIG_FILE="{{ .HOST_CONFIG_FILE }}"
 
