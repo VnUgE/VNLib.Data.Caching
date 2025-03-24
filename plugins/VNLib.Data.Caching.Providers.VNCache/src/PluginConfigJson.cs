@@ -24,15 +24,6 @@
 
 using System.Text.Json.Serialization;
 
-/*
- * This package exports an IGlobalCacheProvider that is intended to be packaged by 
- * application distributors that want to use VNCache as a global cache for their 
- * application.
- * 
- * This package allows for memory only caching, write-through memory cache, and 
- * direct remote caching using VNCache as the backend.
- */
-
 namespace VNLib.Data.Caching.Providers.VNCache
 {
     internal sealed class PluginConfigJson: VNCacheConfig
