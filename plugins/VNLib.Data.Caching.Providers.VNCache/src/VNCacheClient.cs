@@ -23,16 +23,14 @@
 */
 
 using System;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Text.Json.Serialization;
 
 using VNLib.Utils.Logging;
 using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
-using VNLib.Plugins.Extensions.Loading.Configuration;
 using VNLib.Data.Caching.Providers.VNCache.Internal;
+using VNLib.Plugins.Extensions.Loading.Configuration;
 
 /*
  * This package exports an IGlobalCacheProvider that is intended to be packaged by 
@@ -45,7 +43,6 @@ using VNLib.Data.Caching.Providers.VNCache.Internal;
 
 namespace VNLib.Data.Caching.Providers.VNCache
 {
-
     /// <summary>
     /// The VNCache global cache provider client, that is intended to be loaded
     /// using <see cref="LoadingExtensions.GetOrCreateSingleton{T}(PluginBase)"/> directly
@@ -59,14 +56,6 @@ namespace VNLib.Data.Caching.Providers.VNCache
     [ConfigurationName("cache")]
     public sealed class VNCacheClient : ICacheClient, IAsyncBackgroundWork
     {       
-        internal const string MEMORY_CACHE_CONFIG_KEY = "memory_cache";
-        internal const string MEMORY_CACHE_ONLY_KEY = "memory_only";
-
-        /*
-         * Sets the default buffer size for the cache object serializer
-         * when using the default serializer in plugin context.
-         */
-        private const int DefaultSerializerBufSize = 256;
 
         /// <summary>
         /// Allows you to programatically create a remote-only VNCache instance
@@ -106,19 +95,24 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public static VNCacheClientHandle CreateRemoteBackedMemoryCache(VNCacheClientConfig remote, VNMemoryCacheConfig memory)
         {
             ArgumentNullException.ThrowIfNull(remote);
-            ArgumentNullException.ThrowIfNull(memory);
-          
+
             remote.OnValidate();
+
+            //Create a remote backed memory cache wrapper around the client
+            return CreateMemoryCache(
+                client: new FBMCacheClient(remote), 
+                memory
+            );
+        }
+
+        public static VNCacheClientHandle CreateMemoryCache(ICacheClient client, VNMemoryCacheConfig memory)
+        {
+            ArgumentNullException.ThrowIfNull(client);
+            ArgumentNullException.ThrowIfNull(memory);
+            
             memory.OnValidate();
-
-            //Remove cache requires an auth manager
-            Validate.NotNull(remote.AuthManager, "You must explicitly configure an authentication manager");
-
-            //Create a new client that depends on the plugin context
-            FBMCacheClient fbmCache = new(remote);
-
-            RemoteBackedMemoryCache cache = new(memory, fbmCache);
-            return new(cache);
+            
+            return new VNCacheClientHandle(cache: new RemoteBackedMemoryCache(memory, client));
         }
 
         /// <summary>
@@ -167,26 +161,24 @@ namespace VNLib.Data.Caching.Providers.VNCache
 
             InitSerializers(plugin, extendedConfig, cacheClientConfig);
 
-            if (config.TryGetValue(MEMORY_CACHE_CONFIG_KEY, out JsonElement memCacheConfEl))
+            if (extendedConfig.MemoryCacheConfig is not null)
             {
-                VNMemoryCacheConfig memoryConfig = memCacheConfEl.Deserialize<VNMemoryCacheConfig>()!;
-
                 //Use the plugin configuration to create the memory manager
-                memoryConfig.MemoryManagerFactory = plugin.GetOrCreateSingleton<BucketLocalManagerFactory>();
+                extendedConfig.MemoryCacheConfig.MemoryManagerFactory = BucketLocalManagerFactory.Create(plugin, extendedConfig);
 
                 //Assign the serializers from the cache client config
-                memoryConfig.CacheObjectSerializer = cacheClientConfig.CacheObjectSerializer;
-                memoryConfig.CacheObjectDeserializer = cacheClientConfig.CacheObjectDeserializer;
+                extendedConfig.MemoryCacheConfig.CacheObjectSerializer = cacheClientConfig.CacheObjectSerializer;
+                extendedConfig.MemoryCacheConfig.CacheObjectDeserializer = cacheClientConfig.CacheObjectDeserializer;
 
                 if (extendedConfig.MemoryOnly)
                 {                   
-                    _handle = CreateMemoryCache(memoryConfig);
+                    _handle = CreateMemoryCache(extendedConfig.MemoryCacheConfig);
                 }
                 else
                 {
                     _handle = CreateRemoteBackedMemoryCache(
                         remote: cacheClientConfig,
-                        memory: memoryConfig                  
+                        memory: extendedConfig.MemoryCacheConfig                  
                     );
                 }
 
@@ -226,9 +218,11 @@ namespace VNLib.Data.Caching.Providers.VNCache
             }
             else
             {
+                Validate.Range2(pluginConfig.JsonSerializerBufferSize, 16, 8192, "json_serializer_buffer_size");
+
                 //Use the default serializer and deserializer
-                config.CacheObjectSerializer = new JsonCacheObjectSerializer(DefaultSerializerBufSize);
-                config.CacheObjectDeserializer = new JsonCacheObjectSerializer(DefaultSerializerBufSize);
+                config.CacheObjectSerializer = new JsonCacheObjectSerializer(pluginConfig.JsonSerializerBufferSize);
+                config.CacheObjectDeserializer = new JsonCacheObjectSerializer(pluginConfig.JsonSerializerBufferSize);
             }
         }
 
@@ -294,22 +288,6 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public object GetUnderlyingStore()
         {
             return _client.GetUnderlyingStore();
-        }
-        
-        private sealed class PluginConfigJson
-        {
-            /// <summary>
-            /// Optional external cache serializer library to load
-            /// </summary>
-            [JsonPropertyName("serializer_assembly")]
-            public string? SerializerDllPath { get; set; }
-
-            /// <summary>
-            /// A value that indicates if memory only caching is enabled
-            /// </summary>
-            [JsonPropertyName("memory_only")]
-            public bool MemoryOnly { get; set; }
-
-        }
+        }       
     }
 }
