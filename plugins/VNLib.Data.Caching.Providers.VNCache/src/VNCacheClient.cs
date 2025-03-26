@@ -55,7 +55,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
     [ServiceExport]
     [ConfigurationName("cache")]
     public sealed class VNCacheClient : ICacheClient, IAsyncBackgroundWork
-    {       
+    {
 
         /// <summary>
         /// Allows you to programatically create a remote-only VNCache instance

@@ -110,7 +110,12 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// <param name="encoding">The string encoding method used to encode the hash output</param>
         /// <returns>The <see cref="ScopedCache"/> instance that will use the prefix to compute object ids</returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static ScopedCache GetPrefixedCache(this ICacheClient cache, string prefix, HashAlg digest = HashAlg.SHA1, HashEncodingMode encoding = HashEncodingMode.Base64)
+        public static ScopedCache GetPrefixedCache(
+            this ICacheClient cache, 
+            string prefix, 
+            HashAlg digest = HashAlg.SHA1, 
+            HashEncodingMode encoding = HashEncodingMode.Base64
+        )
         {
             ArgumentNullException.ThrowIfNull(cache);
             ArgumentException.ThrowIfNullOrEmpty(prefix);
