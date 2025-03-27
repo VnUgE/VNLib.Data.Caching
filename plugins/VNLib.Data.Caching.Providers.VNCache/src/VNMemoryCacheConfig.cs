@@ -54,6 +54,12 @@ namespace VNLib.Data.Caching.Providers.VNCache
         [JsonPropertyName("bucket_size")]
         public uint BucketSize { get; set; } = 5000;
 
+        /// <summary>
+        /// Whether to use a private heap for buffering operations
+        /// </summary>
+        [JsonPropertyName("use_private_buffer_heap")]
+        public bool UsePrivateBufferHeap { get; set; } = false;
+
         ///<inheritdoc/>
         public override void OnValidate()
         {

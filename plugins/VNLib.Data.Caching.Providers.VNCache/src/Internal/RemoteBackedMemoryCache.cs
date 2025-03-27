@@ -70,7 +70,10 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             /*
              * If no buffer factory was supplied, we can create one, but it has to be 
              * disposed manually on exit. If one was supplied, we can use it but we do not
-             * manage it's lifetime
+             * manage it's lifetime.
+             * 
+             * In plugin context, a memory manager factory should be assigned here and 
+             * managed and configured by the plugin
              */
 
             config.MemoryManagerFactory

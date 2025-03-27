@@ -40,8 +40,6 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
    
     internal sealed class MemoryCache : VNCacheBase, IDisposable
     {
-        const int MB_DIVISOR = 1000 * 1024;
-
         private bool _isConnected;
 
         private readonly VNMemoryCacheConfig _config;
@@ -66,25 +64,45 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
                 persistantCache: null
             );
 
-            //Init new "private" heap to alloc buffer from
-            _bufferHeap = MemoryUtil.InitializeNewHeapForProcess(config.ZeroAllAllocations);
-            
-            if (config.IsDebug)
-            {
-                // If debugging is enabled, wrap the heap in a tracked
-                // heap wrapper for debugging purposes
-                _bufferHeap = new TrackedHeapWrapper(heap: _bufferHeap, ownsHeap: true);
+            /*
+             * It is usually asssumed that a private heap will be slower and add to the 
+             * process commited memory with little beneif except some security by 
+             * using it's own heap. However, in most cases it's far more efficient to use 
+             * the global heap in a thread-unsafe context like the buffer in this class. 
+             * 
+             * Private heaps can be more performant in memory caches because they are 
+             * garunteed to be thread safe. 
+             */
+
+            if (config.UsePrivateBufferHeap)
+            {               
+                _bufferHeap = MemoryUtil.InitializeNewHeapForProcess(config.ZeroAllAllocations);
+
+                if (config.IsDebug)
+                {
+                    // If debugging is enabled, wrap the heap in a tracked
+                    // heap wrapper for debugging purposes
+                    _bufferHeap = new TrackedHeapWrapper(heap: _bufferHeap, ownsHeap: true);
+                }
+            }
+            else
+            {              
+                _bufferHeap = MemoryUtil.Shared;
             }
         }
 
         private static void PrintDebug(ILogProvider log, VNMemoryCacheConfig config)
         {
+            const int MB_DIVISOR = 1000 * 1024;
             const string DEBUG_TEMPLATE = @"Configuring Memory-Only Cache
  | -----------------------------
  | Configuration:
  |   Table Size:  {ts}
  |   Bucket Size: {bs}
  |   Max Objects: {obj}
+ |   Private heap: {heap}
+ |   Zero alloc: {zero}
+ | -----------------------------
  | Max Memory Estimations:
  |   4K blocks: {4k}Mb
  |   8K blocks: {8k}Mb
@@ -102,7 +120,9 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
                 DEBUG_TEMPLATE, 
                 config.TableSize, 
                 config.BucketSize, 
-                maxObjects, 
+                maxObjects,
+                config.UsePrivateBufferHeap,
+                config.ZeroAllAllocations,
                 size4kMb, 
                 size8kMb, 
                 size16kMb
@@ -112,14 +132,19 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         public void Dispose()
         {
             _memCache.Dispose();
-            _bufferHeap.Dispose();
             _blobCacheMemManager?.Dispose();
+
+            // only dispose the heap if it's a private heap
+            if (_config.UsePrivateBufferHeap)
+            {
+                _bufferHeap.Dispose();
+            }
         }
 
         ///<inheritdoc/>
         public override async Task RunAsync(PluginBase? plugin, ILogProvider operationLog, CancellationToken exitToken)
         {
-            if(plugin is not null)
+            if (plugin is not null)
             {
                 PrintDebug(plugin.Log, _config);
             }
