@@ -147,7 +147,8 @@ namespace VNLib.Data.Caching.ObjectCache
             string? alternateId,
             ReadOnlyMemory<byte> data,
             DateTime time,
-            CancellationToken cancellation = default)
+            CancellationToken cancellation = default
+        )
         {
             return AddOrUpdateObjectAsync(
                 table,
@@ -182,7 +183,8 @@ namespace VNLib.Data.Caching.ObjectCache
             ObjectDataGet<T> bodyData,
             T state,
             DateTime time,
-            CancellationToken cancellation = default)
+            CancellationToken cancellation = default
+        )
         {
             ArgumentNullException.ThrowIfNull(table);
             ArgumentNullException.ThrowIfNull(bodyData);
