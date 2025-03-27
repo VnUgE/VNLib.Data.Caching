@@ -3,9 +3,9 @@
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
-* File: VnCacheClientConfig.cs 
+* File: VNRemoteCacheConfig.cs 
 *
-* VnCacheClientConfig.cs is part of VNLib.Data.Caching.Providers.VNCache which is part of the larger 
+* VNRemoteCacheConfig.cs is part of VNLib.Data.Caching.Providers.VNCache which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
 * VNLib.Data.Caching.Providers.VNCache is free software: you can redistribute it and/or modify 
@@ -35,7 +35,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
     /// <summary>
     /// Represents a remote VNCache client configuration
     /// </summary>
-    public class VNCacheClientConfig : VNCacheConfig
+    public class VNRemoteCacheConfig : VNCacheConfig
     {
         const string DefaultWellKnownEndpoint = "/.well-known/vncache";
 

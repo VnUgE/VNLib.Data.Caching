@@ -3,9 +3,9 @@
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
-* File: CacheClientHandle.cs 
+* File: VNCacheClientHandle.cs 
 *
-* CacheClientHandle.cs is part of VNLib.Data.Caching.Providers.VNCache which is 
+* VNCacheClientHandle.cs is part of VNLib.Data.Caching.Providers.VNCache which is 
 * part of the larger VNLib collection of libraries and utilities.
 *
 * VNLib.Data.Caching.Providers.VNCache is free software: you can redistribute it and/or modify 

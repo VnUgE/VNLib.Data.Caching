@@ -67,7 +67,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// The returned <see cref="VNCacheClientHandle"/> implements the <see cref="IAsyncBackgroundWork"/>
         /// interface and must be scheduled in order to maintain a connection with the remote cache store.
         /// </remarks>
-        public static VNCacheClientHandle CreateRemoteCache(VNCacheClientConfig config)
+        public static VNCacheClientHandle CreateRemoteCache(VNRemoteCacheConfig config)
         {
             ArgumentNullException.ThrowIfNull(config);
 
@@ -92,7 +92,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// interface and must be scheduled in order to maintain a connection with the remote cache store. The memory cache 
         /// resources are released when the worker task exits.
         /// </remarks>
-        public static VNCacheClientHandle CreateRemoteBackedMemoryCache(VNCacheClientConfig remote, VNMemoryCacheConfig memory)
+        public static VNCacheClientHandle CreateRemoteBackedMemoryCache(VNRemoteCacheConfig remote, VNMemoryCacheConfig memory)
         {
             ArgumentNullException.ThrowIfNull(remote);
 
@@ -144,20 +144,20 @@ namespace VNLib.Data.Caching.Providers.VNCache
             ArgumentNullException.ThrowIfNull(config);
 
             //Read the cache client configuration object
-            VNCacheClientConfig cacheClientConfig = config.Deserialize<VNCacheClientConfig>()!;
+            VNRemoteCacheConfig cacheClientConfig = config.Deserialize<VNRemoteCacheConfig>()!;
             PluginConfigJson extendedConfig = config.Deserialize<PluginConfigJson>()!;
 
             //Always assign a debug log in plugin context
             cacheClientConfig.ClientDebugLog = plugin.Log.CreateScope("CLIENT");
 
+            // Set the debug flag if the plugin is in debug mode
+            cacheClientConfig.IsDebug |= plugin.IsDebug();
+
             //Create a jwk authenticator from plugin secrets
             cacheClientConfig.AuthManager = JwkAuthManager.FromLazyJwk(
                 sigKey: plugin.GetSecretAsync("client_private_key").ToJsonWebKey().AsLazy(),
                 verifKey: plugin.GetSecretAsync("cache_public_key").ToJsonWebKey().AsLazy()
-            );
-
-            // Set the debug flag if the plugin is in debug mode
-            cacheClientConfig.IsDebug |= plugin.IsDebug();
+            );          
 
             InitSerializers(plugin, extendedConfig, cacheClientConfig);
 
@@ -186,6 +186,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
             }
             else
             {
+                Validate.Assert(!extendedConfig.MemoryOnly, "Memory only flag was set, but memory config was null");
+
                 _handle = CreateRemoteCache(cacheClientConfig);
             }
 
@@ -193,7 +195,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
             _client = _handle.Cache;
         }
 
-        private static void InitSerializers(PluginBase plugin, PluginConfigJson pluginConfig, VNCacheClientConfig config)
+        private static void InitSerializers(PluginBase plugin, PluginConfigJson pluginConfig, VNRemoteCacheConfig config)
         {
             /*
              * When running in plugin context, the user may have specified a custom 

@@ -55,7 +55,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(10);
         private static readonly TimeSpan NoNodeDelay = TimeSpan.FromSeconds(10);
 
-        private readonly VNCacheClientConfig _config;  
+        private readonly VNRemoteCacheConfig _config;  
 
         private bool _isConnected;
         private FBMClient? _client;
@@ -70,7 +70,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         /// </summary>
         public override bool IsConnected => _isConnected;
 
-        internal FBMCacheClient(VNCacheClientConfig config) : base(config)
+        internal FBMCacheClient(VNRemoteCacheConfig config) : base(config)
         {
             Debug.Assert(config != null);
             _config = config;
