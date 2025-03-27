@@ -1,11 +1,11 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
-* File: VnCacheClientConfig.cs 
+* File: VNRemoteCacheConfig.cs 
 *
-* VnCacheClientConfig.cs is part of VNLib.Data.Caching.Providers.VNCache which is part of the larger 
+* VNRemoteCacheConfig.cs is part of VNLib.Data.Caching.Providers.VNCache which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
 * VNLib.Data.Caching.Providers.VNCache is free software: you can redistribute it and/or modify 
@@ -26,6 +26,8 @@ using System;
 using System.Linq;
 using System.Text.Json.Serialization;
 
+using VNLib.Utils.Logging;
+using VNLib.Data.Caching.Extensions;
 using VNLib.Plugins.Extensions.Loading.Configuration;
 
 namespace VNLib.Data.Caching.Providers.VNCache
@@ -33,9 +35,23 @@ namespace VNLib.Data.Caching.Providers.VNCache
     /// <summary>
     /// Represents a remote VNCache client configuration
     /// </summary>
-    public class VnCacheClientConfig : VNCacheConfig
+    public class VNRemoteCacheConfig : VNCacheConfig
     {
         const string DefaultWellKnownEndpoint = "/.well-known/vncache";
+
+        /// <summary>
+        /// Specifies a logging provider for the the cache client to write 
+        /// internal debugging information to. This log is strictly for 
+        /// client internal debugging.
+        /// </summary>
+        [JsonIgnore]
+        public ILogProvider? ClientDebugLog { get; set; }
+
+        /// <summary>
+        /// The authentication manager for the cache client
+        /// </summary>
+        [JsonIgnore]
+        public ICacheAuthManager AuthManager { get; set; } = null!;
 
         /// <summary>
         /// The broker server address
@@ -115,6 +131,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
 
             Validate.NotNull(InitialNodes, "You must specify at least one initial cache node to connect to");
             Validate.Assert(InitialNodes.Length > 0, "You must specify at least one initial cache node to connect to");
+
+            Validate.NotNull(AuthManager, "You must configure an authentication manager");
 
             //Validate initial nodes
             foreach (Uri peer in GetInitialNodeUris())

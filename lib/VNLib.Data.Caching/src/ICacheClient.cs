@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -85,7 +85,14 @@ namespace VNLib.Data.Caching
     /// <summary>
     /// A global cache provider interface
     /// </summary>
-    public interface IGlobalCacheProvider
+    [Obsolete("Use ICacheClient instead")]
+    public interface IGlobalCacheProvider : ICacheClient
+    { }
+
+    /// <summary>
+    /// A cache client interface that provides basic data caching operations
+    /// </summary>
+    public interface ICacheClient
     {
         /// <summary>
         /// Gets a value that indicates if the cache provider is currently available

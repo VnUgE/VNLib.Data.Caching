@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -24,7 +24,6 @@
 
 using System;
 using System.Buffers;
-using System.Text.Json;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
@@ -35,7 +34,7 @@ using VNLib.Utils.Extensions;
 using VNLib.Data.Caching.ObjectCache;
 using VNLib.Plugins.Extensions.Loading;
 
-namespace VNLib.Data.Caching.Providers.VNCache
+namespace VNLib.Data.Caching.Providers.VNCache.Internal
 {
     /*
      * How it works.
@@ -53,17 +52,16 @@ namespace VNLib.Data.Caching.Providers.VNCache
      * private heap instances.
      */
 
-    [ConfigurationName("memory_manager", Required = false)]
     internal sealed class BucketLocalManagerFactory : VnDisposeable, ICacheMemoryManagerFactory
     {
         private readonly LinkedList<BucketLocalManager> _managers = new ();
-        private readonly bool _zeroAll;
+        private PluginConfigJson _config = new();
 
         ///<inheritdoc/>
         public ICacheEntryMemoryManager CreateForBucket(uint bucketId)
         {
             //Init a new heap for a individual bucket
-            IUnmangedHeap localHeap = MemoryUtil.InitializeNewHeapForProcess(_zeroAll);
+            IUnmangedHeap localHeap = MemoryUtil.InitializeNewHeapForProcess(_config.ZeroAllAllocations);
 
             BucketLocalManager manager = new (localHeap, bucketId);
             _managers.AddLast(manager);
@@ -77,26 +75,31 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// </summary>
         /// <param name="zeroAll">Forces all allocations to be zeroed before being returned to callers</param>
         /// <returns></returns>
-        public static BucketLocalManagerFactory Create(bool zeroAll) => new(zeroAll);
-
-        private BucketLocalManagerFactory(bool zeroAll)
+        public static BucketLocalManagerFactory Create(bool zeroAll)
         {
-            _zeroAll = zeroAll;
+            BucketLocalManagerFactory fac = new ()
+            {
+                _config = new PluginConfigJson()
+                {
+                    ZeroAllAllocations = zeroAll
+                }
+            };
+
+            return fac;
         }
 
-        public BucketLocalManagerFactory(PluginBase plugin) : this(plugin, null)
-        { }
-
-        public BucketLocalManagerFactory(PluginBase plugin, IConfigScope? config)
+        internal static ICacheMemoryManagerFactory Create(PluginBase plugin, PluginConfigJson config)
         {
-            if (config != null)
+            //Create a new factory and explicitly pass the configuration
+            BucketLocalManagerFactory fac = new()
             {
-                //Try to get the zero all flag
-                if (config.TryGetValue("zero_all", out JsonElement zeroEl))
-                {
-                    _zeroAll = zeroEl.GetBoolean();
-                }
-            }
+                _config = config
+            };
+
+            // Register dispose on plugin exit to cleanup heaps
+            _ = plugin.RegisterForUnload(fac.Dispose);
+
+            return fac;
         }
 
         protected override void Free()
@@ -117,7 +120,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         {
 
             ///<inheritdoc/>
-            public object AllocHandle(uint size) => Heap.Alloc<byte>(size, false);
+            public object AllocHandle(uint size) => Heap.Alloc<byte>(size, zero: false);
 
             ///<inheritdoc/>
             public void FreeHandle(object handle)

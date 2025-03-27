@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -25,6 +25,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime.CompilerServices;
 
 using VNLib.Net.Messaging.FBM;
 using VNLib.Data.Caching.Exceptions;
@@ -32,7 +33,7 @@ using VNLib.Data.Caching.Exceptions;
 namespace VNLib.Data.Caching
 {
     /// <summary>
-    /// Exports extension methods for the <see cref="IGlobalCacheProvider"/> interface
+    /// Exports extension methods for the <see cref="ICacheClient"/> interface
     /// </summary>
     public static class GlobalCacheExtensions
     {
@@ -45,10 +46,20 @@ namespace VNLib.Data.Caching
         /// <param name="rawData">The </param>
         /// <param name="cancellation">A token to cancel the async operation</param>
         /// <returns>A task that complets when the object data has been written to the data buffer</returns>
-        public static Task GetAsync(this IGlobalCacheProvider cache, string key, IObjectData rawData, CancellationToken cancellation)
+        public static Task GetAsync(
+            this ICacheClient cache, 
+            string key, 
+            IObjectData rawData,
+            CancellationToken cancellation
+        )
         {
             ArgumentNullException.ThrowIfNull(cache);
-            return cache.GetAsync(key, static (cd, data) => cd.SetData(data), rawData, cancellation);
+            return cache.GetAsync(
+                key, 
+                callback: static (cd, data) => cd.SetData(data), 
+                state: rawData, 
+                cancellation
+            );
         }
 
         /// <summary>
@@ -61,10 +72,22 @@ namespace VNLib.Data.Caching
         /// <param name="cancellation">A token to cancel the async operation</param>
         /// <param name="rawData">The raw data to store at the given key</param>
         /// <returns>A task that completes when the update operation has compelted</returns>
-        public static Task AddOrUpdateAsync(this IGlobalCacheProvider cache, string key, string? newKey, IObjectData rawData, CancellationToken cancellation)
+        public static Task AddOrUpdateAsync(
+            this ICacheClient cache, 
+            string key, 
+            string? newKey, 
+            IObjectData rawData, 
+            CancellationToken cancellation
+        )
         {
             ArgumentNullException.ThrowIfNull(cache);
-            return cache.AddOrUpdateAsync(key, newKey, static cd => cd.GetData(), rawData, cancellation);
+            return cache.AddOrUpdateAsync(
+                key, 
+                newKey, 
+                callback: static cd => cd.GetData(), 
+                state: rawData, 
+                cancellation
+            );
         }
 
         /// <summary>
@@ -77,10 +100,81 @@ namespace VNLib.Data.Caching
         /// <param name="cancellation">A token to cancel the async operation</param>
         /// <param name="rawData">The raw data to store at the given key</param>
         /// <returns>A task that completes when the update operation has compelted</returns>
-        public static Task AddOrUpdateAsync(this IGlobalCacheProvider cache, string key, string? newKey, ReadOnlyMemory<byte> rawData, CancellationToken cancellation)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Task AddOrUpdateAsync(
+            this ICacheClient cache, 
+            string key, 
+            string? newKey, 
+            ReadOnlyMemory<byte> rawData, 
+            CancellationToken cancellation
+        )
         {
             ArgumentNullException.ThrowIfNull(cache);
-            return cache.AddOrUpdateAsync(key, newKey, static cd => cd.Span, rawData, cancellation);
+            return cache.AddOrUpdateAsync(
+                key, 
+                newKey, 
+                callback: static cd => cd.Span, 
+                state: rawData, 
+                cancellation
+            );
+        }
+
+        /// <summary>
+        /// Asynchronously sets (or updates) a cached value in the backing cache store 
+        /// from the supplied raw data
+        /// </summary>
+        /// <param name="cache"></param>
+        /// <param name="key">The key identifying the object to recover from cache</param>
+        /// <param name="newKey">An optional key that will be changed for the new object</param>
+        /// <param name="cancellation">A token to cancel the async operation</param>
+        /// <param name="rawData">The raw data to store at the given key</param>
+        /// <returns>A task that completes when the update operation has compelted</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Task AddOrUpdateAsync(
+            this ICacheClient cache,
+            string key,
+            string? newKey,
+            Memory<byte> rawData,
+            CancellationToken cancellation
+        )
+        {
+            ArgumentNullException.ThrowIfNull(cache);
+            return AddOrUpdateAsync(
+                cache, 
+                key, 
+                newKey, 
+                (ReadOnlyMemory<byte>)rawData, 
+                cancellation
+            );
+        }
+
+        /// <summary>
+        /// Asynchronously sets (or updates) a cached value in the backing cache store 
+        /// from the supplied raw data
+        /// </summary>
+        /// <param name="cache"></param>
+        /// <param name="key">The key identifying the object to recover from cache</param>
+        /// <param name="newKey">An optional key that will be changed for the new object</param>
+        /// <param name="cancellation">A token to cancel the async operation</param>
+        /// <param name="rawData">The raw data to store at the given key</param>
+        /// <returns>A task that completes when the update operation has compelted</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Task AddOrUpdateAsync(
+            this ICacheClient cache,
+            string key,
+            string? newKey,
+            byte[] rawData,
+            CancellationToken cancellation
+        )
+        {
+            ArgumentNullException.ThrowIfNull(cache);
+            return cache.AddOrUpdateAsync(
+                key, 
+                newKey, 
+                callback: static cd => cd.AsSpan(), 
+                state: rawData, 
+                cancellation
+            );
         }
 
         /// <summary>
@@ -100,12 +194,12 @@ namespace VNLib.Data.Caching
         /// <exception cref="ObjectDisposedException"></exception>
         /// <exception cref="InvalidResponseException"></exception>
         public static async Task<T?> GetAsync<T, TState>(
-            this IGlobalCacheProvider cache,
+            this ICacheClient cache,
             string objectId,
             GetObjectFromData<T, TState> getter,
             TState state,
             CancellationToken cancellationToken = default
-            )
+        )
         {
             ArgumentNullException.ThrowIfNull(cache);
             ArgumentNullException.ThrowIfNull(getter);
@@ -114,7 +208,12 @@ namespace VNLib.Data.Caching
             GetObjectState<T, TState> st = new(state, getter);
 
             //Get the object, if successfull, compute the result
-            await cache.GetAsync(objectId, static (s, d) => s.ComputeResult(d), st, cancellationToken);
+            await cache.GetAsync(
+                objectId, 
+                callback: static (s, d) => s.ComputeResult(d), 
+                state: st, 
+                cancellationToken
+            );
 
             //If the get operation failed, return a default value
             return st.Result;
@@ -129,12 +228,11 @@ namespace VNLib.Data.Caching
         /// <param name="key">The key identifying the object to recover from cache</param>
         /// <param name="cancellation">A token to cancel the async operation</param>
         /// <returns>The value if found, or null if it does not exist in the store</returns>
-        public static Task<T?> GetAsync<T>(this IGlobalCacheProvider cache, string key, CancellationToken cancellation)
+        public static Task<T?> GetAsync<T>(this ICacheClient cache, string key, CancellationToken cancellation)
         {
             ArgumentNullException.ThrowIfNull(cache);
             return cache.GetAsync<T>(key, cache.DefaultDeserializer, cancellation);
-        }
-
+        }     
         /// <summary>
         /// Asynchronously sets (or updates) a cached value in the backing cache store
         /// </summary>
@@ -145,10 +243,23 @@ namespace VNLib.Data.Caching
         /// <param name="cancellation">A token to cancel the async operation</param>
         /// <param name="value">The value to set at the given key</param>
         /// <returns>A task that completes when the update operation has compelted</returns>
-        public static Task AddOrUpdateAsync<T>(this IGlobalCacheProvider cache, string key, string? newKey, T value, CancellationToken cancellation)
+        public static Task AddOrUpdateAsync<T>(
+            this ICacheClient cache, 
+            string key, 
+            string? newKey, 
+            T value, 
+            CancellationToken cancellation
+        )
         {
             ArgumentNullException.ThrowIfNull(cache);
-            return cache.AddOrUpdateAsync(key, newKey, value, cache.DefaultSerializer, cancellation);
-        }
+
+            return cache.AddOrUpdateAsync(
+                key, 
+                newKey, 
+                value, 
+                serialzer: cache.DefaultSerializer, 
+                cancellation
+            );
+        }      
     }
 }

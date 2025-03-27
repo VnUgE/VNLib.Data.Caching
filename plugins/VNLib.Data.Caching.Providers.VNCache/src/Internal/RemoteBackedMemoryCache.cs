@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -25,7 +25,6 @@
 using System;
 using System.Linq;
 using System.Buffers;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.CompilerServices;
@@ -37,85 +36,109 @@ using VNLib.Utils.Extensions;
 using VNLib.Data.Caching;
 using VNLib.Data.Caching.ObjectCache;
 using VNLib.Plugins;
-using VNLib.Plugins.Extensions.Loading;
-using VNLib.Plugins.Extensions.Loading.Events;
 
-namespace VNLib.Data.Caching.Providers.VNCache
+namespace VNLib.Data.Caching.Providers.VNCache.Internal
 {
 
     /*
-     * A combined cache object that uses the blob cache data structures
-     * from the ObjectCache server library to implement similar memory cache
-     * features. All update operations are write-through operations, and a timer
-     * may be scheduled to refresh memorycache against the server (eventually) 
-     * 
-     * Memory cache is destroyed when the connection to the cache server is
-     * lost or is exiting
-     */
+    * A combined cache object that uses the blob cache data structures
+    * from the ObjectCache server library to implement similar memory cache
+    * features. All update operations are write-through operations, and a timer
+    * may be scheduled to refresh memorycache against the server (eventually) 
+    * 
+    * Memory cache is destroyed when the connection to the cache server is
+    * lost or is exiting
+    */
 
-    [ConfigurationName(VNCacheClient.CACHE_CONFIG_KEY)]
-    internal sealed class RemoteBackedMemoryCache : VNCacheBase, IDisposable, IIntervalScheduleable
+    internal sealed class RemoteBackedMemoryCache : VNCacheBase, IDisposable
     {
-        private readonly MemoryCacheConfig _cacheConfig;
-        private readonly IBlobCacheTable _memCache;
-        private readonly IGlobalCacheProvider _backing;
+        private readonly VNMemoryCacheConfig _cacheConfig;
+        private readonly BlobCacheTable _memCache;
+        private readonly ICacheClient _backing;
         private readonly IUnmangedHeap _bufferHeap;
-        private readonly BucketLocalManagerFactory? _bucketFactory;
+        private readonly BucketLocalManagerFactory? _blobCacheMemManager;
 
-        public RemoteBackedMemoryCache(PluginBase plugin, IConfigScope config)
-            : this(
-                config.GetRequiredProperty<MemoryCacheConfig>(VNCacheClient.MEMORY_CACHE_CONFIG_KEY),
-                plugin.GetOrCreateSingleton<FBMCacheClient>(),   //Cache client is backing store
-                plugin.GetOrCreateSingleton<BucketLocalManagerFactory>()
-            )
+        internal RemoteBackedMemoryCache(VNMemoryCacheConfig config, ICacheClient backingStore)
+            : base(config)
         {
-
-            //Schedule cache purge interval
-            if (_cacheConfig.RefreshInterval > TimeSpan.Zero)
-            {
-                plugin.ScheduleInterval(this, _cacheConfig.RefreshInterval);
-            }
-        }
-
-
-        public RemoteBackedMemoryCache(MemoryCacheConfig memCache, IGlobalCacheProvider backingStore) : this(memCache, backingStore, null)
-        { }
-
-        public RemoteBackedMemoryCache(MemoryCacheConfig memCache, IGlobalCacheProvider backingStore, BucketLocalManagerFactory? factory):base(memCache)
-        {
-            ArgumentNullException.ThrowIfNull(memCache);
+            ArgumentNullException.ThrowIfNull(config);
             ArgumentNullException.ThrowIfNull(backingStore);
 
-            memCache.OnValidate();
+            _cacheConfig = config;
+            _backing = backingStore;
 
             /*
              * If no buffer factory was supplied, we can create one, but it has to be 
              * disposed manually on exit. If one was supplied, we can use it but we do not
-             * manage it's lifetime
+             * manage it's lifetime.
+             * 
+             * In plugin context, a memory manager factory should be assigned here and 
+             * managed and configured by the plugin
              */
 
-            factory ??= _bucketFactory = BucketLocalManagerFactory.Create(memCache.ZeroAllAllocations);
+            config.MemoryManagerFactory
+                ??= _blobCacheMemManager = BucketLocalManagerFactory.Create(config.ZeroAllAllocations);
 
-            //Setup mem cache table
-            _memCache = new BlobCacheTable(memCache.TableSize, memCache.BucketSize, factory, null);
+            _memCache = new BlobCacheTable(
+                config.TableSize,
+                config.BucketSize,
+                factory: config.MemoryManagerFactory,
+                persistantCache: null
+            );
 
-            //If backing store is a VnCacheClient, steal it's buffer heap
-            _bufferHeap = backingStore is FBMCacheClient client ? client.BufferHeap : MemoryUtil.Shared;
-
-            _cacheConfig = memCache;
-            _backing = backingStore;
+            //If backing store is a VnCacheClient, steal its buffer heap
+            _bufferHeap = backingStore is FBMCacheClient client
+                ? client.BufferHeap
+                : MemoryUtil.Shared;
         }
 
         void IDisposable.Dispose()
         {
             //Dispose of the memory cache
             _memCache.Dispose();
-            _bucketFactory?.Dispose();
+            _blobCacheMemManager?.Dispose();
 
             if (_backing is IDisposable disposable)
             {
                 disposable.Dispose();
             }
+        }
+
+        ///<inheritdoc/>
+        public override async Task RunAsync(PluginBase? plugin, ILogProvider clientLog, CancellationToken cancellation)
+        {
+            // Run the backing store if the cache client is an internal client
+            Task backingTask = Task.CompletedTask;
+            if (_backing is IInternalCacheClient client)
+            {
+                backingTask = client.RunAsync(plugin, clientLog, cancellation);
+            }
+
+            Task intervalTask = RunIntervalAsync(clientLog, cancellation);
+
+            await Task.WhenAny(backingTask, intervalTask);
+        }
+
+        private async Task RunIntervalAsync(ILogProvider clientLog, CancellationToken cancellation)
+        {
+            /*
+             * Runs background work to refresh the cache on an interval
+             */
+
+            clientLog.Debug("Refresh interval scheduled at {interval}", _cacheConfig.RefreshInterval);
+
+            try
+            {
+                while (true)
+                {
+                    await Task.Delay(_cacheConfig.RefreshInterval, cancellation);
+
+                    await OnIntervalAsync(clientLog, cancellation);
+                }
+            }
+            //Its normal to throw when the plugin exits or is cancelled
+            catch (TaskCanceledException)
+            { }
         }
 
         ///<inheritdoc/>
@@ -136,6 +159,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
         ///<inheritdoc/>
         public override Task<bool> DeleteAsync(string key, CancellationToken cancellation)
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
+
             CheckConnected();
 
             //Delete the object from 
@@ -143,24 +168,26 @@ namespace VNLib.Data.Caching.Providers.VNCache
             Task<bool> remote = _backing.DeleteAsync(key, cancellation);
 
             //task when both complete
-            return Task.WhenAll(local, remote).ContinueWith(static p => p.Result.First(), TaskScheduler.Default);
+            return Task.WhenAll(local, remote)
+                .ContinueWith(static p => p.Result.First(), TaskScheduler.Default);
         }
 
         ///<inheritdoc/>
         public override async Task<T> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation)
         {
-            _ = deserializer ?? throw new ArgumentNullException(nameof(deserializer));
+            ArgumentNullException.ThrowIfNull(deserializer);
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
             GetStateResult<T?> state = new()
             {
                 Deserialzer = deserializer,
-                Value = default!
+                Value = default
             };
 
-            //Try to the object from the cache and if found, deserialize it and store the result
+            //Try to get the object from the cache and if found, deserialize it and store the result
             await GetAsync(key, static (r, data) => r.SetState(data), state, cancellation);
 
-            return state.Value;
+            return state.Value!;
         }
 
         ///<inheritdoc/>
@@ -168,7 +195,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(key);
             ArgumentNullException.ThrowIfNull(setter);
-     
+
             CheckConnected();
 
             IBlobCacheBucket bucket = _memCache.GetBucket(key);
@@ -200,7 +227,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
                 //Update local cache
                 await _memCache.AddOrUpdateObjectAsync(key, null, static b => b.GetData(), getBuffer, DateTime.UtcNow, CancellationToken.None);
 
-                //Invoket the setter
+                //Invoke the setter
                 setter(state, getBuffer.GetData());
             }
         }
@@ -208,12 +235,14 @@ namespace VNLib.Data.Caching.Providers.VNCache
         ///<inheritdoc/>
         public override async Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
+            ArgumentNullException.ThrowIfNull(serialzer);
             CheckConnected();
 
-            //Alloc serialzation buffer
-            using AddOrUpdateBuffer buffer = new (_bufferHeap);
+            //Alloc serialization buffer
+            using AddOrUpdateBuffer buffer = new(_bufferHeap);
 
-            //Serialze the value
+            //Serialize the value
             serialzer.Serialize(value, buffer);
 
             await AddOrUpdateAsync(key, newKey, static p => p.GetData(), buffer, cancellation);
@@ -222,6 +251,9 @@ namespace VNLib.Data.Caching.Providers.VNCache
         ///<inheritdoc/>
         public override async Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataGet<T> callback, T state, CancellationToken cancellation)
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
+            ArgumentNullException.ThrowIfNull(callback);
+
             CheckConnected();
 
             DateTime currentTime = DateTime.UtcNow;
@@ -242,7 +274,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
             }
         }
 
-        async Task IIntervalScheduleable.OnIntervalAsync(ILogProvider log, CancellationToken cancellationToken)
+        private async Task OnIntervalAsync(ILogProvider log, CancellationToken cancellationToken)
         {
             if (!IsConnected)
             {
@@ -257,7 +289,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
                 //enter bucket lock
                 using CacheBucketHandle handle = await bucket.WaitAsync(cancellationToken);
 
-                //Prune expired entires
+                //Prune expired entries
                 PruneExpired(handle.Cache);
             }
         }
@@ -266,13 +298,13 @@ namespace VNLib.Data.Caching.Providers.VNCache
         {
             DateTime current = DateTime.UtcNow;
 
-            //Enumerate all cache entires to determine if they have expired
+            //Enumerate all cache entries to determine if they have expired
             string[] expired = (from ec in cache
                                 where ec.Value.GetTime().Add(_cacheConfig.MaxCacheAge) < current
                                 select ec.Key)
-                                .ToArray();
+                                    .ToArray();
 
-            //Remove expired entires
+            //Remove expired entries
             for (int i = 0; i < expired.Length; i++)
             {
                 cache.Remove(expired[i]);
@@ -298,15 +330,9 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /*
          * A buffer to store object data on a cache get
          */
-        private sealed class ObjectGetBuffer : VnDisposeable
+        private sealed class ObjectGetBuffer(IUnmangedHeap heap) : VnDisposeable
         {
-            private IMemoryHandle<byte>? _buffer;
-            private readonly IUnmangedHeap _heap;
-
-            public ObjectGetBuffer(IUnmangedHeap heap)
-            {
-                _heap = heap;
-            }
+            private MemoryHandle<byte>? _buffer;            
 
             public ReadOnlySpan<byte> GetData()
             {
@@ -316,15 +342,15 @@ namespace VNLib.Data.Caching.Providers.VNCache
             public void SetData(ReadOnlySpan<byte> data)
             {
                 //Alloc a buffer from the supplied data
-                _buffer = data.IsEmpty ? null : _heap.AllocAndCopy(data);
+                _buffer = data.IsEmpty ? null : heap.AllocAndCopy(data);
             }
 
             protected override void Free()
             {
                 //Free buffer
                 _buffer?.Dispose();
+                _buffer = null;
             }
         }
-
     }
 }
