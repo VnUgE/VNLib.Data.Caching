@@ -54,7 +54,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// <param name="asmDllPath">The path to the assembly that exports the global cache provider instance</param>
         /// <param name="search">The directory search option</param>
         /// <returns>The loaded <see cref="ICacheClient"/> instance</returns>
-        public static ICacheClient LoadCacheLibrary(this PluginBase plugin, string asmDllPath, SearchOption search = SearchOption.AllDirectories) 
+        public static ICacheClient LoadCacheLibrary(this PluginBase plugin, string asmDllPath, SearchOption search = SearchOption.AllDirectories)
              => plugin.CreateServiceExternal<ICacheClient>(asmDllPath, search, defaultCtx: null);
 
         /// <summary>
@@ -82,7 +82,7 @@ namespace VNLib.Plugins.Extensions.VNCache
 
             plugin.Log.Verbose("Loading external cache library: {cl}", dllPath);
 
-            ICacheClient _client = plugin.LoadCacheLibrary(dllPath);
+            ICacheClient _client = LoadCacheLibrary(plugin, dllPath);
 
             //Try to call an init method if it exists
             ManagedLibrary.TryGetMethod<Action>(_client, "Init")?.Invoke();
@@ -111,9 +111,9 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// <returns>The <see cref="ScopedCache"/> instance that will use the prefix to compute object ids</returns>
         /// <exception cref="ArgumentNullException"></exception>
         public static ScopedCache GetPrefixedCache(
-            this ICacheClient cache, 
-            string prefix, 
-            HashAlg digest = HashAlg.SHA1, 
+            this ICacheClient cache,
+            string prefix,
+            HashAlg digest = HashAlg.SHA1,
             HashEncodingMode encoding = HashEncodingMode.Base64
         )
         {
@@ -139,7 +139,7 @@ namespace VNLib.Plugins.Extensions.VNCache
                 //Compute the required character buffer size
                 int bufferSize = ComputeBufferSize(entityId);
 
-                if(bufferSize < 128)
+                if (bufferSize < 128)
                 {
                     //Stack alloc a buffer
                     Span<char> buffer = stackalloc char[bufferSize];
