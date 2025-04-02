@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -36,6 +36,12 @@ namespace VNLib.Data.Caching.Providers.VNCache
     /// </summary>
     public abstract class VNCacheConfig : ICacheRefreshPolicy, IOnConfigValidation
     {
+        /// <summary>
+        /// Whether the cache is in debug mode
+        /// </summary>
+        [JsonIgnore]
+        public bool IsDebug { get; set; }
+
         /*
          * Default disable refreshing
          */
@@ -69,18 +75,6 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         /// <summary>
-        /// The cache object deserializer to use
-        /// </summary>
-        [JsonIgnore]
-        public ICacheObjectDeserializer? CacheObjectDeserializer { get; set; }
-
-        /// <summary>
-        /// The cache object serializer to use
-        /// </summary>
-        [JsonIgnore]
-        public ICacheObjectSerializer? CacheObjectSerializer { get; set; }
-
-        /// <summary>
         /// Zeros all cache entry memory allocations before they are used
         /// </summary>
         [JsonPropertyName("zero_all")]
@@ -92,17 +86,24 @@ namespace VNLib.Data.Caching.Providers.VNCache
         [JsonPropertyName("max_object_size")]
         public virtual uint MaxBlobSize { get; set; } = 16 * 1024;
 
-        public virtual void OnValidate()
-        {
-
-            Validate.Range2<uint>(MaxBlobSize, 16, uint.MaxValue, "You must configure a maximum object size");
-
-        }
+        /// <summary>
+        /// The cache object deserializer to use
+        /// </summary>
+        [JsonIgnore]
+        public ICacheObjectDeserializer? CacheObjectDeserializer { get; set; }
 
         /// <summary>
-        /// Optional external cache serializer library to load
+        /// The cache object serializer to use
         /// </summary>
-        [JsonPropertyName("serializer_assebly_name")]
-        public string? SerializerDllPath { get; set; }
+        [JsonIgnore]
+        public ICacheObjectSerializer? CacheObjectSerializer { get; set; }       
+
+        public virtual void OnValidate()
+        {
+            Validate.Range2<uint>(MaxBlobSize, 16, uint.MaxValue, "You must configure a maximum object size");         
+
+            Validate.NotNull(CacheObjectDeserializer, "You must configure a cache object deserializer");
+            Validate.NotNull(CacheObjectSerializer, "You must configure a cache object serializer");
+        }
     }
 }

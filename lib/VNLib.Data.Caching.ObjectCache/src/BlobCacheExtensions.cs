@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
@@ -35,38 +35,6 @@ namespace VNLib.Data.Caching.ObjectCache
     public static class BlobCacheExtensions
     {
 
-        /// <summary>
-        /// Gets a <see cref="CacheBucketHandle"/> that holds an exclusive lock 
-        /// for the current bucekt and holds a referrence to the stored
-        /// <see cref="IBlobCache"/>
-        /// </summary>
-        /// <param name="bucket"></param>
-        /// <param name="cancellation">A token to cancel the wait operation</param>
-        /// <returns>A <see cref="CacheBucketHandle"/> that holds the <see cref="IBlobCache"/> referrence</returns>
-        public static ValueTask<CacheBucketHandle> WaitAsync(this IBlobCacheBucket bucket, CancellationToken cancellation)
-        {
-            _ = bucket ?? throw new ArgumentNullException(nameof(bucket));
-
-            //Try enter the bucket lock
-            ValueTask<IBlobCache> cacheWait = bucket.ManualWaitAsync(cancellation);
-
-            if (cacheWait.IsCompleted)
-            {
-                IBlobCache bucketHandle = cacheWait.GetAwaiter().GetResult();
-                return new ValueTask<CacheBucketHandle>(new CacheBucketHandle(bucket, bucketHandle));
-            }
-            else
-            {
-                return GetHandleAsync(cacheWait, bucket);
-            }           
-
-            static async ValueTask<CacheBucketHandle> GetHandleAsync(ValueTask<IBlobCache> waitTask, IBlobCacheBucket bucket)
-            {
-                IBlobCache cache = await waitTask.ConfigureAwait(false);
-                return new CacheBucketHandle(bucket, cache);
-            }
-        }
-
         internal static CacheEntry CreateEntry(this IBlobCache cache, string objectId, ReadOnlySpan<byte> initialData, DateTime time)
         {
             CacheEntry entry = CacheEntry.Create(initialData, cache.MemoryManager);
@@ -97,14 +65,14 @@ namespace VNLib.Data.Caching.ObjectCache
             else
             {
                 //Create the new entry 
-                entry = cache.CreateEntry(objectId, data, time);
+                entry = CreateEntry(cache, objectId, data, time);
             }
 
             return entry;
         }
 
         internal static CacheEntry TryChangeKey(this IBlobCache cache, string objectId, string alternateId, ReadOnlySpan<byte> data, DateTime time)
-        { 
+        {
             //Change the key of the blob item and update its data
             if (cache.TryChangeKey(objectId, alternateId, out CacheEntry entry))
             {
@@ -123,23 +91,91 @@ namespace VNLib.Data.Caching.ObjectCache
             else
             {
                 //entry does not exist at the old id, so we can create a new one at the alternate id
-                return cache.CreateEntry(objectId, data, time);
+                return CreateEntry(cache, objectId, data, time);
             }
         }
 
+        /// <summary>
+        /// Gets a <see cref="CacheBucketHandle"/> that holds an exclusive lock 
+        /// for the current bucket and holds a reference to the stored
+        /// <see cref="IBlobCache"/>.
+        /// </summary>
+        /// <param name="bucket">The bucket to lock.</param>
+        /// <param name="cancellation">A token to cancel the wait operation.</param>
+        /// <returns>A <see cref="CacheBucketHandle"/> that holds the <see cref="IBlobCache"/> reference.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="bucket"/> is null.</exception>
+        public static ValueTask<CacheBucketHandle> WaitAsync(this IBlobCacheBucket bucket, CancellationToken cancellation)
+        {
+            _ = bucket ?? throw new ArgumentNullException(nameof(bucket));
+
+            // Try enter the bucket lock
+            ValueTask<IBlobCache> cacheWait = bucket.ManualWaitAsync(cancellation);
+
+            if (cacheWait.IsCompleted)
+            {
+                IBlobCache bucketHandle = cacheWait.GetAwaiter().GetResult();
+                return new ValueTask<CacheBucketHandle>(new CacheBucketHandle(bucket, bucketHandle));
+            }
+            else
+            {
+                return GetHandleAsync(cacheWait, bucket);
+            }
+
+            static async ValueTask<CacheBucketHandle> GetHandleAsync(ValueTask<IBlobCache> waitTask, IBlobCacheBucket bucket)
+            {
+                IBlobCache cache = await waitTask.ConfigureAwait(false);
+                return new CacheBucketHandle(bucket, cache);
+            }
+        }
 
         /// <summary>
-        /// Asynchronously adds or updates an object in the store and optionally update's it's id.
-        /// If the alternate key already exists, it's data is overwritten.
+        /// Asynchronously adds or updates an object in the store and optionally updates its id.
+        /// If the alternate key already exists, its data is overwritten.
         /// </summary>
-        /// <param name="table"></param>
-        /// <param name="objectId">The current (or old) id of the object</param>
-        /// <param name="alternateId">An optional id to update the blob to</param>
-        /// <param name="bodyData">A callback that returns the data for the blob</param>
-        /// <param name="state">The state parameter to pass to the data callback</param>
-        /// <param name="time">The time to set on the cache record</param>
-        /// <param name="cancellation">A token to cancel the async operation</param>
-        /// <returns>A value task that represents the async operation</returns>
+        /// <typeparam name="T">The type of the state parameter.</typeparam>
+        /// <param name="table">The cache table.</param>
+        /// <param name="objectId">The current (or old) id of the object.</param>
+        /// <param name="alternateId">An optional id to update the blob to.</param>
+        /// <param name="data">A <see cref="ReadOnlyMemory{T}"/> buffer wrapper that contains the data to store.</param>
+        /// <param name="time">The time to set on the cache record.</param>
+        /// <param name="cancellation">A token to cancel the async operation.</param>
+        /// <returns>A value task that represents the async operation.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="table"/> is null.</exception>
+        public static ValueTask AddOrUpdateObjectAsync<T>(
+            this IBlobCacheTable table,
+            string objectId,
+            string? alternateId,
+            ReadOnlyMemory<byte> data,
+            DateTime time,
+            CancellationToken cancellation = default
+        )
+        {
+            return AddOrUpdateObjectAsync(
+                table,
+                objectId,
+                alternateId,
+                static state => state.Span, // Access the memory span
+                state: data,
+                time,
+                cancellation
+            );
+        }
+
+        /// <summary>
+        /// Asynchronously adds or updates an object in the store and optionally updates its id.
+        /// If the alternate key already exists, its data is overwritten.
+        /// </summary>
+        /// <typeparam name="T">The type of the state parameter.</typeparam>
+        /// <param name="table">The cache table.</param>
+        /// <param name="objectId">The current (or old) id of the object.</param>
+        /// <param name="alternateId">An optional id to update the blob to.</param>
+        /// <param name="bodyData">A callback that returns the data for the blob.</param>
+        /// <param name="state">The state parameter to pass to the data callback.</param>
+        /// <param name="time">The time to set on the cache record.</param>
+        /// <param name="cancellation">A token to cancel the async operation.</param>
+        /// <returns>A value task that represents the async operation.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="table"/> or <paramref name="bodyData"/> is null.</exception>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="objectId"/> is null or whitespace.</exception>
         public static async ValueTask AddOrUpdateObjectAsync<T>(
             this IBlobCacheTable table,
             string objectId,
@@ -147,24 +183,25 @@ namespace VNLib.Data.Caching.ObjectCache
             ObjectDataGet<T> bodyData,
             T state,
             DateTime time,
-            CancellationToken cancellation = default)
+            CancellationToken cancellation = default
+        )
         {
             ArgumentNullException.ThrowIfNull(table);
             ArgumentNullException.ThrowIfNull(bodyData);
             ArgumentException.ThrowIfNullOrWhiteSpace(objectId);
 
-            //See if an id change is required
+            // See if an id change is required
             if (string.IsNullOrWhiteSpace(alternateId))
             {
-                //safe to get the bucket for the primary id
+                // Safe to get the bucket for the primary id
                 IBlobCacheBucket bucket = table.GetBucket(objectId);
 
-                //Wait for the bucket to be available
+                // Wait for the bucket to be available
                 IBlobCache cache = await bucket.ManualWaitAsync(cancellation);
 
                 try
                 {
-                    _ = cache.AddOrUpdateEntry(objectId, bodyData(state), time);
+                    _ = AddOrUpdateEntry(cache, objectId, bodyData(state), time);
                 }
                 finally
                 {
@@ -173,19 +210,19 @@ namespace VNLib.Data.Caching.ObjectCache
             }
             else
             {
-                //Buckets for each id need to be obtained
+                // Buckets for each id need to be obtained
                 IBlobCacheBucket primary = table.GetBucket(objectId);
                 IBlobCacheBucket alternate = table.GetBucket(alternateId);
 
-                //Same bucket
+                // Same bucket
                 if (ReferenceEquals(primary, alternate))
                 {
                     IBlobCache cache = await primary.ManualWaitAsync(cancellation);
 
                     try
                     {
-                        //Update the entry for the single bucket
-                        _ = cache.TryChangeKey(objectId, alternateId, bodyData(state), time);
+                        // Update the entry for the single bucket
+                        _ = TryChangeKey(cache, objectId, alternateId, bodyData(state), time);
                     }
                     finally
                     {
@@ -194,51 +231,51 @@ namespace VNLib.Data.Caching.ObjectCache
                 }
                 else
                 {
-                    //Buckets are different must be awaited individually
+                    // Buckets are different must be awaited individually
                     using CacheBucketHandle primaryHandle = await primary.WaitAsync(cancellation);
                     using CacheBucketHandle alternateHandle = await alternate.WaitAsync(cancellation);
 
-                    //Get the entry from the primary hande
+                    // Get the entry from the primary handle
                     if (primaryHandle.Cache.Remove(objectId, out CacheEntry entry))
                     {
                         try
                         {
-                            //Try to see if the alternate key already exists
+                            // Try to see if the alternate key already exists
                             if (alternateHandle.Cache.TryGetValue(alternateId, out CacheEntry existing))
                             {
                                 existing.UpdateData(bodyData(state));
 
-                                //dispose the old entry since we don't need it
+                                // Dispose the old entry since we don't need it
                                 entry.Dispose();
                             }
                             else
                             {
-                                //Update the entry buffer and reuse the entry
+                                // Update the entry buffer and reuse the entry
                                 entry.UpdateData(bodyData(state));
 
-                                //Add the updated entry to the alternate table
+                                // Add the updated entry to the alternate table
                                 alternateHandle.Cache.Add(alternateId, entry);
                             }
                         }
                         catch
                         {
-                            //Cleanup removed entry if error adding
+                            // Cleanup removed entry if error adding
                             entry.Dispose();
                             throw;
                         }
                     }
                     else
                     {
-                        //Try to see if the alternate key already exists in the target store
+                        // Try to see if the alternate key already exists in the target store
                         if (alternateHandle.Cache.TryGetValue(alternateId, out CacheEntry existing))
                         {
-                            //overwrite the existing entry data
+                            // Overwrite the existing entry data
                             existing.UpdateData(bodyData(state));
                         }
                         else
                         {
-                            //Old entry did not exist, we need to create a new entry for the alternate bucket
-                            _ = alternateHandle.Cache.CreateEntry(alternateId, bodyData(state), time);
+                            // Old entry did not exist, we need to create a new entry for the alternate bucket
+                            _ = CreateEntry(alternateHandle.Cache, alternateId, bodyData(state), time);
                         }
                     }
                 }
@@ -246,34 +283,36 @@ namespace VNLib.Data.Caching.ObjectCache
         }
 
         /// <summary>
-        /// Asynchronously deletes a previously stored item
+        /// Asynchronously deletes a previously stored item.
         /// </summary>
-        /// <param name="table"></param>
-        /// <param name="objectId">The id of the object to delete</param>
-        /// <param name="cancellation">A token to cancel the async lock await</param>
-        /// <returns>A task that completes when the item has been deleted</returns>
+        /// <param name="table">The cache table.</param>
+        /// <param name="objectId">The id of the object to delete.</param>
+        /// <param name="cancellation">A token to cancel the async lock await.</param>
+        /// <returns>A task that completes when the item has been deleted.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="table"/> is null.</exception>
         public static ValueTask<bool> DeleteObjectAsync(this IBlobCacheTable table, string objectId, CancellationToken cancellation = default)
         {
             ArgumentNullException.ThrowIfNull(table);
 
-            //Try to get the bucket that the id should belong to
+            // Try to get the bucket that the id should belong to
             IBlobCacheBucket bucket = table.GetBucket(objectId);
 
             return DeleteObjectAsync(bucket, objectId, cancellation);
         }
 
         /// <summary>
-        /// Asynchronously deletes a previously stored item
+        /// Asynchronously deletes a previously stored item.
         /// </summary>
-        /// <param name="bucket"></param>
-        /// <param name="objectId">The id of the object to delete</param>
-        /// <param name="cancellation">A token to cancel the async lock await</param>
-        /// <returns>A task that completes when the item has been deleted</returns>
+        /// <param name="bucket">The cache bucket.</param>
+        /// <param name="objectId">The id of the object to delete.</param>
+        /// <param name="cancellation">A token to cancel the async lock await.</param>
+        /// <returns>A task that completes when the item has been deleted.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="bucket"/> is null.</exception>
         public static async ValueTask<bool> DeleteObjectAsync(this IBlobCacheBucket bucket, string objectId, CancellationToken cancellation = default)
         {
             ArgumentNullException.ThrowIfNull(bucket);
 
-            //Wait for the bucket
+            // Wait for the bucket
             IBlobCache cache = await bucket.ManualWaitAsync(cancellation);
 
             try

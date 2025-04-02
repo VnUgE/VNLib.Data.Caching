@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Plugins.Extensions.VNCache
@@ -44,7 +44,8 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         /// <param name="cache"></param>
         /// <param name="cacheKeyGenerator">The instance that generates unique keys for a given entity id</param>
         /// <returns>The new <see cref="ScopedCache"/> instance</returns>
-        public static ScopedCache GetScopedCache(this IGlobalCacheProvider cache, ICacheKeyGenerator cacheKeyGenerator) => new ScopedCacheImpl(cache, cacheKeyGenerator);
+        public static ScopedCache GetScopedCache(this ICacheClient cache, ICacheKeyGenerator cacheKeyGenerator) 
+            => new ScopedCacheImpl(cache, cacheKeyGenerator);
 
         /// <summary>
         /// Deletes an <see cref="ICacheEntity"/> from the cache from its id
@@ -75,8 +76,8 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         /// <exception cref="ArgumentNullException"></exception>
         public static Task UpsertAsync<T>(this IEntityCache<T> cache, T entity, CancellationToken cancellation) where T: class, ICacheEntity
         {
-            _ = entity ?? throw new ArgumentNullException(nameof(entity));
-            _ = cache ?? throw new ArgumentNullException(nameof(cache));
+            ArgumentNullException.ThrowIfNull(entity);
+            ArgumentNullException.ThrowIfNull(cache);
 
             //Add/update with its id
             return cache.UpsertAsync(entity.Id, entity, cancellation);
@@ -93,7 +94,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         /// <param name="deserializer">The entity data deserializer</param>
         /// <returns>The new <see cref="IEntityCache{T}"/> wrapper instance</returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static IEntityCache<T> CreateEntityCache<T>(this IGlobalCacheProvider cache, ICacheObjectSerializer serialier, ICacheObjectDeserializer deserializer) where T: class
+        public static IEntityCache<T> CreateEntityCache<T>(this ICacheClient cache, ICacheObjectSerializer serialier, ICacheObjectDeserializer deserializer) where T: class
         {
             ArgumentNullException.ThrowIfNull(cache);
             ArgumentNullException.ThrowIfNull(serialier);
@@ -111,7 +112,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         /// <param name="bufferSize">The default serializer buffer size</param>
         /// <returns>The new <see cref="IEntityCache{T}"/> wrapper using json serialization</returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static IEntityCache<T> CreateJsonEntityCache<T>(this IGlobalCacheProvider cache, int bufferSize) where T: class
+        public static IEntityCache<T> CreateJsonEntityCache<T>(this ICacheClient cache, int bufferSize) where T: class
         {
             ArgumentNullException.ThrowIfNull(cache);
 
@@ -133,10 +134,10 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
             ArgumentNullException.ThrowIfNull(cache);
             return new EntityCacheBuilder<TEntity>(cache);
         }
-        private sealed class EntityCacheImpl<T>(IGlobalCacheProvider cache, ICacheObjectDeserializer deserializer, ICacheObjectSerializer serializer) 
+        private sealed class EntityCacheImpl<T>(ICacheClient cache, ICacheObjectDeserializer deserializer, ICacheObjectSerializer serializer) 
             : IEntityCache<T> where T : class
         {
-            private readonly IGlobalCacheProvider _cacheProvider = cache;
+            private readonly ICacheClient _cacheProvider = cache;
             private readonly ICacheObjectDeserializer _cacheObjectDeserialzer = deserializer;
             private readonly ICacheObjectSerializer _cacheObjectSerialzer = serializer;
 
@@ -153,9 +154,9 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
                 => _cacheProvider.AddOrUpdateAsync(id, newKey: null, entity, _cacheObjectSerialzer, token);
         }
 
-        private sealed class ScopedCacheImpl(IGlobalCacheProvider cache, ICacheKeyGenerator keyGen) : ScopedCache
+        private sealed class ScopedCacheImpl(ICacheClient cache, ICacheKeyGenerator keyGen) : ScopedCache
         {
-            private readonly IGlobalCacheProvider Cache = cache;
+            private readonly ICacheClient Cache = cache;
 
             ///<inheritdoc/>
             public override bool IsConnected
