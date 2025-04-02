@@ -91,7 +91,7 @@ jobs:
   timeout: 14400
 
 - name: Publish master
-  jobExecutor: windows
+  jobExecutor: publish-agents
   steps:
   - !CommandStep
     name: Clone local deps
