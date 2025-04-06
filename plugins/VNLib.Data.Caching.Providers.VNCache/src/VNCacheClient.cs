@@ -121,7 +121,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         /// </summary>
         /// <param name="config">The memory cache configuration</param>
         /// <returns>
-        /// A <see cref="MemoryCacheOperator"/> handle that holds a ready-to use cache instance. 
+        /// A <see cref="VNCacheClientHandle"/> handle that holds a ready-to use cache instance. 
         /// This operator must be disposed to release held resources.
         /// </returns>
         /// <exception cref="ArgumentNullException"></exception>
@@ -147,8 +147,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
             VNRemoteCacheConfig cacheClientConfig = config.Deserialize<VNRemoteCacheConfig>()!;
             PluginConfigJson extendedConfig = config.Deserialize<PluginConfigJson>()!;
 
-            //Always assign a debug log in plugin context
-            cacheClientConfig.ClientDebugLog = plugin.Log.CreateScope("CLIENT");
+            //Only assign debug log if the plugin is in debug mode
+            cacheClientConfig.ClientDebugLog = plugin.IsDebug() ? plugin.Log.CreateScope("CLIENT") : null;
 
             // Set the debug flag if the plugin is in debug mode
             cacheClientConfig.IsDebug |= plugin.IsDebug();
