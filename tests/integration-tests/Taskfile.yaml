@@ -1,0 +1,131 @@
+version: '3'
+
+includes: 
+  module: '../../Module.Taskfile.yaml'
+
+vars:
+  _CP: '{{ if eq OS "windows" }}powershell {{ end }}cp'
+  _CPR: '{{ if eq OS "windows" }}powershell {{ end }}cp -r'
+  _RM: '{{ if eq OS "windows" }}powershell {{ end }}rm'
+  _RMR: '{{ if eq OS "windows" }}powershell {{ end }}rm -r'
+  _MKDIR: '{{ if eq OS "windows" }}powershell {{ end }}mkdir'
+
+  TEST_WORKING_DIR: '{{ .USER_WORKING_DIR }}'
+  SERVER_BUILD_DIR: '{{ .TEST_WORKING_DIR }}/server'
+  SERVER_ARGS: '--threads 2 --verbose --log-transport --log-http --input-off'
+
+  TEST_SERVER_PORT: '9856'
+
+tasks:
+
+  setup-server:
+    cmds:
+     - task: copy-server-dist
+     - task: compile-config
+     - cmd: cd '{{ .SERVER_BUILD_DIR }}' && task setup
+
+  copy-server-dist:
+    vars:
+      PLATFORM: '{{ if eq OS "windows" }}windows-x64{{ else }}posix{{ end }}'
+    cmds:
+     - cmd: '{{ ._MKDIR }} "{{ .SERVER_BUILD_DIR }}"'
+       ignore_error: true
+     - cmd: '{{ ._CP }} "../../server/bin/{{ .PLATFORM }}-release.tgz" "{{ .SERVER_BUILD_DIR }}/server.tgz"'
+     - cmd: cd '{{ .SERVER_BUILD_DIR }}' && tar -xzf server.tgz
+
+  compile-config:
+    env:
+      CACHE_PRIV_KEY: 'file://../test-config/test-server.key'
+      CLIENT_PUB_KEY: 'file://../test-config/test-client.key'
+      HTTP_BIND_PORT: '{{ .TEST_SERVER_PORT }}'
+      COMPRESSOR_ASM_PATH: 'lib/VNLib.Net.Compression/VNLib.Net.Compression.dll'
+      HTTP_TRACE_ON: 'true'
+      DEBUG_PLUGINS: 'true'
+    cmds:
+    # runs the compile.ps1 script to compile the config files
+     - cmd: cd ../../server 
+        && powershell './compile.ps1' 
+        -InputDir 'config-templates/' 
+        -OutputDir '{{ .SERVER_BUILD_DIR }}/config'
+       platforms: [ windows ]
+
+     - cmd: cd ../../server 
+        && bash './compile.sh' 'config-templates/' '{{ .SERVER_BUILD_DIR }}/config' 
+       platforms: [ linux, darwin ]
+
+  start-test-server:
+    desc: "Starts the cache server in test mode"
+    cmds:
+      - cmd: powershell 
+         -File '{{ .USER_WORKING_DIR }}/background-server.ps1' 
+         -Action 'start' 
+         -ServerDir '{{ .SERVER_BUILD_DIR }}' 
+         -ServerArgs 'run -- {{ .SERVER_ARGS }}' 
+         -PidFile '{{ .SERVER_BUILD_DIR }}/server.pid'
+        platforms: [ windows ]
+
+      - cmd: bash ./background-server.sh "start" "{{ .SERVER_BUILD_DIR }}" "run -- {{ .SERVER_ARGS }}"
+        platforms: [ linux, darwin ]
+
+      - cmd: echo "Server started successfully."  
+
+  stop-test-server:
+    desc: "Stops the test server by finding its process"
+    cmds:
+      - cmd: powershell 
+         -File '{{ .USER_WORKING_DIR }}/background-server.ps1' 
+         -Action 'stop' 
+         -ServerDir '{{ .SERVER_BUILD_DIR }}' 
+         -PidFile '{{ .SERVER_BUILD_DIR }}/server.pid'
+        platforms: [ windows ]
+
+      # Unix: use pgrep/pkill to find and kill the process
+      - cmd: bash ./background-server.sh "stop" "{{ .SERVER_BUILD_DIR }}"
+        platforms: [ linux, darwin ]
+
+  run-tests:
+    desc: "Runs the integration tests"
+    dir: 'VNLib.Data.Caching.IntegrationTests/src'
+    vars:
+      TEST_SERVER_URL: 'http://localhost:{{ .TEST_SERVER_PORT }}'
+      SERVER_KEY_PATH: '{{ .USER_WORKING_DIR }}/test-config/test-server.key'
+      CLIENT_KEY_PATH: '{{ .USER_WORKING_DIR }}/test-config/test-client.key'
+    cmds:
+     - cmd: dotnet build 
+        {{ .MS_ARGS }}
+        --nologo
+        --configuration debug
+        --verbosity quiet
+
+     - cmd: dotnet test
+        {{ .CLI_ARGS }}
+        {{ .MS_ARGS }}
+        --no-build
+        --nologo
+        --logger "console;verbosity=detailed"
+        --configuration debug
+        --framework {{ .TARGET_FRAMEWORK | default "net8.0" }}
+        --environment VNLIB_SHARED_HEAP_DIAGNOSTICS="1"
+        --environment TEST_VNCACHE_SERVER_URL="{{ .TEST_SERVER_URL }}"
+        --environment TEST_VNCACHE_SERVER_KEY_PATH="{{ osClean .SERVER_KEY_PATH }}"
+        --environment TEST_VNCACHE_CLIENT_KEY_PATH="{{ osClean .CLIENT_KEY_PATH }}"
+
+  test:
+    desc: "Starts the server and runs all tests"
+    cmds:
+      - task: setup-server
+      - task: start-test-server
+      - defer: { task: stop-test-server }
+      - cmd: echo "Waiting 10 seconds for server to initialize..."
+      - cmd: powershell Start-Sleep -Seconds 10
+        platforms: [ windows ]
+      - cmd: sleep 10
+        platforms: [ linux, darwin ]
+      - task: run-tests
+      - cmd: echo "Tests completed successfully."  
+
+  clean:
+    desc: "Cleans the test server and test files"
+    cmds:
+      - cmd: '{{ ._RMR }} "{{ .SERVER_BUILD_DIR }}"'
+        ignore_error: true
