@@ -157,7 +157,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
             cacheClientConfig.AuthManager = JwkAuthManager.FromLazyJwk(
                 sigKey: plugin.GetSecretAsync("client_private_key").ToJsonWebKey().AsLazy(),
                 verifKey: plugin.GetSecretAsync("cache_public_key").ToJsonWebKey().AsLazy()
-            );          
+            );
 
             InitSerializers(plugin, extendedConfig, cacheClientConfig);
 
