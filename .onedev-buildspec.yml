@@ -167,6 +167,33 @@ jobs:
     requireSuccessful: true
     artifacts: '**'
     destinationPath: '@project_name@'
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 14400
+- name: build master image
+  jobExecutor: docker
+  steps:
+  - !CommandStep
+    name: prep image
+    runInContainer: true
+    image: ubuntu:25.04
+    interpreter: !DefaultInterpreter
+      commands: |
+        cd @project_name@
+        ls -lah
+        tar -xzf container-release.tgz
+    useTTY: true
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !BuildImageStep
+    name: build docker-hub image
+    buildPath: '@project_name@'
+    output: !RegistryOutput
+      tags: vnuge/vncache:ubuntu-latest vnuge/vncache:ubuntu-@branch@ vnuge/vncache:ubuntu-@commit_hash@
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  triggers:
+  - !BranchUpdateTrigger {}
+  jobDependencies:
   - jobName: Publish master
     requireSuccessful: true
     artifacts: '**'
