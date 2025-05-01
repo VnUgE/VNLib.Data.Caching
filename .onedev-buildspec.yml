@@ -1,4 +1,4 @@
-version: 36
+version: 37
 jobs:
 - name: GitHub Push
   steps:
@@ -80,8 +80,7 @@ jobs:
     useTTY: true
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   triggers:
-  - !BranchUpdateTrigger
-    branches: develop
+  - !BranchUpdateTrigger {}
   jobDependencies:
   - jobName: Unit Testing
     requireSuccessful: true
@@ -129,6 +128,35 @@ jobs:
   triggers:
   - !BranchUpdateTrigger
     branches: master
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 14400
+- name: build image
+  jobExecutor: docker
+  steps:
+  - !CommandStep
+    name: prep image
+    runInContainer: false
+    interpreter: !DefaultInterpreter
+      commands: |
+        cd @project_name@
+        tar -xzf container-release.tgz
+    useTTY: true
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !BuildImageStep
+    name: build docker-hub image
+    buildPath: '@project_name@'
+    output: !RegistryOutput
+      tags: vnuge/vncache:ubuntu-@branch@ vnuge/vncache:ubuntu-@commit_hash@
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  triggers:
+  - !BranchUpdateTrigger {}
+  jobDependencies:
+  - jobName: Staging build
+    requireSuccessful: true
+    artifacts: '@project_name@/server/bin/container-release.tgz'
+    destinationPath: '@project_name@/server/bin/container-release.tgz'
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
