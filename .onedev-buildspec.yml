@@ -161,7 +161,8 @@ jobs:
       tags: vnuge/vncache:ubuntu-@branch@ vnuge/vncache:ubuntu-@commit_hash@
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   triggers:
-  - !BranchUpdateTrigger {}
+  - !BranchUpdateTrigger
+    branches: develop
   jobDependencies:
   - jobName: Staging build
     requireSuccessful: true
