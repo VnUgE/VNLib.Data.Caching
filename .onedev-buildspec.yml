@@ -64,7 +64,7 @@ jobs:
     runInContainer: false
     interpreter: !DefaultInterpreter
       commands: |
-        dotnet-gitversion.exe VNLib.Plugins.Extensions /updateprojectfiles
+        dotnet gitversion VNLib.Plugins.Extensions /updateprojectfiles
         vnbuild build --no-delay --include vnlib.core
         vnbuild build --no-delay --include @project_name@ --verbose
     useTTY: true
@@ -135,13 +135,14 @@ jobs:
     image: ubuntu:25.04
     interpreter: !DefaultInterpreter
       commands: |
-        cd @project_name@
+        cd @project_name@/server/bin
+        ls -lah
         tar -xzf container-release.tgz
     useTTY: true
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   - !BuildImageStep
     name: build docker-hub image
-    buildPath: '@project_name@'
+    buildPath: '@project_name@/server/bin'
     output: !RegistryOutput
       tags: vnuge/vncache:ubuntu-@branch@ vnuge/vncache:ubuntu-@commit_hash@
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
@@ -150,8 +151,7 @@ jobs:
   jobDependencies:
   - jobName: Staging build
     requireSuccessful: true
-    artifacts: '@project_name@/server/bin/container-release.tgz'
-    destinationPath: '@project_name@/container-release.tgz'
+    artifacts: '**'
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
