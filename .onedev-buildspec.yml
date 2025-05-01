@@ -79,9 +79,6 @@ jobs:
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   triggers:
   - !BranchUpdateTrigger {}
-  jobDependencies:
-  - jobName: Unit Testing
-    requireSuccessful: true
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
@@ -154,7 +151,7 @@ jobs:
   - jobName: Staging build
     requireSuccessful: true
     artifacts: '@project_name@/server/bin/container-release.tgz'
-    destinationPath: '@project_name@/server/bin/container-release.tgz'
+    destinationPath: '@project_name@/container-release.tgz'
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
