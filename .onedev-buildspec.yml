@@ -83,7 +83,11 @@ jobs:
     artifacts: '*'
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   triggers:
-  - !BranchUpdateTrigger {}
+  - !BranchUpdateTrigger
+    branches: develop
+  jobDependencies:
+  - jobName: Unit Testing
+    requireSuccessful: true
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
@@ -124,6 +128,11 @@ jobs:
       value: '@secret:ftp_password@'
     useTTY: true
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !PublishArtifactStep
+    name: publish server artifacts
+    sourcePath: '@project_name@/server/bin'
+    artifacts: '*'
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   triggers:
   - !BranchUpdateTrigger
     branches: master
@@ -155,6 +164,10 @@ jobs:
   - !BranchUpdateTrigger {}
   jobDependencies:
   - jobName: Staging build
+    requireSuccessful: true
+    artifacts: '**'
+    destinationPath: '@project_name@'
+  - jobName: Publish master
     requireSuccessful: true
     artifacts: '**'
     destinationPath: '@project_name@'
