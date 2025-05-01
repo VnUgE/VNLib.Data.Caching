@@ -18,7 +18,6 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 3600
-
 - name: Unit Testing
   jobExecutor: windows
   steps:
@@ -47,7 +46,6 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 14400
-
 - name: Staging build
   jobExecutor: windows
   steps:
@@ -88,7 +86,6 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 14400
-
 - name: Publish master
   jobExecutor: publish-agents
   steps:
@@ -137,7 +134,8 @@ jobs:
   steps:
   - !CommandStep
     name: prep image
-    runInContainer: false
+    runInContainer: true
+    image: ubuntu:25.04
     interpreter: !DefaultInterpreter
       commands: |
         cd @project_name@
