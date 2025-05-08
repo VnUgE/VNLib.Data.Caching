@@ -41,7 +41,7 @@ tasks:
      silent: true
      cmds:
      - cmd: apt update
-     - cmd: apt install -y dotnet-runtime-8.0 gcc cmake git
+     - cmd: apt install -y dotnet-runtime-8.0 build-essential cmake
      - task: setup
      - cmd: echo "Setup complete" 
 
@@ -50,7 +50,7 @@ tasks:
      silent: true
      cmds:
      - cmd: dnf update
-     - cmd: dnf install -y dotnet-runtime-8.0 gcc cmake git
+     - cmd: dnf install -y dotnet-runtime-8.0 gcc cmake
      - task: setup
      - cmd: echo "Setup complete"
 
@@ -59,7 +59,7 @@ tasks:
      silent: true
      cmds:
      - cmd: apk update
-     - cmd: apk add --no-cache dotnet8-runtime build-base cmake git
+     - cmd: apk add --no-cache dotnet8-runtime build-base cmake
      - task: setup
      - cmd: echo "Setup complete"
 
@@ -120,7 +120,7 @@ tasks:
         Taskfile.yaml
 
     cmds:
-    - cmd: mkdir root
+    - cmd: mkdir root/ usr/
     - cmd: chown -R 1000:1000 /app
     #set all files to read only
     - for: { var: READONLY_FILES }

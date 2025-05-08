@@ -2,13 +2,13 @@
 #Licensed under the GNU AGPL V3.0
 
 #use plain ubuntu latest to build native libraries in
-FROM ubuntu:24.04 as native-cont
+FROM ubuntu:25.04 AS native-cont
 
 WORKDIR /build
 
 #download and install task (its easier and faster without npm)
-ADD --checksum=sha256:fe61611118e586e51eec55678a8a00409111ff723ada07bfb6cda2897814b42a \
-  https://github.com/go-task/task/releases/download/v3.41.0/task_linux_amd64.deb \
+ADD --checksum=sha256:717cc03e60bf92fa53015a15b263c750f2452ba17f8f7b7648b2afc19ac4e969 \
+  https://github.com/go-task/task/releases/download/v3.43.3/task_linux_amd64.deb \
   task_linux_amd64.deb
 
 RUN dpkg -i task_linux_amd64.deb
@@ -21,14 +21,11 @@ RUN task setup-apt
 
 #APP CONTAINER
 #move into a clean dotnet ubuntu lean image
-FROM mcr.microsoft.com/dotnet/runtime:8.0.12-noble as app-cont
+FROM mcr.microsoft.com/dotnet/runtime:8.0.15-noble AS app-cont
 
 LABEL name="vnuge/vncache"
 LABEL maintainer="Vaughn Nugent <vnpublic@proton.me>"
 LABEL description="A simple clustered network data caching service"
-
-#install dumb-init and task
-RUN apt update && apt install -y dumb-init 
 
 #copy local artifacts again in run container
 COPY app/ /app
@@ -39,7 +36,13 @@ COPY --from=native-cont /build/lib/vnlib_compress.so /app/lib/vnlib_compress.so
 
 #also copy the task deb and install it
 COPY --from=native-cont /build/task_linux_amd64.deb /usr/local/bin/task.deb
-RUN dpkg -i /usr/local/bin/task.deb
+RUN dpkg -i /usr/local/bin/task.deb && rm /usr/local/bin/task.deb
+
+#add dumb-init deb from build container
+ADD --checksum=sha256:9e842e2480e1dee9f0cd482701ba89ee85b3d9c2ca249d38b6c0f49733b12f16  \
+  https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_amd64.deb  \
+  /usr/local/bin/dumb-init.deb
+RUN dpkg -i /usr/local/bin/dumb-init.deb && rm /usr/local/bin/dumb-init.deb
 
 WORKDIR /app
 

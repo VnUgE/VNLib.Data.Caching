@@ -48,7 +48,7 @@ tasks:
        silent: true
 
     #re-write semver after hard reset
-     - cmd: dotnet-gitversion.exe /updateprojectfiles
+     - cmd: dotnet gitversion /updateprojectfiles
 
      #build debug mode first
      - cmd: dotnet publish -c debug {{ .MS_ARGS }}
@@ -62,11 +62,10 @@ tasks:
         --include-symbols
         --configuration release
         --output "{{ .PACK_OUT }}/release/" 
-        -p:PackageVersion={{ .BUILD_VERSION }}
         {{ .MS_ARGS }}
 
   publish:
-    desc: "Used by vnbuild to prepare the packages for build servers"      
+    desc: "Used by vnbuild to prepare the packages for build servers"
     cmds:
      #git archive in the module directory
      - cmd: git archive --format {{ .ARCHIVE_FILE_FORMAT }} --output {{ .ARCHIVE_FILE_NAME }} HEAD
@@ -76,12 +75,22 @@ tasks:
     vars:
       HOST_CONFIG_FILE: '{{ .USER_WORKING_DIR }}/tests/plugin-tests/Test.DataCaching.Config.json'
     cmds:
+     - cmd: dotnet build 
+        {{ .MS_ARGS }}
+         /p:NoWarn=CS1591 
+        --nologo
+        --configuration debug
+        --verbosity quiet
+
      - cmd: dotnet test
         {{ .CLI_ARGS }}
+        {{ .MS_ARGS }}
+        --no-build
+        --nologo
         --logger "console;verbosity=detailed"
         --configuration debug
-        --verbosity normal
         --framework {{ .TARGET_FRAMEWORK | default "net8.0" }}
+        --environment VNLIB_SHARED_HEAP_DIAGNOSTICS="1"
         --environment TEST_HOST_CONFIG_FILE="{{ .HOST_CONFIG_FILE }}"
 
 #called by build pipeline to clean module

@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Plugins.Extensions.VNCache
@@ -34,7 +34,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
     /// that is stored in this cache instance may only be retrieved, deleted, or updated, by the 
     /// same instance. This is an abstract class.
     /// </summary>
-    public abstract class ScopedCache : IGlobalCacheProvider
+    public abstract class ScopedCache : ICacheClient
     {
 
         /// <summary>

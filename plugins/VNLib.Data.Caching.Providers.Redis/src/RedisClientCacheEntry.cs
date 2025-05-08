@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.Redis
@@ -55,7 +55,7 @@ namespace VNLib.Data.Caching.Providers.Redis
 
     [ServiceExport]
     [ConfigurationName("cache")]
-    public sealed class RedisClientCacheEntry : IGlobalCacheProvider
+    public sealed class RedisClientCacheEntry : ICacheClient
     {
         private const int InitialWriterBufferSize = 4096;
     
@@ -73,7 +73,7 @@ namespace VNLib.Data.Caching.Providers.Redis
             ILogProvider redisLog = plugin.Log.CreateScope("REDIS");
 
             //Allow a raw connection string to be used
-            if(config.ContainsKey("connection_string"))
+            if (config.ContainsKey("connection_string"))
             {
                 string connectionString = config.GetRequiredProperty("connection_string", el => el.GetString()!);
 
@@ -81,11 +81,15 @@ namespace VNLib.Data.Caching.Providers.Redis
                 OnLoadTask = Task.Run(async () =>
                 {
 
-                    if(connectionString.Contains("password=[SECRET]", StringComparison.OrdinalIgnoreCase))
+                    if (connectionString.Contains("password=[SECRET]", StringComparison.OrdinalIgnoreCase))
                     {
                         //Load the password from the secret store and replace the placeholder with the found secret
                         using ISecretResult password = await plugin.GetSecretAsync("redis_password");
                         connectionString = connectionString.Replace("password=[SECRET]", $"password={password.Result}", StringComparison.OrdinalIgnoreCase);
+                    }
+                    else
+                    {
+                        redisLog.Information("-- You can set 'password=[SECRET]' in your connection string to substitute 'redis_password' from the 'secrets' configuration --");
                     }
 
                     redisLog.Information("Connecting to Redis server...");
