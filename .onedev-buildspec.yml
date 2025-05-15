@@ -1,4 +1,4 @@
-version: 36
+version: 37
 jobs:
 - name: GitHub Push
   steps:
@@ -18,7 +18,6 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 3600
-
 - name: Unit Testing
   jobExecutor: windows
   steps:
@@ -47,7 +46,6 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 14400
-
 - name: Staging build
   jobExecutor: windows
   steps:
@@ -66,7 +64,7 @@ jobs:
     runInContainer: false
     interpreter: !DefaultInterpreter
       commands: |
-        dotnet-gitversion.exe VNLib.Plugins.Extensions /updateprojectfiles
+        dotnet gitversion VNLib.Plugins.Extensions /updateprojectfiles
         vnbuild build --no-delay --include vnlib.core
         vnbuild build --no-delay --include @project_name@ --verbose
     useTTY: true
@@ -79,6 +77,11 @@ jobs:
         vnbuild publish -i @project_name@
     useTTY: true
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !PublishArtifactStep
+    name: publish server artifacts
+    sourcePath: '@project_name@/server/bin'
+    artifacts: '*'
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   triggers:
   - !BranchUpdateTrigger
     branches: develop
@@ -89,7 +92,6 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 14400
-
 - name: Publish master
   jobExecutor: publish-agents
   steps:
@@ -126,9 +128,78 @@ jobs:
       value: '@secret:ftp_password@'
     useTTY: true
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !PublishArtifactStep
+    name: publish server artifacts
+    sourcePath: '@project_name@/server/bin'
+    artifacts: '*'
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   triggers:
   - !BranchUpdateTrigger
     branches: master
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 14400
+- name: build image
+  jobExecutor: docker
+  steps:
+  - !CommandStep
+    name: prep image
+    runInContainer: true
+    image: ubuntu:25.04
+    interpreter: !DefaultInterpreter
+      commands: |
+        cd @project_name@
+        ls -lah
+        tar -xzf container-release.tgz
+    useTTY: true
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !BuildImageStep
+    name: build docker-hub image
+    buildPath: '@project_name@'
+    output: !RegistryOutput
+      tags: vnuge/vncache:ubuntu-@branch@ vnuge/vncache:ubuntu-@commit_hash@
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  triggers:
+  - !BranchUpdateTrigger
+    branches: develop
+  jobDependencies:
+  - jobName: Staging build
+    requireSuccessful: true
+    artifacts: '**'
+    destinationPath: '@project_name@'
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 14400
+- name: build master image
+  jobExecutor: docker
+  steps:
+  - !CommandStep
+    name: prep image
+    runInContainer: true
+    image: ubuntu:25.04
+    interpreter: !DefaultInterpreter
+      commands: |
+        cd @project_name@
+        ls -lah
+        tar -xzf container-release.tgz
+    useTTY: true
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !BuildImageStep
+    name: build docker-hub image
+    buildPath: '@project_name@'
+    output: !RegistryOutput
+      tags: vnuge/vncache:ubuntu-latest vnuge/vncache:ubuntu-@branch@ vnuge/vncache:ubuntu-@commit_hash@
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  triggers:
+  - !BranchUpdateTrigger 
+    branches: master
+  jobDependencies:
+  - jobName: Publish master
+    requireSuccessful: true
+    artifacts: '**'
+    destinationPath: '@project_name@'
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
