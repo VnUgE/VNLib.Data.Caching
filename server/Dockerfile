@@ -7,8 +7,8 @@ FROM ubuntu:25.04 AS native-cont
 WORKDIR /build
 
 #download and install task (its easier and faster without npm)
-ADD --checksum=sha256:717cc03e60bf92fa53015a15b263c750f2452ba17f8f7b7648b2afc19ac4e969 \
-  https://github.com/go-task/task/releases/download/v3.43.3/task_linux_amd64.deb \
+ADD --checksum=sha256:cdd55b9908d3ef0889bb2270132f7bdb90e50d85b645c57434385cb8ea80cc42 \
+  https://github.com/go-task/task/releases/download/v3.44.0/task_linux_amd64.deb \
   task_linux_amd64.deb
 
 RUN dpkg -i task_linux_amd64.deb
@@ -34,7 +34,7 @@ COPY app/ /app
 COPY --from=native-cont /build/lib/vnlib_rpmalloc.so /app/lib/vnlib_rpmalloc.so
 COPY --from=native-cont /build/lib/vnlib_compress.so /app/lib/vnlib_compress.so
 
-#also copy the task deb and install it
+#also copy the task deb from native build container and install it
 COPY --from=native-cont /build/task_linux_amd64.deb /usr/local/bin/task.deb
 RUN dpkg -i /usr/local/bin/task.deb && rm /usr/local/bin/task.deb
 
