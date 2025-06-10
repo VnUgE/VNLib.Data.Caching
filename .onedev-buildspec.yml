@@ -9,6 +9,13 @@ jobs:
     passwordSecret: github-access-token
     force: false
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !PushRepository
+    name: Codeberg push sync
+    remoteUrl: https://codeberg.org/VnUgE/VNLib.Data.Caching.git
+    userName: VnUgE
+    passwordSecret: codeberg-access-token
+    force: true
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   triggers:
   - !TagCreateTrigger
     projects: VNLib.Data.Caching
@@ -18,6 +25,7 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 3600
+
 - name: Unit Testing
   jobExecutor: windows
   steps:
@@ -46,6 +54,7 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 14400
+
 - name: Staging build
   jobExecutor: windows
   steps:
@@ -92,6 +101,7 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 14400
+
 - name: Publish master
   jobExecutor: publish-agents
   steps:
@@ -106,11 +116,20 @@ jobs:
     useTTY: true
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   - !CommandStep
+    name: Create git tag
+    runInContainer: false
+    interpreter: !DefaultInterpreter
+      commands: |
+        cd @project_name@
+        task -t Module.Taskfile.yaml tag-current-commit
+    useTTY: true
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !CommandStep
     name: VNBuild build
     runInContainer: false
     interpreter: !DefaultInterpreter
       commands: |
-        dotnet-gitversion.exe VNLib.Plugins.Extensions /updateprojectfiles
+        dotnet gitversion VNLib.Plugins.Extensions /updateprojectfiles
         vnbuild build --no-delay --include vnlib.core
         vnbuild build --no-delay --include @project_name@
     useTTY: true
@@ -140,6 +159,7 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 14400
+
 - name: build image
   jobExecutor: docker
   steps:
@@ -172,6 +192,7 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 14400
+
 - name: build master image
   jobExecutor: docker
   steps:
