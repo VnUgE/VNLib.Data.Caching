@@ -2,7 +2,7 @@
 #Licensed under the GNU AGPL V3.0
 
 #use plain ubuntu latest to build native libraries in
-FROM ubuntu:25.04 AS native-cont
+FROM ubuntu:25.10 AS native-cont
 
 WORKDIR /build
 
@@ -21,7 +21,7 @@ RUN task setup-apt
 
 #APP CONTAINER
 #move into a clean dotnet ubuntu lean image
-FROM mcr.microsoft.com/dotnet/runtime:8.0.16-noble AS app-cont
+FROM mcr.microsoft.com/dotnet/runtime:8.0.17-noble AS app-cont
 
 LABEL name="vnuge/vncache"
 LABEL maintainer="Vaughn Nugent <vnpublic@proton.me>"
