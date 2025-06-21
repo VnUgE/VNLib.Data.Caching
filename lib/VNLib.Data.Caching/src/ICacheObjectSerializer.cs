@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -22,8 +22,7 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
-using System;
-using System.Buffers;
+using System.IO;
 
 namespace VNLib.Data.Caching
 {
@@ -38,7 +37,7 @@ namespace VNLib.Data.Caching
         /// </summary>
         /// <typeparam name="T">The type to serialze</typeparam>
         /// <param name="obj">The object instance to serialize</param>
-        /// <param name="finiteWriter">A finite sized buffer writer to commit the serialized data to</param>
-        void Serialize<T>(T obj, IBufferWriter<byte> finiteWriter);
+        /// <param name="dataBuffer">The stream to write the serialized data to</param>
+        void Serialize<T>(T obj, Stream dataBuffer);
     }
 }
