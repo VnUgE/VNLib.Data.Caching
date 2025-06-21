@@ -29,7 +29,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.CompilerServices;
 
-using VNLib.Utils;
+using VNLib.Utils.IO;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
 using VNLib.Utils.Extensions;
@@ -168,7 +168,8 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             Task<bool> remote = _backing.DeleteAsync(key, cancellation);
 
             //task when both complete
-            return Task.WhenAll(local, remote)
+            return Task
+                .WhenAll(local, remote)
                 .ContinueWith(static p => p.Result.First(), TaskScheduler.Default);
         }
 
@@ -216,19 +217,26 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
              */
 
             //Alloc buffer from client heap
-            using ObjectGetBuffer getBuffer = new(_bufferHeap);
+            using VnMemoryStream getBuffer = new(_bufferHeap);
 
             //Get the object from the server
-            await _backing.GetAsync(key, static (b, data) => b.SetData(data), getBuffer, cancellation);
+            await _backing.GetAsync(key, static (b, data) => b.Write(data), getBuffer, cancellation);
 
             //See if object data was set
-            if (!getBuffer.GetData().IsEmpty)
+            if (getBuffer.Length > 0)
             {
                 //Update local cache
-                await _memCache.AddOrUpdateObjectAsync(key, null, static b => b.GetData(), getBuffer, DateTime.UtcNow, CancellationToken.None);
+                await _memCache.AddOrUpdateObjectAsync(
+                    key, 
+                    alternateId: null, 
+                    static b => b.AsSpan(), 
+                    getBuffer, 
+                    DateTime.UtcNow, 
+                    CancellationToken.None
+                );
 
                 //Invoke the setter
-                setter(state, getBuffer.GetData());
+                setter(state, getBuffer.AsSpan());
             }
         }
 
@@ -240,12 +248,12 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             CheckConnected();
 
             //Alloc serialization buffer
-            using AddOrUpdateBuffer buffer = new(_bufferHeap);
+            using VnMemoryStream buffer = new(_bufferHeap);
 
             //Serialize the value
             serialzer.Serialize(value, buffer);
 
-            await AddOrUpdateAsync(key, newKey, static p => p.GetData(), buffer, cancellation);
+            await AddOrUpdateAsync(key, newKey, static p => p.AsSpan(), buffer, cancellation);
         }
 
         ///<inheritdoc/>
@@ -325,32 +333,6 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             {
                 Value = Deserialzer!.Deserialize<T>(data);
             }
-        }
-
-        /*
-         * A buffer to store object data on a cache get
-         */
-        private sealed class ObjectGetBuffer(IUnmangedHeap heap) : VnDisposeable
-        {
-            private MemoryHandle<byte>? _buffer;            
-
-            public ReadOnlySpan<byte> GetData()
-            {
-                return _buffer == null ? ReadOnlySpan<byte>.Empty : _buffer.Span;
-            }
-
-            public void SetData(ReadOnlySpan<byte> data)
-            {
-                //Alloc a buffer from the supplied data
-                _buffer = data.IsEmpty ? null : heap.AllocAndCopy(data);
-            }
-
-            protected override void Free()
-            {
-                //Free buffer
-                _buffer?.Dispose();
-                _buffer = null;
-            }
-        }
+        }       
     }
 }

@@ -27,6 +27,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
+using VNLib.Utils.IO;
 using VNLib.Utils.Extensions;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
@@ -171,7 +172,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         public override async Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
         {
             //Alloc serialzation buffer
-            using AddOrUpdateBuffer buffer = new (_bufferHeap);
+            using VnMemoryStream buffer = new (_bufferHeap);
 
             //Serialze the value
             serialzer.Serialize(value, buffer);
@@ -180,7 +181,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             await _memCache.AddOrUpdateObjectAsync(
                 key, 
                 newKey, 
-                static b => b.GetData(), 
+                static b => b.AsSpan(), 
                 state: buffer, 
                 time: default, 
                 cancellation
