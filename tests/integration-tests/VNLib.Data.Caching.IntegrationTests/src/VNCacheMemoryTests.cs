@@ -3,6 +3,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 
 using VNLib.Utils.Logging;
 using VNLib.Data.Caching.Providers.VNCache;
@@ -10,7 +12,7 @@ using VNLib.Data.Caching.Providers.VNCache;
 namespace VNLib.Data.Caching.IntegrationTests
 {
     [TestClass]
-    public class VNCacheMemoryTests: VNCacheClientTestBase
+    public class VNCacheMemoryTests : VNCacheClientTestBase
     {
         protected internal static VNMemoryCacheConfig GetMemoryConfig()
         {
@@ -26,6 +28,29 @@ namespace VNLib.Data.Caching.IntegrationTests
             Console.WriteLine($"Client config:\n{asString}");
 
             return clientConfig;
+        }
+     
+        public override async Task TestKeyTooSmallAsync()
+        {
+            //A key less than about 4 charters is not allowed
+            const string key = "a";
+
+            Assert.IsTrue(Client.Cache.IsConnected);
+
+            //A random value must be used to ensure the test is not dependent on the server state
+            string RandomTestValue = Guid.NewGuid().ToString();
+
+            await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(() =>
+                Client.Cache.AddOrUpdateAsync(key, null, RandomTestValue, CancellationToken.None)
+            );
+
+            await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(() =>
+                Client.Cache.GetAsync<string>(key, CancellationToken.None)
+            );
+
+            await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(() =>
+                Client.Cache.DeleteAsync(key, CancellationToken.None)
+            );        
         }
 
         protected override VNCacheClientHandle CreateClient(ILogProvider logger)

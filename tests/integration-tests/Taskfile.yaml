@@ -1,5 +1,18 @@
 version: '3'
 
+# This taskfile is responsible for running full integration tests against the 
+# VNLib.Data.Caching module. It's assumed to be run in both local and CI/CD
+# environments.
+# 
+# A full build of local projects and dependencies (VNLib.Core) are succesfully 
+# completed, as this test runs against the production server package that users
+# will use. 
+#
+# Assumed steps: 
+# vnbuild build -i vnlib.core
+# vnbuild build -i vnlib.data.caching
+# task test (in this directory)
+
 includes: 
   module: '../../Module.Taskfile.yaml'
 

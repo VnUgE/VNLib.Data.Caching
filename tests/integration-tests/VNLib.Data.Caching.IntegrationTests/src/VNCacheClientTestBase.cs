@@ -10,7 +10,6 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using VNLib.Utils.Logging;
-using VNLib.Data.Caching.Exceptions;
 using VNLib.Data.Caching.Providers.VNCache;
 
 namespace VNLib.Data.Caching.IntegrationTests
@@ -20,6 +19,8 @@ namespace VNLib.Data.Caching.IntegrationTests
         private readonly SerilogLogger _logger;
         private readonly VNCacheClientHandle _client;
         private readonly Task _runTask;
+
+        protected VNCacheClientHandle Client => _client;
 
         public VNCacheClientTestBase()
         {
@@ -167,7 +168,7 @@ namespace VNLib.Data.Caching.IntegrationTests
             //Store the value in raw bytes
             await _client.Cache.AddOrUpdateAsync(key, null, randAsBytes, CancellationToken.None);
 
-            byte[] readBytes = await _client.Cache.GetAsync<byte[], string?>(key, static (_, d) => d.ToArray(), state: null, CancellationToken.None);
+            byte[]? readBytes = await _client.Cache.GetAsync<byte[], string?>(key, static (_, d) => d.ToArray(), state: null, CancellationToken.None);
             //Check the bytes are the same
             Assert.IsTrue(randAsBytes.AsSpan().SequenceEqual(readBytes));
 
@@ -180,27 +181,7 @@ namespace VNLib.Data.Caching.IntegrationTests
         }
 
         [TestMethod]
-        public async Task TestKeyTooSmallAsync()
-        {
-            const string key = "a";
-
-            Assert.IsTrue(_client.Cache.IsConnected);
-
-            //A random value must be used to ensure the test is not dependent on the server state
-            string RandomTestValue = Guid.NewGuid().ToString();
-
-            await Assert.ThrowsExactlyAsync<InvalidStatusException>(() =>
-                _client.Cache.AddOrUpdateAsync(key, null, RandomTestValue, CancellationToken.None)
-            );
-
-            await Assert.ThrowsExactlyAsync<InvalidStatusException>(() =>
-                _client.Cache.GetAsync<string>(key, CancellationToken.None)
-            );
-
-            await Assert.ThrowsExactlyAsync<InvalidStatusException>(() =>
-                _client.Cache.DeleteAsync(key, CancellationToken.None)
-            );
-        }
+        public abstract Task TestKeyTooSmallAsync();
 
         [TestMethod]
         public async Task TestMinKeySizeAsync()
@@ -276,25 +257,23 @@ namespace VNLib.Data.Caching.IntegrationTests
             Assert.IsTrue(_client.Cache.IsConnected);
 
             // Test with ReadOnlyMemory<byte>
-            byte[] testData = Guid.NewGuid().ToByteArray();
-            ReadOnlyMemory<byte> readOnlyMem = testData;
+            ReadOnlyMemory<byte> testData = Guid.NewGuid().ToByteArray();            
+            await _client.Cache.AddOrUpdateAsync(key, null, testData, CancellationToken.None);
 
-            await _client.Cache.AddOrUpdateAsync(key, null, readOnlyMem, CancellationToken.None);
             byte[]? retrievedData = await _client.Cache.GetAsync<byte[], string?>(key, static (_, d) => d.ToArray(), state: null, CancellationToken.None);
-            Assert.IsTrue(testData.AsSpan().SequenceEqual(retrievedData));
+            Assert.IsTrue(testData.Span.SequenceEqual(retrievedData));
 
             // Test with Memory<byte>
-            byte[]? testData2 = Encoding.UTF8.GetBytes(Guid.NewGuid().ToString());
-            Memory<byte> memory = testData2;
+            Memory<byte> testData2 = Encoding.UTF8.GetBytes(Guid.NewGuid().ToString());
+            await _client.Cache.AddOrUpdateAsync(key, null, testData2, CancellationToken.None);
 
-            await _client.Cache.AddOrUpdateAsync(key, null, memory, CancellationToken.None);
             byte[]? retrievedData2 = await _client.Cache.GetAsync<byte[], string?>(key, static (_, d) => d.ToArray(), state: null, CancellationToken.None);
-            Assert.IsTrue(testData2.AsSpan().SequenceEqual(retrievedData2));
+            Assert.IsTrue(testData2.Span.SequenceEqual(retrievedData2));
 
             // Test with byte[]
             byte[] testData3 = Encoding.UTF8.GetBytes(Guid.NewGuid().ToString());
-
             await _client.Cache.AddOrUpdateAsync(key, null, testData3, CancellationToken.None);
+
             byte[]? retrievedData3 = await _client.Cache.GetAsync<byte[], string?>(key, static (_, d) => d.ToArray(), state: null, CancellationToken.None);
             Assert.IsTrue(testData3.AsSpan().SequenceEqual(retrievedData3));
 
