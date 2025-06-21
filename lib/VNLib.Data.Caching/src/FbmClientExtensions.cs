@@ -23,6 +23,7 @@
 */
 
 using System;
+using System.IO;
 using System.Linq;
 using System.Buffers;
 using System.Threading;
@@ -42,9 +43,10 @@ namespace VNLib.Data.Caching
     /// <summary>
     /// Provides caching extension methods for <see cref="FBMClient"/>
     /// </summary>
-    public static class ClientExtensions
-    {
-        private readonly record struct AddOrUpdateState<T>(T State, ICacheObjectSerializer Serializer);
+    public static class FbmClientExtensions
+    {       
+
+        private delegate void OnSetBodyDelegate<T1, T2>(T1 state1, T2 state2, FBMRequest req);
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -79,17 +81,19 @@ namespace VNLib.Data.Caching
             string? newId,
             T data,
             ICacheObjectSerializer serializer,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default
+        )
         {
-            ArgumentNullException.ThrowIfNull(serializer);
+            ArgumentNullException.ThrowIfNull(serializer);          
 
-            //Safe to use struct, should not get promoted to heap during update
-            AddOrUpdateState<T> state = new(data, serializer);
-
-            return AddOrUpdateObjectAsync(client, objectId, newId, Serialize, state, cancellationToken);
-
-            static void Serialize(AddOrUpdateState<T> state, IBufferWriter<byte> finiteWriter)
-                => state.Serializer.Serialize(state.State, finiteWriter);
+            return AddOrUpdateObjectAsync(
+                client, 
+                objectId, 
+                newId, 
+                serializer.Serialize,
+                data, 
+                cancellationToken
+            );
         }
 
 
@@ -171,8 +175,8 @@ namespace VNLib.Data.Caching
 
 
         /// <summary>
-        /// Updates the state of the object, and optionally updates the ID of the object. The data 
-        /// parameter is serialized, buffered, and streamed to the remote server
+        /// Updates the state of the object, and optionally updates the ID of the object.
+        /// The callback will be invoked to write the object data to the request body.
         /// </summary>
         /// <param name="client"></param>
         /// <param name="objectId">The id of the object to update or replace</param>
@@ -195,6 +199,84 @@ namespace VNLib.Data.Caching
             string? newId,
             ObjectDataReader<T> callback,
             T state,
+            CancellationToken cancellationToken = default
+        )
+        {
+            return AddOrUpdateObjectAsync(
+                client, 
+                objectId, 
+                newId,
+                state1: state,
+                state2: callback,
+                callback: OnWriteBody,
+                cancellationToken
+            );
+
+            static void OnWriteBody(T state, ObjectDataReader<T> callback, FBMRequest req)
+            {
+                //Get the body writer
+                IBufferWriter<byte> writer = req.GetBodyWriter();
+
+                //Call the callback to write the data to the writer
+                callback.Invoke(state, writer);
+            }
+        }
+
+        /// <summary>
+        /// Updates the state of the object, and optionally updates the ID of the object. 
+        /// The callback will be invoked to write the object data to the request body stream.
+        /// </summary>
+        /// <param name="client"></param>
+        /// <param name="objectId">The id of the object to update or replace</param>
+        /// <param name="newId">An optional parameter to specify a new ID for the old object</param>
+        /// <param name="callback">A callback method that will return the desired object data</param>
+        /// <param name="cancellationToken">A token to cancel the operation</param>
+        /// <param name="state">The state to be passed to the callback</param>
+        /// <returns>A task that resolves when the server responds</returns>
+        /// <exception cref="ArgumentException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="OutOfMemoryException"></exception>
+        /// <exception cref="InvalidStatusException"></exception>
+        /// <exception cref="ObjectDisposedException"></exception>
+        /// <exception cref="InvalidResponseException"></exception>
+        /// <exception cref="MessageTooLargeException"></exception>
+        /// <exception cref="ObjectNotFoundException"></exception>
+        public static Task AddOrUpdateObjectAsync<T>(
+            this FBMClient client,
+            string objectId,
+            string? newId,
+            ObjectDataReaderStream<T> callback,
+            T state,
+            CancellationToken cancellationToken = default
+        )
+        {
+            return AddOrUpdateObjectAsync(
+                client,
+                objectId,
+                newId,
+                state1: state,
+                state2: callback,
+                callback: OnWriteBody,                
+                cancellationToken
+            );
+
+            static void OnWriteBody(T state, ObjectDataReaderStream<T> callback, FBMRequest req)
+            {
+                //Get the body writer
+                using Stream bodyStream = req.GetBodyStream();
+
+                callback.Invoke(state, bodyStream);
+            }
+        }
+
+      
+        private static Task AddOrUpdateObjectAsync<T1, T2>(
+            this FBMClient client,
+            string objectId,
+            string? newId,
+            T1 state1,
+            T2 state2,
+            OnSetBodyDelegate<T1, T2> callback,
             CancellationToken cancellationToken = default
         )
         {
@@ -221,7 +303,7 @@ namespace VNLib.Data.Caching
                 }
 
                 //Write the message body as the object data
-                callback(state, request.GetBodyWriter());
+                callback(state1, state2, request);
 
                 return ExecAsync(client, request, objectId, cancellationToken);
             }
@@ -238,7 +320,7 @@ namespace VNLib.Data.Caching
                 {
                     //Make request
                     using FBMResponse response = await client.SendAsync(request, cancellationToken);
-                    response.ThrowIfNotSet();
+                    response.ValidateStatus();
 
                     //Get the status code
                     FBMMessageHeader status = response.Headers.FirstOrDefault(static a => a.Header == HeaderCommand.Status);
@@ -267,7 +349,6 @@ namespace VNLib.Data.Caching
                 }
             }
         }
-
 
         /// <summary>
         /// Gets an object from the server if it exists
@@ -366,7 +447,13 @@ namespace VNLib.Data.Caching
             CancellationToken cancellationToken = default
         )
         {
-            return GetObjectAsync(client, objectId, static (p, d) => p.SetData(d), data, cancellationToken);
+            return GetObjectAsync(
+                client, 
+                objectId, 
+                setter: static (p, d) => p.SetData(d), 
+                data, 
+                cancellationToken
+            );
         }
 
         /// <summary>
@@ -411,7 +498,7 @@ namespace VNLib.Data.Caching
 
                 //Make request
                 using FBMResponse response = await client.SendAsync(request, cancellationToken);
-                response.ThrowIfNotSet();
+                response.ValidateStatus();
 
                 //Get the status code
                 FBMMessageHeader status = response.Headers.FirstOrDefault(static a => a.Header == HeaderCommand.Status);
@@ -486,7 +573,7 @@ namespace VNLib.Data.Caching
 
                 //Make request
                 using FBMResponse response = await client.SendAsync(request, cancellationToken);
-                response.ThrowIfNotSet();
+                response.ValidateStatus();
 
                 //Get the status code
                 FBMMessageHeader status = response.Headers.FirstOrDefault(static a => a.Header == HeaderCommand.Status);
@@ -532,7 +619,7 @@ namespace VNLib.Data.Caching
                 //Make request
                 using FBMResponse response = await client.SendAsync(request, cancellationToken);
 
-                response.ThrowIfNotSet();
+                response.ValidateStatus();
 
                 change.Status = response.Headers.FirstOrDefault(static a => a.Header == HeaderCommand.Status).GetValueString();
                 change.CurrentId = response.Headers.SingleOrDefault(static v => v.Header == Constants.ObjectId).GetValueString();

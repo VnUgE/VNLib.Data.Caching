@@ -35,7 +35,7 @@ namespace VNLib.Data.Caching
     /// <summary>
     /// Exports extension methods for the <see cref="ICacheClient"/> interface
     /// </summary>
-    public static class GlobalCacheExtensions
+    public static class CacheClientExtensions
     {
         /// <summary>
         /// Asynchronously gets a value from the backing cache store and writes it to the 
@@ -232,7 +232,8 @@ namespace VNLib.Data.Caching
         {
             ArgumentNullException.ThrowIfNull(cache);
             return cache.GetAsync<T>(key, cache.DefaultDeserializer, cancellation);
-        }     
+        }
+
         /// <summary>
         /// Asynchronously sets (or updates) a cached value in the backing cache store
         /// </summary>
