@@ -73,7 +73,10 @@ tasks:
       - pm2 --version # Ensure PM2 is installed
     cmds:
       - cmd: pm2 sendSignal SIGINT vncache # Gracefully stop the process
-      - cmd: pm2 stop --kill-timeout 2000 vncache         
+      - cmd: pm2 stop --kill-timeout 2000 vncache   
+      - cmd: pm2 flush 
+      - cmd: pm2 delete vncache # Remove the process from PM2's list  
+      - cmd: powershell Start-Sleep -Seconds 2 # Wait for the server to stop completely
   
   run-tests:
     desc: "Runs the integration tests"
