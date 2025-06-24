@@ -88,5 +88,8 @@ sort_commits = "oldest"
 
 limit_commits = 100
 
+#exclude development tags from changelog
+ignore_tags = "[A|a]lpha"
+
 [bump]
 initial_tag = "0.1.1"
