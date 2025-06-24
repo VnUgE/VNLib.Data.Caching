@@ -73,8 +73,6 @@ namespace VNLib.Data.Caching.IntegrationTests
 
             Assert.IsFalse(_client.Cache.IsConnected, "Client did not stop listening");
 
-            _client.StopListening();
-
             GC.SuppressFinalize(this);
         }
 
