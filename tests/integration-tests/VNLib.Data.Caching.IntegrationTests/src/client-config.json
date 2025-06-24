@@ -1,0 +1,9 @@
+{
+  "is_debug": true,
+  "use_tls": false,
+  "memory_only": false,
+  "max_object_size": 8192,
+  "request_timeout_sec": 10,
+  "discovery_interval_sec": 120,
+  "intial_delay_ms": 500
+}

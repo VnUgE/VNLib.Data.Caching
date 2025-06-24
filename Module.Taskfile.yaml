@@ -10,6 +10,11 @@
 
 version: '3'
 
+includes:
+  plugin-tests:
+    taskfile: './tests/plugin-tests'
+    dir: './tests/plugin-tests'
+
 vars:  
   ARCHIVE_FILE_NAME: '{{ .ARCHIVE_FILE_NAME | default "archive.tgz" }}'
   MS_ARGS: 
@@ -86,27 +91,9 @@ tasks:
      - cmd: git archive --format {{ .ARCHIVE_FILE_FORMAT }} --output {{ .ARCHIVE_FILE_NAME }} HEAD
 
   test:
-    desc: "Runs managed tests against the entire solution and all loaded test projects"
-    vars:
-      HOST_CONFIG_FILE: '{{ .USER_WORKING_DIR }}/tests/plugin-tests/Test.DataCaching.Config.json'
+    desc: "Runs managed unit testing"
     cmds:
-     - cmd: dotnet build 
-        {{ .MS_ARGS }}
-         /p:NoWarn=CS1591 
-        --nologo
-        --configuration debug
-        --verbosity quiet
-
-     - cmd: dotnet test
-        {{ .CLI_ARGS }}
-        {{ .MS_ARGS }}
-        --no-build
-        --nologo
-        --logger "console;verbosity=detailed"
-        --configuration debug
-        --framework {{ .TARGET_FRAMEWORK | default "net8.0" }}
-        --environment VNLIB_SHARED_HEAP_DIAGNOSTICS="1"
-        --environment TEST_HOST_CONFIG_FILE="{{ .HOST_CONFIG_FILE }}"
+      - task: plugin-tests:test
 
 #called by build pipeline to clean module
   clean:
