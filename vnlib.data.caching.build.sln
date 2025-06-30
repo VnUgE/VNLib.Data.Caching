@@ -39,6 +39,19 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "plugin-tests", "plugin-test
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VNLib.Data.Caching.Tests", "tests\plugin-tests\VNLib.Data.Caching.Tests.csproj", "{578800C6-876A-40D3-8363-45224F3AA79F}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "integration-tests", "integration-tests", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+	ProjectSection(SolutionItems) = preProject
+		tests\integration-tests\ecosystem.config.js = tests\integration-tests\ecosystem.config.js
+		tests\integration-tests\Taskfile.yaml = tests\integration-tests\Taskfile.yaml
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VNLib.Data.Caching.IntegrationTests", "tests\integration-tests\VNLib.Data.Caching.IntegrationTests\src\VNLib.Data.Caching.IntegrationTests.csproj", "{F6DFCE52-0A72-73AF-126A-D4A2CB5C567F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ci", "ci", "{032A34D2-3A8E-4D25-8F6A-88AB4B00F7EF}"
+	ProjectSection(SolutionItems) = preProject
+		ci\cliff.toml = ci\cliff.toml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -77,6 +90,10 @@ Global
 		{578800C6-876A-40D3-8363-45224F3AA79F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{578800C6-876A-40D3-8363-45224F3AA79F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{578800C6-876A-40D3-8363-45224F3AA79F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F6DFCE52-0A72-73AF-126A-D4A2CB5C567F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F6DFCE52-0A72-73AF-126A-D4A2CB5C567F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F6DFCE52-0A72-73AF-126A-D4A2CB5C567F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F6DFCE52-0A72-73AF-126A-D4A2CB5C567F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -91,6 +108,8 @@ Global
 		{AA412A81-C03E-49C1-8E78-26E3310D06EF} = {39E35C2F-BFBB-4819-B66A-475057D389EB}
 		{9F9BE05D-D462-4C39-8577-87D0D264D8E3} = {9FFBE05C-B96D-4722-B076-AF29DAAE6DC2}
 		{578800C6-876A-40D3-8363-45224F3AA79F} = {9F9BE05D-D462-4C39-8577-87D0D264D8E3}
+		{02EA681E-C7D8-13C7-8484-4AC65E1B71E8} = {9FFBE05C-B96D-4722-B076-AF29DAAE6DC2}
+		{F6DFCE52-0A72-73AF-126A-D4A2CB5C567F} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C1214A47-444A-432F-8CF8-FDF2B1FA1CEC}

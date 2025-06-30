@@ -44,7 +44,7 @@ using VNLib.Plugins.Extensions.Loading.Events;
 using VNLib.Data.Caching.Providers.VNCache.Clustering;
 
 namespace VNLib.Data.Caching.Providers.VNCache.Internal
-{    
+{
 
     /// <summary>
     /// A base class that manages 
@@ -55,7 +55,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(10);
         private static readonly TimeSpan NoNodeDelay = TimeSpan.FromSeconds(10);
 
-        private readonly VNRemoteCacheConfig _config;  
+        private readonly VNRemoteCacheConfig _config;
 
         private bool _isConnected;
         private FBMClient? _client;
@@ -100,12 +100,12 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             //See if were executing in the context of a plugin
             if (plugin is not null)
             {
-                ILogProvider scoped = plugin.Log.CreateScope(LOG_NAME);             
+                ILogProvider scoped = plugin.Log.CreateScope(LOG_NAME);
 
                 //When in plugin context, we can use plugin local secrets and a log-based error handler
                 clusterConfig
                     .WithErrorHandler(new DiscoveryErrHAndler(scoped));
-            }      
+            }
 
             cluster = clusterConfig.ToClusterClient(clientFactory);
 
@@ -160,8 +160,8 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
                         plugin.ScheduleInterval(masterIndex, _config.DiscoveryInterval);
 
                         _ = plugin.ObserveWork(
-                            asyncTask: () => masterIndex.OnIntervalAsync(scoped, plugin.UnloadToken), 
-                            delayMs:(int)initNodeDelay.TotalMilliseconds
+                            asyncTask: () => masterIndex.OnIntervalAsync(scoped, plugin.UnloadToken),
+                            delayMs: (int)initNodeDelay.TotalMilliseconds
                         );
                     }
                     else
@@ -169,7 +169,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
                         //Trigger initial discovery manually
                         _ = masterIndex.OnIntervalAsync(operationLog, exitToken);
                     }
-                }             
+                }
 
                 while (true)
                 {
@@ -360,7 +360,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
 
         ///<inheritdoc/>
         public override object GetUnderlyingStore() => _client ?? throw new InvalidOperationException("The client is not currently connected");
-      
+
 
         private sealed record class DiscoveryErrHAndler(ILogProvider Logger) : ICacheDiscoveryErrorHandler
         {

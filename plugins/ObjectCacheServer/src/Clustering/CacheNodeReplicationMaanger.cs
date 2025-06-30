@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -76,8 +76,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
 
             //Init ws fallback factory and client factory
             _clientFactory = new(
-                ref clientConfig, 
-                new FBMFallbackClientWsFactory(), 
+                ref clientConfig,
+                new FBMFallbackClientWsFactory(),
                 (int)_sysState.ClusterConfig.MaxPeerConnections
             );
 
@@ -103,7 +103,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
                     }
 
                     //Make sure we don't exceed the max connections
-                    if(_openConnections >= _sysState.ClusterConfig.MaxPeerConnections)
+                    if (_openConnections >= _sysState.ClusterConfig.MaxPeerConnections)
                     {
                         if (_isDebug)
                         {
@@ -147,7 +147,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
         private async Task OnNewPeerDoWorkAsync(CacheNodeAdvertisment newPeer, ILogProvider log, CancellationToken exitToken)
         {
             ArgumentNullException.ThrowIfNull(newPeer);
-         
+
             FBMClient client = _clientFactory.CreateClient();
 
             /*
@@ -188,7 +188,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
                 //Disconnect client gracefully
                 await client.DisconnectAsync(CancellationToken.None);
             }
-            catch(FBMServerNegiationException fbm)
+            catch (FBMServerNegiationException fbm)
             {
                 log.Error("Failed to negotiate buffer configuration, check your cache memory configuration. Error:{err}", fbm.Message);
             }
@@ -292,7 +292,14 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
             }
         }
 
-        private async Task UpdateRecordAsync(FBMClient client, FBMRequest modRequest, ILogProvider log, string objectId, string newId, CancellationToken cancellation)
+        private async Task UpdateRecordAsync(
+            FBMClient client,
+            FBMRequest modRequest,
+            ILogProvider log,
+            string objectId,
+            string newId,
+            CancellationToken cancellation
+        )
         {
             //Set action as get/create
             modRequest.WriteHeader(HeaderCommand.Action, Actions.Get);
@@ -302,7 +309,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
             //Make request
             using FBMResponse response = await client.SendAsync(modRequest, CacheConstants.Delays.CacheSyncGetItemTimeout, cancellation);
 
-            response.ThrowIfNotSet();
+            response.ValidateStatus();
 
             //Check response code
             string status = response.Headers.First(static s => s.Header == HeaderCommand.Status).Value.ToString();

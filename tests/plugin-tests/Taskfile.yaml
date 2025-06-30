@@ -1,0 +1,37 @@
+version: '3'
+
+tasks:  
+
+  # Test task, is assumed to be called from the Module.Taskfile.yaml context
+  # this will likely run in the context of a CI/CD pipeline, however should
+  # be runnable locally as well.
+  #
+  # This task will run basic plugin smoke tests for all exported plugins in
+  # the solution
+  #
+  # Test and build steps are separated to have more control over the build and 
+  # test steps. Specifically for current testing, supressing some warnings that 
+  # make logs hard to read. Mock build steps should catch the warnings otherwise.
+  test:
+    desc: "Runs managed tests against the entire solution and all loaded test projects"
+    vars:
+      HOST_CONFIG_FILE: '{{ .TASKFILE_DIR }}/Test.DataCaching.Config.json'
+    cmds:
+     - cmd: dotnet build 
+        {{ .MS_ARGS }}
+         /p:NoWarn=CS1591 
+        --nologo
+        --configuration debug
+        --verbosity quiet
+
+     - cmd: dotnet test
+        {{ .CLI_ARGS }}
+        {{ .MS_ARGS }}
+        --no-build
+        --nologo
+        --logger "console;verbosity=detailed"
+        --configuration debug
+        --framework {{ .TARGET_FRAMEWORK | default "net8.0" }}
+        --environment VNLIB_SHARED_HEAP_DIAGNOSTICS="1"
+        --environment TEST_HOST_CONFIG_FILE="{{ .HOST_CONFIG_FILE }}"
+     

@@ -1,0 +1,126 @@
+version: '3'
+
+# This taskfile is responsible for running full integration tests against the 
+# VNLib.Data.Caching module. It's assumed to be run in both local and CI/CD
+# environments.
+# 
+# A full build of local projects and dependencies (VNLib.Core) are succesfully 
+# completed, as this test runs against the production server package that users
+# will use. 
+#
+# Assumed steps: 
+# vnbuild build -i vnlib.core
+# vnbuild build -i vnlib.data.caching
+# task test (in this directory)
+
+includes: 
+  module: '../../Module.Taskfile.yaml'
+
+vars:
+  _CP: '{{ if eq OS "windows" }}powershell {{ end }}cp'
+  _CPR: '{{ if eq OS "windows" }}powershell {{ end }}cp -r'
+  _RM: '{{ if eq OS "windows" }}powershell {{ end }}rm'
+  _RMR: '{{ if eq OS "windows" }}powershell {{ end }}rm -r'
+  _MKDIR: '{{ if eq OS "windows" }}powershell {{ end }}mkdir'
+
+  TEST_WORKING_DIR: '{{ .USER_WORKING_DIR }}'
+  SERVER_BUILD_DIR: '{{ .TEST_WORKING_DIR }}/server'
+
+  TEST_SERVER_PORT: '9856'
+
+tasks:
+
+  copy-server-dist:
+    vars:
+      PLATFORM: '{{ if eq OS "windows" }}windows-x64{{ else }}posix{{ end }}'
+    cmds:
+     - cmd: '{{ ._MKDIR }} "{{ .SERVER_BUILD_DIR }}"'
+       ignore_error: true
+     - cmd: '{{ ._CP }} "../../server/bin/{{ .PLATFORM }}-release.tgz" "{{ .SERVER_BUILD_DIR }}/server.tgz"'
+     - cmd: cd '{{ .SERVER_BUILD_DIR }}' && tar -xzf server.tgz
+
+  compile-config:
+    desc: Creates/overwrites the server's configuration with test specific settings
+    env:
+      CACHE_PRIV_KEY: 'file://../test-config/test-server.key'
+      CLIENT_PUB_KEY: 'file://../test-config/test-client.key'
+      HTTP_BIND_PORT: '{{ .TEST_SERVER_PORT }}'
+      COMPRESSOR_ASM_PATH: 'lib/VNLib.Net.Compression/VNLib.Net.Compression.dll'
+      HTTP_TRACE_ON: 'true'
+      DEBUG_PLUGINS: 'true'
+    cmds:
+    # runs the compile.ps1 script to compile the config files
+     - cmd: cd ../../server 
+        && powershell './compile.ps1' 
+        -InputDir 'config-templates/' 
+        -OutputDir '{{ .SERVER_BUILD_DIR }}/config'
+       platforms: [ windows ]
+
+     - cmd: cd ../../server 
+        && bash './compile.sh' 'config-templates/' '{{ .SERVER_BUILD_DIR }}/config' 
+       platforms: [ linux, darwin ]
+
+  start-test-server:    
+    desc: Starts the test server as a daemon process using PM2  
+    preconditions:
+      - pm2 --version # Ensure PM2 is installed
+    cmds:
+      - cmd: pm2 start ecosystem.config.js --env {{ lower OS }} --cwd '{{ .SERVER_BUILD_DIR }}'       
+
+  stop-test-server:
+    desc: Stops the test server daemon gracefully    
+    preconditions:
+      - pm2 --version # Ensure PM2 is installed
+    cmds:
+      - cmd: pm2 sendSignal SIGINT vncache # Gracefully stop the process
+      - cmd: pm2 stop --kill-timeout 2000 vncache   
+      - cmd: pm2 flush 
+      - cmd: pm2 delete vncache # Remove the process from PM2's list  
+      - cmd: powershell Start-Sleep -Seconds 2 # Wait for the server to stop completely
+  
+  run-tests:
+    desc: "Runs the integration tests"
+    dir: 'VNLib.Data.Caching.IntegrationTests/src'
+    vars:
+      TEST_SERVER_URL: 'http://localhost:{{ .TEST_SERVER_PORT }}'
+      SERVER_KEY_PATH: '{{ .USER_WORKING_DIR }}/test-config/test-server.key'
+      CLIENT_KEY_PATH: '{{ .USER_WORKING_DIR }}/test-config/test-client.key'      
+    cmds:
+     - cmd: dotnet build 
+        {{ .MS_ARGS }}
+        --nologo
+        --configuration debug
+        --verbosity quiet
+
+     - cmd: dotnet test
+        {{ .CLI_ARGS }}
+        {{ .MS_ARGS }}
+        --no-build
+        --nologo
+        --logger "console;verbosity=detailed"
+        --configuration debug
+        --framework {{ .TARGET_FRAMEWORK | default "net8.0" }}
+        --environment VNLIB_SHARED_HEAP_DIAGNOSTICS="1"
+        --environment TEST_VNCACHE_SERVER_URL="{{ .TEST_SERVER_URL }}"
+        --environment TEST_VNCACHE_SERVER_KEY_PATH="{{ osClean .SERVER_KEY_PATH }}"
+        --environment TEST_VNCACHE_CLIENT_KEY_PATH="{{ osClean .CLIENT_KEY_PATH }}"
+  
+  setup-server:
+    cmds:
+     - task: copy-server-dist
+     - task: compile-config
+     - cmd: cd '{{ .SERVER_BUILD_DIR }}' && task setup
+
+  test:
+    desc: "Starts the server and runs all tests"
+    cmds:
+      - task: start-test-server
+      - defer: { task: stop-test-server }
+      - task: run-tests
+      - cmd: echo "Tests completed successfully."  
+
+  clean:
+    desc: "Cleans the test server and test files"
+    cmds:
+      - cmd: '{{ ._RMR }} "{{ .SERVER_BUILD_DIR }}"'
+        ignore_error: true

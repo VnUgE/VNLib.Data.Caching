@@ -25,8 +25,6 @@
 using System;
 
 using System.IO;
-using System.Buffers;
-using System.Threading;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -38,7 +36,6 @@ namespace VNLib.Data.Caching
     /// </summary>
     public class JsonCacheObjectSerializer : ICacheObjectSerializer, ICacheObjectDeserializer
     {
-        private static readonly ThreadLocal<Utf8JsonWriter> _writer = new(static () => new(Stream.Null));
 
         private readonly JsonSerializerOptions? _options;
 
@@ -75,26 +72,9 @@ namespace VNLib.Data.Caching
             => JsonSerializer.Deserialize<T>(objectData, _options);
 
         ///<inheritdoc/>
-        public virtual void Serialize<T>(T obj, IBufferWriter<byte> finiteWriter)
-        {
-            //Read thread-local writer
-            Utf8JsonWriter localWriter = _writer.Value!;
-
-            //Init the writer with the new buffer writer
-            localWriter.Reset(finiteWriter);
-            try
-            {
-                //Serialize message
-                JsonSerializer.Serialize(localWriter, obj, _options);
-
-                //Flush writer to underlying buffer
-                localWriter.Flush();
-            }
-            finally
-            {
-                //Unlink the writer
-                localWriter.Reset();
-            }
+        public virtual void Serialize<T>(T obj, Stream finiteWriter)
+        {          
+            JsonSerializer.Serialize(finiteWriter, obj, _options);
         }
     }
 }

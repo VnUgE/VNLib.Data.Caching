@@ -31,7 +31,7 @@ using System.Threading.Tasks;
 
 using StackExchange.Redis;
 
-using VNLib.Utils;
+using VNLib.Utils.IO;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
 using VNLib.Utils.Extensions;
@@ -242,13 +242,13 @@ namespace VNLib.Data.Caching.Providers.Redis
             ArgumentNullException.ThrowIfNull(serialzer);
 
             //Alloc update buffer
-            using AddOrUpdateBuffer buffer = new(_defaultHeap, InitialWriterBufferSize, false);
+            using VnMemoryStream buffer = new(_defaultHeap, InitialWriterBufferSize, zero: false);
 
             //Serialize the object
             serialzer.Serialize(value, buffer);
 
             //Update object data
-            await _database.StringSetAsync(key, buffer.GetWrittenData());
+            await _database.StringSetAsync(key, (RedisValue)buffer.AsMemory());
 
             if (!string.IsNullOrWhiteSpace(newKey))
             {
@@ -339,65 +339,6 @@ namespace VNLib.Data.Caching.Providers.Redis
         public object GetUnderlyingStore()
         {
             return _database is null ? throw new InvalidOperationException("The cache store is not available") : _database;
-        }
-
-        private sealed class AddOrUpdateBuffer: VnDisposeable, IBufferWriter<byte>
-        {
-            private readonly MemoryHandle<byte> _handle;
-            private readonly MemoryManager<byte> _manager;
-
-            private int _position;
-
-            public AddOrUpdateBuffer(IUnmangedHeap heap, int initialSize, bool zero)
-            {
-                _handle = heap.Alloc<byte>(CalNewSize(initialSize), zero);
-                //Create memory manager around the memhandle that does not own the handle
-                _manager = _handle.ToMemoryManager(false);
-            }
-
-            public void Advance(int count)
-            {
-                ArgumentOutOfRangeException.ThrowIfNegative(count);
-                _position += count;
-            }
-
-            ///<inheritdoc/>
-            public Memory<byte> GetMemory(int sizeHint = 0)
-            {
-                nint newSize = CalNewSize(sizeHint);
-
-                //Resize if needed
-                _handle.ResizeIfSmaller(newSize);
-
-                //Return the memory
-                return _manager.Memory.Slice(_position, sizeHint);
-            }
-            
-            nint CalNewSize(int size) => MemoryUtil.NearestPage(size + _position);
-
-            ///<inheritdoc/>
-            public Span<byte> GetSpan(int sizeHint = 0)
-            {
-                nint newSize = CalNewSize(sizeHint);
-
-                //Resize if needed
-                _handle.ResizeIfSmaller(newSize);
-
-                //Return the memory
-                return _handle.AsSpan(_position);
-            }
-
-            /// <summary>
-            /// Gets the written data
-            /// </summary>
-            /// <returns>The memory segment pointing to the data that was written by the serializer</returns>
-            public ReadOnlyMemory<byte> GetWrittenData() => _manager.Memory[.._position];
-
-            protected override void Free()
-            {
-                //Free the handle, dont need to free memory manager
-                _handle.Dispose();
-            }
-        }
+        }     
     }
 }

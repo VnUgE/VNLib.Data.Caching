@@ -24,6 +24,7 @@
 
 using System;
 using System.Buffers;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -57,6 +58,15 @@ namespace VNLib.Data.Caching
     public delegate void ObjectDataReader<T>(T state, IBufferWriter<byte> finiteWriter);
 
     /// <summary>
+    /// A delegate method that will write the raw object data to the supplied
+    /// data buffer
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="state">The state object passed to the caller</param>
+    /// <param name="finiteWriter">The finite sized buffer writer use to write object data to</param>
+    public delegate void ObjectDataReaderStream<T>(T state, Stream finiteWriter);
+
+    /// <summary>
     /// A delegate method that will get an object from the raw object data
     /// </summary>
     /// <typeparam name="TObject"></typeparam>
@@ -81,13 +91,6 @@ namespace VNLib.Data.Caching
 
         public void ComputeResult(ReadOnlySpan<byte> data) => Result = Getter(State, data);
     }
-
-    /// <summary>
-    /// A global cache provider interface
-    /// </summary>
-    [Obsolete("Use ICacheClient instead")]
-    public interface IGlobalCacheProvider : ICacheClient
-    { }
 
     /// <summary>
     /// A cache client interface that provides basic data caching operations
