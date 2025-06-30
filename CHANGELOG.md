@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.2-rc.3] - 2025-06-24
+## [0.1.2-rc.3] - 2025-06-30
 
 ### Added
 
@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace AddOrUpdateBuffer with VnMemoryStream
 - Update copyright and formatting in CacheNodeReplicationManager
 - **Breaking Change:** Update serialization method signatures
+- Exlcude alpha tags and commit latest log
+- #7 closes #7 update the module readme
+- Bump test dependency versions
 
 ### Fixed
 
@@ -52,7 +55,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Core version bump
 - Package updates
 - Use build-in task functions for dockerfile (better mimics metal)
 - Make run task an alias to the default task for production taskfile
@@ -88,7 +90,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Fix task link and new core fix for upload size check
 - Fix versioning & update project files
 - Testing based fixes and style cleanup
 - Fixes #8 fix git package url and copyright date
