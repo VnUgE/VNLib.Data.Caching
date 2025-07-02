@@ -21,7 +21,7 @@ vars:
     /p:RunAnalyzersDuringBuild=false 
     /p:BuildInParallel=true 
     /p:MultiProcessorCompilation=true 
-    /p:ErrorOnDuplicatePublishOutputFiles=false  
+    /p:ErrorOnDuplicatePublishOutputFiles=false    
 
 tasks:
 
@@ -29,6 +29,26 @@ tasks:
     desc: 'Builds the managed libraries in this module for development'
     cmds:
       - cmd: dotnet build -c debug {{ .MS_ARGS }}
+  
+  clone-deps:
+    desc: 'Clones required git dependencies from the server'
+    dir: '{{ .ROOT_DIR }}/..'
+    vars:
+      CORE_TAG: 'v0.1.2-rc.5'
+      EXTENSIONS_TAG: 'v0.1.2-rc.3'
+      GIT_SERVER_URL: '{{ .GIT_SERVER_URL | default "https://github.com/vnuge" }}'
+    cmds:
+      - cmd: git clone 
+          {{ .GIT_SERVER_URL }}/vnlib.core 
+          --branch {{ .CORE_TAG }} 
+          --ipv4
+          core 
+
+      - cmd: git clone 
+          {{ .GIT_SERVER_URL }}/vnlib.plugins.extensions 
+          --branch {{ .EXTENSIONS_TAG }} 
+          --ipv4
+          vnlib.plugins.extensions 
 
 #called by build pipeline to sync repo
   update:

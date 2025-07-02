@@ -30,15 +30,16 @@ jobs:
   jobExecutor: windows
   steps:
   - !CommandStep
-    name: Clone local deps
+    name: Clone Dependencies
     runInContainer: false
     interpreter: !DefaultInterpreter
       commands: |
-        git clone @server_url@/VNLib.Core core --branch master
-        git clone @server_url@/VNLib.Plugins.Extensions --branch master
         git clone @server_url@/@project_name@ --branch @branch@
-    useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+        cd @project_name@
+        task -t Module.Taskfile.yaml clone-deps
+    envVars:
+    - name: GIT_SERVER_URL
+      value: '@server_url@'
   - !CommandStep
     name: run unit tests
     runInContainer: false
@@ -55,19 +56,20 @@ jobs:
   retryDelay: 30
   timeout: 14400
 
-- name: Winows CI Tests
+- name: Windows CI Tests
   jobExecutor: windows
   steps:
   - !CommandStep
-    name: Clone local deps
+    name: Clone Dependencies
     runInContainer: false
     interpreter: !DefaultInterpreter
       commands: |
-        git clone @server_url@/VNLib.Core core --branch master
-        git clone @server_url@/VNLib.Plugins.Extensions --branch master
         git clone @server_url@/@project_name@ --branch @branch@
-    useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+        cd @project_name@
+        task -t Module.Taskfile.yaml clone-deps
+    envVars:
+    - name: GIT_SERVER_URL
+      value: '@server_url@'
   - !CommandStep
     name: build modules
     runInContainer: false
@@ -101,15 +103,16 @@ jobs:
   jobExecutor: windows
   steps:
   - !CommandStep
-    name: Clone local deps
+    name: Clone Dependencies
     runInContainer: false
     interpreter: !DefaultInterpreter
       commands: |
-        git clone @server_url@/VNLib.Core core --branch master
-        git clone @server_url@/VNLib.Plugins.Extensions --branch master
         git clone @server_url@/@project_name@ --branch @branch@
-    useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+        cd @project_name@
+        task -t Module.Taskfile.yaml clone-deps
+    envVars:
+    - name: GIT_SERVER_URL
+      value: '@server_url@'
   - !CommandStep
     name: VNBuild build
     runInContainer: false
@@ -148,15 +151,16 @@ jobs:
   jobExecutor: publish-agents
   steps:
   - !CommandStep
-    name: Clone local deps
+    name: Clone Dependencies
     runInContainer: false
     interpreter: !DefaultInterpreter
       commands: |
-        git clone @server_url@/VNLib.Core core --branch master
-        git clone @server_url@/VNLib.Plugins.Extensions --branch master
         git clone @server_url@/@project_name@ --branch @branch@
-    useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+        cd @project_name@
+        task -t Module.Taskfile.yaml clone-deps
+    envVars:
+    - name: GIT_SERVER_URL
+      value: '@server_url@'
   - !CommandStep
     name: Create git tag
     runInContainer: false
