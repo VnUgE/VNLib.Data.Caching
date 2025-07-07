@@ -35,7 +35,7 @@ tasks:
     dir: '{{ .ROOT_DIR }}/..'
     vars:
       CORE_TAG: 'v0.1.2-rc.6'
-      EXTENSIONS_TAG: 'v0.1.2-rc.3'
+      EXTENSIONS_TAG: 'v0.1.2-rc.4'
       GIT_SERVER_URL: '{{ .GIT_SERVER_URL | default "https://github.com/vnuge" }}'
     cmds:
       - cmd: git clone 
