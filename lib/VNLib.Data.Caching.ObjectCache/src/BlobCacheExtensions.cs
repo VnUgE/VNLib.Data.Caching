@@ -79,7 +79,7 @@ namespace VNLib.Data.Caching.ObjectCache
             else
             {
                 //entry does not exist at the old id, so we can create a new one at the alternate id
-                cache.CreateEntry(objectId, data, out entry);
+                cache.CreateEntry(alternateId, data, out entry);
             }
 
             entry.SetTime(time);
