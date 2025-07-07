@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
@@ -31,31 +31,34 @@ namespace VNLib.Data.Caching.ObjectCache
     /// <summary>
     /// A concrete implementation of an <see cref="IBlobCacheBucket"/>
     /// </summary>
-    public sealed class BlobCacheBucket : IBlobCacheBucket
+    /// <remarks>
+    /// Initialzies a new <see cref="BlobCacheBucket"/> and its underlying
+    /// <see cref="IBlobCache"/>
+    /// </remarks>
+    /// <param name="bucketCapacity">
+    /// The maxium number of entries allowed in the LRU cache
+    /// before LRU overflow happens.
+    /// </param>
+    /// <param name="bucketId">The unique id of the new bucket</param>
+    /// <param name="memMan">The cache entry memory manager intance</param>
+    /// <param name="persistantCache">An optional <see cref="IPersistantCacheStore"/> for cache persistance</param>
+    public sealed class BlobCacheBucket(
+        uint bucketId, 
+        int bucketCapacity, 
+        ICacheEntryMemoryManager memMan, 
+        IPersistantCacheStore? persistantCache
+    ) : IBlobCacheBucket
     {
-        private readonly BlobCache _cacheTable;
-        private readonly SemaphoreSlim _lock;
+        private readonly BlobCache _cacheTable = new (bucketId, bucketCapacity, memMan, persistantCache);
+        private readonly SemaphoreSlim _lock = new(1, 1);
 
         ///<inheritdoc/>
-        public uint Id { get; }
+        public uint Id { get; } = bucketId;
 
         /// <summary>
-        /// Initialzies a new <see cref="BlobCacheBucket"/> and its underlying
-        /// <see cref="IBlobCache"/>
+        /// Gets the number of entires in the current bucket
         /// </summary>
-        /// <param name="bucketCapacity">
-        /// The maxium number of entries allowed in the LRU cache
-        /// before LRU overflow happens.
-        /// </param>
-        /// <param name="bucketId">The unique id of the new bucket</param>
-        /// <param name="memMan">The cache entry memory manager intance</param>
-        /// <param name="persistantCache">An optional <see cref="IPersistantCacheStore"/> for cache persistance</param>
-        public BlobCacheBucket(uint bucketId, int bucketCapacity, ICacheEntryMemoryManager memMan, IPersistantCacheStore? persistantCache)
-        {
-            Id = bucketId;
-            _lock = new(1, 1);
-            _cacheTable = new BlobCache(bucketId, bucketCapacity, memMan, persistantCache);
-        }
+        public int EntryCount => _cacheTable.Count;
 
         ///<inheritdoc/>
         public void Dispose()

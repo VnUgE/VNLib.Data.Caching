@@ -114,13 +114,16 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         /*
          * Buckets are mutually exclusive, so we can use a single heap for each bucket
          * to get a little more performance on memory operations
+         * 
+         * Allocations are rounded to the nearest page size, and can be resized
          */
 
         private sealed record class BucketLocalManager(IUnmangedHeap Heap, uint BucketId) : ICacheEntryMemoryManager
         {
 
             ///<inheritdoc/>
-            public object AllocHandle(uint size) => Heap.Alloc<byte>(size, zero: false);
+            public object AllocHandle(uint size) 
+                => MemoryUtil.SafeAllocNearestPage<byte>(Heap, size, zero: false);
 
             ///<inheritdoc/>
             public void FreeHandle(object handle)
@@ -165,6 +168,8 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             {
                 ArgumentNullException.ThrowIfNull(handle);
                 MemoryHandle<byte> _handle = Unsafe.As<object, MemoryHandle<byte>>(ref handle);
+
+                newSize = (uint)MemoryUtil.NearestPage(newSize);
 
                 //Resize the handle
                 _handle.ResizeIfSmaller(newSize);

@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
@@ -28,8 +28,6 @@ using System.Diagnostics;
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 
-using VNLib.Utils.Memory;
-
 namespace VNLib.Data.Caching
 {
 
@@ -43,10 +41,7 @@ namespace VNLib.Data.Caching
 
         private const int LENGTH_SEGMENT_SIZE = sizeof(int);
 
-        private const int DATA_SEGMENT_START = TIME_SEGMENT_SIZE + LENGTH_SEGMENT_SIZE;
-
-        private readonly ICacheEntryMemoryManager _manager;
-        private readonly object _handle;
+        private const int DATA_SEGMENT_START = TIME_SEGMENT_SIZE + LENGTH_SEGMENT_SIZE;      
 
         /// <summary>
         /// Creates a new <see cref="CacheEntry"/> and copies the initial data to the internal buffer
@@ -57,13 +52,13 @@ namespace VNLib.Data.Caching
         /// <exception cref="ArgumentNullException"></exception>
         public static CacheEntry Create(ReadOnlySpan<byte> data, ICacheEntryMemoryManager dataManager)
         {
-            _ = dataManager ?? throw new ArgumentNullException(nameof(dataManager));
+            ArgumentNullException.ThrowIfNull(dataManager);            
 
             //Calc buffer size
-            uint bufferSize = GetRequiredHandleSize(data.Length);
+            uint bufferSize = CalculateMinimumHandleSize(data.Length);
 
             object handle = dataManager.AllocHandle(bufferSize);
-            
+
             //Create new entry from handle
             CacheEntry entry = new(dataManager, handle);
             entry.SetLength((uint)data.Length);
@@ -100,12 +95,21 @@ namespace VNLib.Data.Caching
 
             return new(manager, handle);
         }
-       
-        private static uint GetRequiredHandleSize(int size)
+
+        /// <summary>
+        /// Calculates the minimum size of the handle required to store the desired
+        /// data segment size.
+        /// </summary>
+        /// <param name="size">The size of data (in bytes) desired to be stored in the entry</param>
+        /// <returns>The minimum handle size required in bytes</returns>
+        public static uint CalculateMinimumHandleSize(int size)
         {
-            //Caculate the minimum handle size to store all required information, rounded to nearest page
-            return (uint)MemoryUtil.NearestPage(size + DATA_SEGMENT_START);
+            //Calculate the minimum handle size to store all required information
+            return (uint)(size + DATA_SEGMENT_START);
         }
+
+        private readonly ICacheEntryMemoryManager _manager;
+        private readonly object _handle;
 
         private CacheEntry(ICacheEntryMemoryManager manager, object handle)
         {
@@ -115,10 +119,12 @@ namespace VNLib.Data.Caching
 
         ///<inheritdoc/>
         public readonly void Dispose() => _manager?.FreeHandle(_handle);
-       
-        private readonly Span<byte> GetTimeSegment() => _manager.GetSpan(_handle, 0, TIME_SEGMENT_SIZE);
-      
-        private readonly Span<byte> GetLengthSegment() => _manager.GetSpan(_handle, TIME_SEGMENT_SIZE, LENGTH_SEGMENT_SIZE);
+
+        private readonly Span<byte> GetTimeSegment()
+            => _manager.GetSpan(_handle, 0, TIME_SEGMENT_SIZE);
+
+        private readonly Span<byte> GetLengthSegment()
+            => _manager.GetSpan(_handle, TIME_SEGMENT_SIZE, LENGTH_SEGMENT_SIZE);
 
         /// <summary>
         /// Gets the size of the block of memory held by the underlying handle
@@ -178,7 +184,7 @@ namespace VNLib.Data.Caching
         {
             //Get the length segment
             Span<byte> segment = GetLengthSegment();
-        
+
             //Update the length value
             BinaryPrimitives.WriteUInt32BigEndian(segment, length);
         }
@@ -204,10 +210,10 @@ namespace VNLib.Data.Caching
         public readonly void UpdateData(ReadOnlySpan<byte> data)
         {
             //Calc required buffer size
-            uint bufferSize = GetRequiredHandleSize(data.Length);
+            uint bufferSize = CalculateMinimumHandleSize(data.Length);
 
             //Resize buffer if necessary
-            if(_manager.GetHandleSize(_handle) < bufferSize)
+            if (_manager.GetHandleSize(_handle) < bufferSize)
             {
                 //resize handle
                 _manager.ResizeHandle(_handle, bufferSize);

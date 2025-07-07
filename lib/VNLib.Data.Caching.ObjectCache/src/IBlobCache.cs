@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
@@ -41,6 +41,29 @@ namespace VNLib.Data.Caching.ObjectCache
         /// The memory manager used to create <see cref="CacheEntry"/> memory handles
         /// </summary>
         ICacheEntryMemoryManager MemoryManager { get; }
+
+        /// <summary>
+        /// Creates a new cache entry structure and writes the initial 
+        /// data in it, and tracks it in the current store.
+        /// </summary>
+        /// <param name="objectId">The </param>
+        /// <param name="initialData">The initial data to write to the entry</param>
+        /// <param name="entry">An reference to write the initialized structure to</param>
+        virtual void CreateEntry(string objectId, ReadOnlySpan<byte> initialData, out CacheEntry entry)
+        {
+            entry = CacheEntry.Create(initialData, MemoryManager);
+
+            try
+            {
+                //try to add the entry, but if exists, let it throw
+                Add(objectId, entry);
+            }
+            catch
+            {
+                entry.Dispose();
+                throw;
+            }
+        }
 
         /// <summary>
         /// Attempts to retreive the entry at the given id.
