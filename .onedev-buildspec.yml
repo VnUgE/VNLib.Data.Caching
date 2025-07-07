@@ -40,6 +40,8 @@ jobs:
     envVars:
     - name: GIT_SERVER_URL
       value: '@server_url@'
+    useTTY: true
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   - !CommandStep
     name: run unit tests
     runInContainer: false
@@ -70,6 +72,8 @@ jobs:
     envVars:
     - name: GIT_SERVER_URL
       value: '@server_url@'
+    useTTY: true
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   - !CommandStep
     name: build modules
     runInContainer: false
@@ -113,6 +117,8 @@ jobs:
     envVars:
     - name: GIT_SERVER_URL
       value: '@server_url@'
+    useTTY: true
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   - !CommandStep
     name: VNBuild build
     runInContainer: false
@@ -161,6 +167,8 @@ jobs:
     envVars:
     - name: GIT_SERVER_URL
       value: '@server_url@'
+    useTTY: true
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   - !CommandStep
     name: Create git tag
     runInContainer: false
