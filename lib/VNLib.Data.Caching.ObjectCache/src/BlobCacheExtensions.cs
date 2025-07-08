@@ -34,44 +34,35 @@ namespace VNLib.Data.Caching.ObjectCache
     /// </summary>
     public static class BlobCacheExtensions
     {
-
-        internal static CacheEntry CreateEntry(this IBlobCache cache, string objectId, ReadOnlySpan<byte> initialData, DateTime time)
-        {
-            CacheEntry entry = CacheEntry.Create(initialData, cache.MemoryManager);
-            try
-            {
-                //try to add the entry, but if exists, let it throw
-                cache.Add(objectId, entry);
-                entry.SetTime(time);
-                return entry;
-            }
-            catch
-            {
-                entry.Dispose();
-                throw;
-            }
-        }
-
-        internal static CacheEntry AddOrUpdateEntry(this IBlobCache cache, string objectId, ReadOnlySpan<byte> data, DateTime time)
+       
+        private static void AddOrUpdateEntry(
+            this IBlobCache cache, 
+            string objectId, 
+            ReadOnlySpan<byte> data, 
+            DateTime time
+        )
         {
             //See if blob exists
             if (cache.TryGetValue(objectId, out CacheEntry entry))
             {
                 //Update the entry since it exists
-                entry.UpdateData(data);
-
-                entry.SetTime(time);
+                entry.UpdateData(data);          
             }
             else
             {
                 //Create the new entry 
-                entry = CreateEntry(cache, objectId, data, time);
+                cache.CreateEntry(objectId, data, out entry);              
             }
 
-            return entry;
+            entry.SetTime(time);           
         }
-
-        internal static CacheEntry TryChangeKey(this IBlobCache cache, string objectId, string alternateId, ReadOnlySpan<byte> data, DateTime time)
+        private static void TryChangeKey(
+            this IBlobCache cache, 
+            string objectId, 
+            string alternateId, 
+            ReadOnlySpan<byte> data, 
+            DateTime time
+        )
         {
             //Change the key of the blob item and update its data
             if (cache.TryChangeKey(objectId, alternateId, out CacheEntry entry))
@@ -79,20 +70,19 @@ namespace VNLib.Data.Caching.ObjectCache
                 //If date is 0 length do not overwrite the old entry if found
                 if (data.IsEmpty)
                 {
-                    return entry;
+                    return;
                 }
 
                 //Otherwise update the entry
                 entry.UpdateData(data);
-                entry.SetTime(time);
-
-                return entry;
             }
             else
             {
                 //entry does not exist at the old id, so we can create a new one at the alternate id
-                return CreateEntry(cache, objectId, data, time);
+                cache.CreateEntry(alternateId, data, out entry);
             }
+
+            entry.SetTime(time);
         }
 
         /// <summary>
@@ -106,7 +96,7 @@ namespace VNLib.Data.Caching.ObjectCache
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="bucket"/> is null.</exception>
         public static ValueTask<CacheBucketHandle> WaitAsync(this IBlobCacheBucket bucket, CancellationToken cancellation)
         {
-            _ = bucket ?? throw new ArgumentNullException(nameof(bucket));
+            ArgumentNullException.ThrowIfNull(bucket);
 
             // Try enter the bucket lock
             ValueTask<IBlobCache> cacheWait = bucket.ManualWaitAsync(cancellation);
@@ -114,7 +104,7 @@ namespace VNLib.Data.Caching.ObjectCache
             if (cacheWait.IsCompleted)
             {
                 IBlobCache bucketHandle = cacheWait.GetAwaiter().GetResult();
-                return new ValueTask<CacheBucketHandle>(new CacheBucketHandle(bucket, bucketHandle));
+                return ValueTask.FromResult(new CacheBucketHandle(bucket, bucketHandle));
             }
             else
             {
@@ -189,7 +179,7 @@ namespace VNLib.Data.Caching.ObjectCache
             ArgumentNullException.ThrowIfNull(table);
             ArgumentNullException.ThrowIfNull(bodyData);
             ArgumentException.ThrowIfNullOrWhiteSpace(objectId);
-
+            
             // See if an id change is required
             if (string.IsNullOrWhiteSpace(alternateId))
             {
@@ -201,7 +191,7 @@ namespace VNLib.Data.Caching.ObjectCache
 
                 try
                 {
-                    _ = AddOrUpdateEntry(cache, objectId, bodyData(state), time);
+                    AddOrUpdateEntry(cache, objectId, bodyData(state), time);
                 }
                 finally
                 {
@@ -222,7 +212,7 @@ namespace VNLib.Data.Caching.ObjectCache
                     try
                     {
                         // Update the entry for the single bucket
-                        _ = TryChangeKey(cache, objectId, alternateId, bodyData(state), time);
+                        TryChangeKey(cache, objectId, alternateId, bodyData(state), time);
                     }
                     finally
                     {
@@ -235,48 +225,56 @@ namespace VNLib.Data.Caching.ObjectCache
                     using CacheBucketHandle primaryHandle = await primary.WaitAsync(cancellation);
                     using CacheBucketHandle alternateHandle = await alternate.WaitAsync(cancellation);
 
-                    // Get the entry from the primary handle
-                    if (primaryHandle.Cache.Remove(objectId, out CacheEntry entry))
+                    CacheEntry primaryEntry;
+                    CacheEntry alternateEntry;                  
+
+                    // Get the entry from the primary handle and remove it
+                    if (primaryHandle.Cache.Remove(objectId, out primaryEntry))
                     {
                         try
                         {
                             // Try to see if the alternate key already exists
-                            if (alternateHandle.Cache.TryGetValue(alternateId, out CacheEntry existing))
+                            if (alternateHandle.Cache.TryGetValue(alternateId, out alternateEntry))
                             {
-                                existing.UpdateData(bodyData(state));
+                                // It exists and must be overwritten now
+                                alternateEntry.UpdateData(bodyData(state));
 
                                 // Dispose the old entry since we don't need it
-                                entry.Dispose();
+                                primaryEntry.Dispose();
                             }
                             else
                             {
                                 // Update the entry buffer and reuse the entry
-                                entry.UpdateData(bodyData(state));
+                                primaryEntry.UpdateData(bodyData(state));
 
                                 // Add the updated entry to the alternate table
-                                alternateHandle.Cache.Add(alternateId, entry);
+                                alternateHandle.Cache.Add(alternateId, primaryEntry);
                             }
                         }
                         catch
                         {
                             // Cleanup removed entry if error adding
-                            entry.Dispose();
+                            primaryEntry.Dispose();
                             throw;
                         }
                     }
                     else
                     {
+                        // The entry does not exist by it's primary id                       
+
                         // Try to see if the alternate key already exists in the target store
-                        if (alternateHandle.Cache.TryGetValue(alternateId, out CacheEntry existing))
+                        if (alternateHandle.Cache.TryGetValue(alternateId, out alternateEntry))
                         {
                             // Overwrite the existing entry data
-                            existing.UpdateData(bodyData(state));
+                            alternateEntry.UpdateData(bodyData(state));
                         }
                         else
                         {
                             // Old entry did not exist, we need to create a new entry for the alternate bucket
-                            _ = CreateEntry(alternateHandle.Cache, alternateId, bodyData(state), time);
+                            alternateHandle.Cache.CreateEntry(alternateId, bodyData(state), out alternateEntry);                           
                         }
+
+                        alternateEntry.SetTime(time);
                     }
                 }
             }

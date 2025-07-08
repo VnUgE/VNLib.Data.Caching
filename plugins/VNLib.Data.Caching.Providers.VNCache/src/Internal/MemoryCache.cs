@@ -205,12 +205,9 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             try
             {
                 //Try to read the value
-                if (cache.TryGetValue(key, out CacheEntry entry))
-                {
-                    return deserializer.Deserialize<T>(entry.GetDataSegment())!;
-                }
-
-                return default!;
+                return cache.TryGetValue(key, out CacheEntry entry) 
+                    ? deserializer.Deserialize<T>(entry.GetDataSegment())! 
+                    : default!;
             }
             finally
             {
