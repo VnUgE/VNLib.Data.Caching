@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
@@ -44,7 +44,7 @@ namespace VNLib.Data.Caching.ObjectCache
 
         ///<inheritdoc/>
         protected override int MaxCapacity { get; }
-        
+
         ///<inheritdoc/>
         public ICacheEntryMemoryManager MemoryManager { get; }
 
@@ -60,7 +60,7 @@ namespace VNLib.Data.Caching.ObjectCache
         /// <param name="store">The optional backing persistant cache storage</param>
         /// <exception cref="ArgumentException"></exception>
         public BlobCache(uint bucketId, int maxCapacity, ICacheEntryMemoryManager manager, IPersistantCacheStore? store)
-            :base(maxCapacity, StringComparer.Ordinal)
+            : base(maxCapacity, StringComparer.Ordinal)
         {
             ArgumentOutOfRangeException.ThrowIfLessThan(maxCapacity, 1);
             ArgumentNullException.ThrowIfNull(manager);
@@ -77,11 +77,12 @@ namespace VNLib.Data.Caching.ObjectCache
         ///<inheritdoc/>
         protected override bool CacheMiss(string key, out CacheEntry value)
         {
-            if(_persistance == null)
+            if (_persistance == null)
             {
                 value = default;
                 return false;
             }
+
             //Use the persistant cache
             return _persistance.OnCacheMiss(BucketId, key, MemoryManager, out value);
         }
@@ -107,7 +108,7 @@ namespace VNLib.Data.Caching.ObjectCache
             ObjectDisposedException.ThrowIf(disposedValue, this);
 
             //Try to get the node at the current key
-            if (LookupTable.Remove(objectId, out LinkedListNode<KeyValuePair<string, CacheEntry>> ? node))
+            if (LookupTable.Remove(objectId, out LinkedListNode<KeyValuePair<string, CacheEntry>>? node))
             {
                 //Remove the node from the ll
                 List.Remove(node);
@@ -180,7 +181,7 @@ namespace VNLib.Data.Caching.ObjectCache
 
                 return true;
             }
-            
+
             entry = default;
             return false;
         }

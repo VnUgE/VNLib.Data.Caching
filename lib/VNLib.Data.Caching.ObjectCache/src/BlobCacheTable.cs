@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
@@ -41,6 +41,10 @@ namespace VNLib.Data.Caching.ObjectCache
         private readonly BlobCacheBucket[] _buckets;
         private readonly IPersistantCacheStore? _persistant;
 
+        /// <summary>
+        /// Gets initialized size of the table
+        /// </summary>
+        public uint TableSize => _tableSize;
 
         /// <summary>
         /// Initializes a new <see cref="BlobCacheTable"/>
@@ -52,7 +56,7 @@ namespace VNLib.Data.Caching.ObjectCache
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="ArgumentException"></exception>
         public BlobCacheTable(uint tableSize, uint bucketSize, ICacheEntryMemoryManager manager, IPersistantCacheStore? persistantCache)
-            :this(tableSize, bucketSize, new SharedMemManager(manager), persistantCache)
+            : this(tableSize, bucketSize, new SharedMemManager(manager), persistantCache)
         { }
 
         /// <summary>
@@ -82,7 +86,7 @@ namespace VNLib.Data.Caching.ObjectCache
         {
             table = new BlobCacheBucket[size];
 
-            for(uint i = 0; i < size; i++)
+            for (uint i = 0; i < size; i++)
             {
                 //Get the memory manager for the bucket
                 ICacheEntryMemoryManager manager = man.CreateForBucket(i);
@@ -116,7 +120,7 @@ namespace VNLib.Data.Caching.ObjectCache
             //Read the buffer back to a uint and mod by the table size to get the bucket index
             return BitConverter.ToUInt32(buffer) % _tableSize;
         }
-     
+
 
         ///<inheritdoc/>
         ///<exception cref="ObjectDisposedException"></exception>
@@ -159,7 +163,7 @@ namespace VNLib.Data.Caching.ObjectCache
         {
             ///<inheritdoc/>
             public ICacheEntryMemoryManager CreateForBucket(uint bucketId) => Manager;
-          
+
         }
     }
 }
