@@ -45,7 +45,6 @@ tasks:
       CACHE_PRIV_KEY: 'file://../test-config/test-server.key'
       CLIENT_PUB_KEY: 'file://../test-config/test-client.key'
       HTTP_BIND_PORT: '{{ .TEST_SERVER_PORT }}'
-      COMPRESSOR_ASM_PATH: 'lib/VNLib.Net.Compression/VNLib.Net.Compression.dll'
       HTTP_TRACE_ON: 'true'
       DEBUG_PLUGINS: 'true'
     cmds:
@@ -60,7 +59,7 @@ tasks:
         && bash './compile.sh' 'config-templates/' '{{ .SERVER_BUILD_DIR }}/config' 
        platforms: [ linux, darwin ]
 
-  start-test-server:    
+  start-test-server:
     desc: Starts the test server as a daemon process using PM2  
     preconditions:
       - pm2 --version # Ensure PM2 is installed

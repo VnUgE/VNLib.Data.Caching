@@ -35,11 +35,6 @@
       "min_size": ${COMPRESSION_MIN:-2048}      //Minium size of a response to compress, if smaller compression is bypassed
     }
   },
-  
-  //Setup the native lib
-  "vnlib.net.compression": {
-    "level": 1
-  },
 
   //Maxium ammount of time a request is allowed to be processed (includes loading or waiting for sessions) before operations will be cancelled and a 503 returned
   "max_execution_time_ms": 20000,

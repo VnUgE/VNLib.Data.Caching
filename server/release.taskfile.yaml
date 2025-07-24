@@ -17,7 +17,6 @@ tasks:
     env: 
       #libraries intentionally do not have extensions, for cross-platform compatibility, the server will load them regardless
       VNLIB_SHARED_HEAP_FILE_PATH: lib/vnlib_rpmalloc{{if eq OS "windows"}}.dll{{else}}.so{{end}}
-      VNLIB_COMPRESS_DLL_PATH: lib/vnlib_compress{{if eq OS "windows"}}.dll{{else}}.so{{end}}
     cmds:
     - cmd: dotnet webserver/VNLib.WebServer.dll --config config/config.json {{ .CLI_ARGS }}
 
@@ -68,7 +67,6 @@ tasks:
     deps:
       #build rpmalloc lib
       - task: build-rpmalloc
-      - task: build-compress
 
   build-rpmalloc:
     internal: true
@@ -80,18 +78,6 @@ tasks:
       
     #for windows just copy the existing dll
     - cmd: powershell cp vnlib_rpmalloc/vnlib_rpmalloc.dll vnlib_rpmalloc.dll
-      platforms: [ windows/amd64 ]
-
-  build-compress:
-    internal: true
-    dir: 'lib/'
-    cmds:
-    #build the native compressor library for linux/mac
-    - cmd: cd vnlib_compress/ && task && cp build/{{ OS }}/libvn_compress{{if eq OS "darwin"}}.dylib{{else}}.so{{end}} ../vnlib_compress.so
-      platforms: [ linux, darwin ]
-
-    #windows now supports pre-compiled libs
-    - cmd: powershell cp vnlib_compress/vnlib_compress.dll vnlib_compress.dll
       platforms: [ windows/amd64 ]
 
   merge-config:

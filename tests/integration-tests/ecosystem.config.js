@@ -11,15 +11,12 @@ module.exports = {
         log_file: "server.log",
         env_linux: {
             VNLIB_SHARED_HEAP_FILE_PATH: "lib/vnlib_rpmalloc.so",
-            VNLIB_COMPRESS_DLL_PATH: "lib/vnlib_compress.so"
         },
         env_windows: {
-            VNLIB_SHARED_HEAP_FILE_PATH: "lib/vnlib_rpmalloc.dll",
-            VNLIB_COMPRESS_DLL_PATH: "lib/vnlib_compress.dll"
+            VNLIB_SHARED_HEAP_FILE_PATH: "lib/vnlib_rpmalloc.dll"
         },
         env_darwin: {
-            VNLIB_SHARED_HEAP_FILE_PATH: "lib/vnlib_rpmalloc.dylib",
-            VNLIB_COMPRESS_DLL_PATH: "lib/vnlib_compress.dylib"
+            VNLIB_SHARED_HEAP_FILE_PATH: "lib/vnlib_rpmalloc.dylib"
         }
   }]
 }

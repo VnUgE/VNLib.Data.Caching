@@ -32,7 +32,6 @@ COPY app/ /app
 
 #pull compiled libs from build container
 COPY --from=native-cont /build/lib/vnlib_rpmalloc.so /app/lib/vnlib_rpmalloc.so
-COPY --from=native-cont /build/lib/vnlib_compress.so /app/lib/vnlib_compress.so
 
 #also copy the task deb from native build container and install it
 COPY --from=native-cont /build/task_linux_amd64.deb /usr/local/bin/task.deb
@@ -52,9 +51,6 @@ ENV HTTP_BIND_PORT=2557
 
 #expose an assets directory for custom assets install
 VOLUME /app/usr/assets
-
-#path to the inlcuded compression assembly path
-ENV COMPRESSOR_ASM_PATH=lib/vnlib.net.compression/VNLib.Net.Compression.dll
 
 #run permissions setup 
 RUN task container-set-perms
