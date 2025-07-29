@@ -14,7 +14,8 @@ ADD --checksum=sha256:9ba2f9f5f11f8429f82cf4ceaa90e6187e02e5a0c161ba0975ba621942
 RUN dpkg -i task_linux_amd64.deb
 
 #include local artifacts
-COPY app/ .
+COPY app/lib lib/
+COPY app/Taskfile.yaml Taskfile.yaml
 
 #installs required dependencies and builds the native libraries
 RUN task setup-apt
@@ -30,7 +31,7 @@ LABEL description="A simple clustered network data caching service"
 #copy local artifacts again in run container
 COPY app/ /app
 
-#pull compiled libs from build container
+#pull compiled libs from build container, they must be where the taskfile expects them
 COPY --from=native-cont /build/lib/vnlib_rpmalloc.so /app/lib/vnlib_rpmalloc.so
 COPY --from=native-cont /build/lib/vnlib_compress.so /app/lib/vnlib_compress.so
 
@@ -46,18 +47,18 @@ RUN dpkg -i /usr/local/bin/dumb-init.deb && rm /usr/local/bin/dumb-init.deb
 
 WORKDIR /app
 
+#run permissions setup 
+RUN task container-set-perms
+
 #default to 2557 for cache port
 EXPOSE 2557/tcp
 ENV HTTP_BIND_PORT=2557
 
-#expose an assets directory for custom assets install
-VOLUME /app/usr/assets
-
-#path to the inlcuded compression assembly path
+#path to the included compression assembly path
 ENV COMPRESSOR_ASM_PATH=lib/vnlib.net.compression/VNLib.Net.Compression.dll
 
-#run permissions setup 
-RUN task container-set-perms
+#expose an assets directory for custom assets install
+VOLUME /app/usr/assets
 
 #run the init script within dumb-init (trailing -- allows uers to pass args to the entrypoint)
 ENTRYPOINT ["dumb-init", "--" ]
