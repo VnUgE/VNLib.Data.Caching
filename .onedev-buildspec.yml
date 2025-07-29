@@ -1,6 +1,14 @@
-version: 37
+version: 40
+properties:
+- name: deps_core_version
+  value: v0.1.2-rc.7
+  archived: false
+- name: deps_extensions_version
+  value: v0.1.2-rc.5
+  archived: false
+
 jobs:
-- name: GitHub Push
+- name: Git Mirror Push
   steps:
   - !PushRepository
     name: Github push sync
@@ -8,19 +16,19 @@ jobs:
     userName: VnUgE
     passwordSecret: github-access-token
     force: false
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !PushRepository
     name: Codeberg push sync
     remoteUrl: https://codeberg.org/VnUgE/VNLib.Data.Caching.git
     userName: VnUgE
     passwordSecret: codeberg-access-token
     force: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   triggers:
-  - !TagCreateTrigger
-    projects: VNLib.Data.Caching
-  - !BranchUpdateTrigger
-    projects: VNLib.Data.Caching
+  - !TagCreateTrigger {}
+  - !BranchUpdateTrigger {}
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
@@ -34,14 +42,15 @@ jobs:
     runInContainer: false
     interpreter: !DefaultInterpreter
       commands: |
-        git clone @server_url@/@project_name@ --branch @branch@
-        cd @project_name@
-        task -t Module.Taskfile.yaml clone-deps
+        git clone @server_url@/@project_path@ --branch @branch@ @project_name@
+        git clone @server_url@/vnuge/vnlib/VNLib.Core --branch @property:deps_core_version@ core
+        git clone @server_url@/vnuge/vnlib/VNLib.Plugins.Extensions --branch @property:deps_extensions_version@
     envVars:
     - name: GIT_SERVER_URL
       value: '@server_url@'
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !CommandStep
     name: run unit tests
     runInContainer: false
@@ -49,7 +58,8 @@ jobs:
       commands: |
         vnbuild test --include @project_name@
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   triggers:
   - !BranchUpdateTrigger
     branches: '** -master'
@@ -66,14 +76,15 @@ jobs:
     runInContainer: false
     interpreter: !DefaultInterpreter
       commands: |
-        git clone @server_url@/@project_name@ --branch @branch@
-        cd @project_name@
-        task -t Module.Taskfile.yaml clone-deps
+        git clone @server_url@/@project_path@ --branch @branch@ @project_name@
+        git clone @server_url@/vnuge/vnlib/VNLib.Core --branch @property:deps_core_version@ core
+        git clone @server_url@/vnuge/vnlib/VNLib.Plugins.Extensions --branch @property:deps_extensions_version@
     envVars:
     - name: GIT_SERVER_URL
       value: '@server_url@'
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !CommandStep
     name: build modules
     runInContainer: false
@@ -83,7 +94,8 @@ jobs:
         vnbuild build --no-delay --include vnlib.core
         vnbuild build --no-delay --include @project_name@ --verbose
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !CommandStep
     name: run integration tests
     runInContainer: false
@@ -94,7 +106,8 @@ jobs:
         task setup-server
         task test
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   triggers:
   - !BranchUpdateTrigger
     branches: develop
@@ -111,14 +124,15 @@ jobs:
     runInContainer: false
     interpreter: !DefaultInterpreter
       commands: |
-        git clone @server_url@/@project_name@ --branch @branch@
-        cd @project_name@
-        task -t Module.Taskfile.yaml clone-deps
+        git clone @server_url@/@project_path@ --branch @branch@ @project_name@
+        git clone @server_url@/vnuge/vnlib/VNLib.Core --branch @property:deps_core_version@ core
+        git clone @server_url@/vnuge/vnlib/VNLib.Plugins.Extensions --branch @property:deps_extensions_version@
     envVars:
     - name: GIT_SERVER_URL
       value: '@server_url@'
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !CommandStep
     name: VNBuild build
     runInContainer: false
@@ -128,7 +142,8 @@ jobs:
         vnbuild build --no-delay --include vnlib.core
         vnbuild build --no-delay --include @project_name@ --verbose
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !CommandStep
     name: mock publish
     runInContainer: false
@@ -136,12 +151,14 @@ jobs:
       commands: |
         vnbuild publish -i @project_name@
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !PublishArtifactStep
     name: publish server artifacts
     sourcePath: '@project_name@/server/bin'
     artifacts: '*'
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   triggers:
   - !BranchUpdateTrigger
     branches: develop
@@ -161,14 +178,15 @@ jobs:
     runInContainer: false
     interpreter: !DefaultInterpreter
       commands: |
-        git clone @server_url@/@project_name@ --branch @branch@
-        cd @project_name@
-        task -t Module.Taskfile.yaml clone-deps
+        git clone @server_url@/@project_path@ --branch @branch@ @project_name@
+        git clone @server_url@/vnuge/vnlib/VNLib.Core --branch @property:deps_core_version@ core
+        git clone @server_url@/vnuge/vnlib/VNLib.Plugins.Extensions --branch @property:deps_extensions_version@
     envVars:
     - name: GIT_SERVER_URL
       value: '@server_url@'
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !CommandStep
     name: Create git tag
     runInContainer: false
@@ -177,7 +195,8 @@ jobs:
         cd @project_name@
         task -t Module.Taskfile.yaml tag-current-commit
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !CommandStep
     name: VNBuild build
     runInContainer: false
@@ -187,7 +206,8 @@ jobs:
         vnbuild build --no-delay --include vnlib.core
         vnbuild build --no-delay --include @project_name@
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !CommandStep
     name: VNBuild publish
     runInContainer: false
@@ -200,12 +220,14 @@ jobs:
     - name: FTP_PASSWORD
       value: '@secret:ftp_password@'
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !PublishArtifactStep
     name: publish server artifacts
     sourcePath: '@project_name@/server/bin'
     artifacts: '*'
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   triggers:
   - !BranchUpdateTrigger
     branches: master
@@ -227,13 +249,15 @@ jobs:
         ls -lah
         tar -xzf container-release.tgz
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !BuildImageStep
     name: build docker-hub image
     buildPath: '@project_name@'
     output: !RegistryOutput
       tags: vnuge/vncache:ubuntu-@branch@ vnuge/vncache:ubuntu-@commit_hash@
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   triggers:
   - !BranchUpdateTrigger
     branches: develop
@@ -260,13 +284,15 @@ jobs:
         ls -lah
         tar -xzf container-release.tgz
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !BuildImageStep
     name: build docker-hub image
     buildPath: '@project_name@'
     output: !RegistryOutput
       tags: vnuge/vncache:ubuntu-latest vnuge/vncache:ubuntu-@branch@ vnuge/vncache:ubuntu-@commit_hash@
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   triggers:
   - !BranchUpdateTrigger
     branches: master
