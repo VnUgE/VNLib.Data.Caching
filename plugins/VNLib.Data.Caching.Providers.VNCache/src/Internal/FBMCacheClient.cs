@@ -63,7 +63,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         /// <summary>
         /// The internal heap used for FBMClients
         /// </summary>
-        public IUnmangedHeap BufferHeap { get; } = MemoryUtil.Shared;
+        public IUnmanagedHeap BufferHeap { get; } = MemoryUtil.Shared;
 
         /// <summary>
         /// Gets a value that determines if the client is currently connected to a server

@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Extensions
@@ -83,7 +83,7 @@ namespace VNLib.Data.Caching.Extensions
         /// <param name="debugLog">An optional debug log</param>
         /// <param name="timeout">Request message timeout</param>
         /// <returns>A preconfigured <see cref="FBMClientConfig"/> for object caching</returns>
-        public static FBMClientConfig GetDefaultConfig(IUnmangedHeap heap, int maxMessageSize, TimeSpan timeout = default, ILogProvider? debugLog = null)
+        public static FBMClientConfig GetDefaultConfig(IUnmanagedHeap heap, int maxMessageSize, TimeSpan timeout = default, ILogProvider? debugLog = null)
         {
             return GetDefaultConfig(new SharedHeapFBMMemoryManager(heap), maxMessageSize, timeout, debugLog);
         }
