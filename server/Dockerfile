@@ -2,7 +2,7 @@
 #Licensed under the GNU AGPL V3.0
 
 #use plain ubuntu latest to build native libraries in
-FROM ubuntu:25.10 AS native-cont
+FROM ubuntu:24.04 AS native-cont
 
 WORKDIR /build
 
