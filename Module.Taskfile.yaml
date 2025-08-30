@@ -17,20 +17,15 @@ includes:
 
 vars:  
   ARCHIVE_FILE_NAME: '{{ .ARCHIVE_FILE_NAME | default "archive.tgz" }}'
-  MS_ARGS: 
-    /p:RunAnalyzersDuringBuild=false 
-    /p:BuildInParallel=true 
-    /p:MultiProcessorCompilation=true 
-    /p:ErrorOnDuplicatePublishOutputFiles=false    
 
 tasks:
 
   default:
     desc: 'Builds the managed libraries in this module for development'
     cmds:
-      - cmd: dotnet build -c debug {{ .MS_ARGS }} 
+     - cmd: dotnet build -c debug {{ .CLI_ARGS }}
 
-#called by build pipeline to sync repo
+  #called by build pipeline to sync repo
   update:
     cmds:
      - cmd: git reset --hard  #clean up any local changes
@@ -51,7 +46,7 @@ tasks:
      - cmd: echo "Tagging current commit with version v{{ .BUILD_VERSION }}"
      - cmd: git tag -s -a v{{ .BUILD_VERSION }} -m "CI Build version {{ .BUILD_VERSION }}"
      - cmd: git push origin v{{ .BUILD_VERSION }}
-  
+
   configure-dep:
     desc: 'CI task to clone a dependency repo at a specific branch and version and initialzies it'
     dir: '{{ .USER_WORKING_DIR }}'
@@ -75,8 +70,7 @@ tasks:
     vars:
       PACK_OUT: '{{ .OUTPUT_DIR }}/{{ .HEAD_SHA }}/pkg'
       INT_DIR: '{{ .SCRATCH_DIR }}/obj/{{ .MODULE_NAME }}/'
-      MS_ARGS: ' 
-        {{ .MS_ARGS }} 
+      MS_ARGS: '
         --nologo
         /p:UseCommonOutputDirectory=true 
         /p:IntermediateOutputPath="{{ .INT_DIR }}"'
@@ -84,10 +78,10 @@ tasks:
      - cmd: echo "building module {{ .MODULE_NAME }}" 
        silent: true
 
-    #re-write semver after hard reset
+     #re-write semver after hard reset
      - cmd: dotnet gitversion /updateprojectfiles
 
-     #build debug mode first
+    #build debug mode first
      - cmd: dotnet publish -c debug {{ .MS_ARGS }}
      - cmd: dotnet publish -c release {{ .MS_ARGS }}
 
@@ -102,7 +96,7 @@ tasks:
         {{ .MS_ARGS }}
 
   publish:
-    desc: "Used by vnbuild to prepare the packages for build servers"
+    desc: "Used by vnbuild to prepare the packages for build servers"      
     cmds:
      #git archive in the module directory
      - cmd: git archive --format {{ .ARCHIVE_FILE_FORMAT }} --output {{ .ARCHIVE_FILE_NAME }} HEAD
@@ -118,10 +112,10 @@ tasks:
     ignore_error: true
     cmds:
     #clean solution
-     - cmd: dotnet clean /p:BuildInParallel=true /p:MultiProcessorCompilation=true
-     - cmd: powershell rm '{{ .ARCHIVE_FILE_NAME }}' --Force
+     - cmd: dotnet clean
+     - cmd: powershell rm '{{ .ARCHIVE_FILE_NAME }}' --Force 
 
-  write-changelog:    
+  write-changelog:
     cmds:
      - cmd: git-cliff
          --verbose
