@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2-rc.8] - 2025-09-10
+
+### Added
+
+- Enable rpmalloc linking for network compression on posix and container platforms - [69d7318](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=69d731868311c24cc98c05efbcf18eb9dec1d7e5)
+
+### Changed
+
+- Update vnlib.core to `v0.1.2-rc.10` - (deps) [8466f63](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=8466f63f9ebd08d3afb483918f095b455d42117a)
+- Update vnlib.plugins.extensions to `v0.1.2-rc.8` - (deps) [7010e80](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=7010e80500f71a46e0d602eab78770dfac2faa8d)
+
 ## [0.1.2-rc.7] - 2025-08-30
 
 ### Changed
@@ -102,7 +113,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - #1 shared cluster index on linux & latested core updates - [456ead9](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=456ead9bc8b0f61357bae93152ad0403c4940101)
 - Update restsharp configuration - [b21ee53](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=b21ee53a99b30a21cecd1687ca337d713c919877)
 
-[0.1.2-rc.7]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=vv0.1.2-rc.7&id2=v0.1.2-rc.6
+[0.1.2-rc.8]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.2-rc.8&id2=v0.1.2-rc.7
+[0.1.2-rc.7]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.2-rc.7&id2=v0.1.2-rc.6
 [0.1.2-rc.6]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.2-rc.6&id2=v0.1.2-rc.5
 [0.1.2-rc.5]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.2-rc.5&id2=v0.1.2-rc.4
 [0.1.2-rc.4]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.2-rc.4&id2=v0.1.2-rc.3
