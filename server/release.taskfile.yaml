@@ -75,7 +75,7 @@ tasks:
     dir: 'lib/'
     cmds:
     #build rpmalloc library for linux/mac
-    - cmd: cd vnlib_rpmalloc/ && task && cp build/{{ OS }}/libvn_rpmalloc{{if eq OS "darwin"}}.dylib{{else}}.so{{end}} ../vnlib_rpmalloc.so
+    - cmd: cd vnlib_rpmalloc/ && task && cp build/{{ OS }}/libvn_rpmalloc{{if eq OS "darwin"}}.dylib{{else}}.so{{end}} ../vnlib_rpmalloc.so      
       platforms: [ linux, darwin ]
       
     #for windows just copy the existing dll
@@ -87,7 +87,10 @@ tasks:
     dir: 'lib/'
     cmds:
     #build the native compressor library for linux/mac
-    - cmd: cd vnlib_compress/ && task && cp build/{{ OS }}/libvn_compress{{if eq OS "darwin"}}.dylib{{else}}.so{{end}} ../vnlib_compress.so
+    - cmd: 
+        cd vnlib_compress/ && 
+        task -- "-DCOMPRESS_RPMALLOC_SOURCE_DIR={{ .USER_WORKING_DIR }}/lib/vnlib_rpmalloc" && 
+        cp build/{{ OS }}/libvn_compress{{if eq OS "darwin"}}.dylib{{else}}.so{{end}} ../vnlib_compress.so
       platforms: [ linux, darwin ]
 
     #windows now supports pre-compiled libs
