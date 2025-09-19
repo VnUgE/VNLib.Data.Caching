@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Plugins.Extensions.VNCache
@@ -62,7 +62,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         public ICacheEntryMemoryManager CreateForBucket(uint bucketId)
         {
             //Init a new heap for the individual bucket
-            IUnmangedHeap localHeap = MemoryUtil.InitializeNewHeapForProcess();
+            IUnmanagedHeap localHeap = MemoryUtil.InitializeNewHeapForProcess();
 
             if (_enableHeapTracking)
             {
@@ -126,7 +126,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
          * to get a little more performance on memory operations
          */
 
-        private sealed record class BucketLocalManager(IUnmangedHeap Heap, uint BucketId, bool Zero) : ICacheEntryMemoryManager
+        private sealed record class BucketLocalManager(IUnmanagedHeap Heap, uint BucketId, bool Zero) : ICacheEntryMemoryManager
         {
 
             ///<inheritdoc/>
