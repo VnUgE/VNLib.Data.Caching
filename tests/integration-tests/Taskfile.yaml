@@ -13,9 +13,6 @@ version: '3'
 # vnbuild build -i vnlib.data.caching
 # task test (in this directory)
 
-includes: 
-  module: '../../Module.Taskfile.yaml'
-
 vars:
   _CP: '{{ if eq OS "windows" }}powershell {{ end }}cp'
   _CPR: '{{ if eq OS "windows" }}powershell {{ end }}cp -r'
@@ -60,7 +57,7 @@ tasks:
         && bash './compile.sh' 'config-templates/' '{{ .SERVER_BUILD_DIR }}/config' 
        platforms: [ linux, darwin ]
 
-  start-test-server:    
+  start-test-server:
     desc: Starts the test server as a daemon process using PM2  
     preconditions:
       - pm2 --version # Ensure PM2 is installed
@@ -84,17 +81,15 @@ tasks:
     vars:
       TEST_SERVER_URL: 'http://localhost:{{ .TEST_SERVER_PORT }}'
       SERVER_KEY_PATH: '{{ .USER_WORKING_DIR }}/test-config/test-server.key'
-      CLIENT_KEY_PATH: '{{ .USER_WORKING_DIR }}/test-config/test-client.key'      
+      CLIENT_KEY_PATH: '{{ .USER_WORKING_DIR }}/test-config/test-client.key'
     cmds:
      - cmd: dotnet build 
-        {{ .MS_ARGS }}
         --nologo
         --configuration debug
-        --verbosity quiet
+        --verbosity normal
+        --no-incremental
 
      - cmd: dotnet test
-        {{ .CLI_ARGS }}
-        {{ .MS_ARGS }}
         --no-build
         --nologo
         --logger "console;verbosity=detailed"
@@ -104,6 +99,7 @@ tasks:
         --environment TEST_VNCACHE_SERVER_URL="{{ .TEST_SERVER_URL }}"
         --environment TEST_VNCACHE_SERVER_KEY_PATH="{{ osClean .SERVER_KEY_PATH }}"
         --environment TEST_VNCACHE_CLIENT_KEY_PATH="{{ osClean .CLIENT_KEY_PATH }}"
+        {{ .CLI_ARGS }}
   
   setup-server:
     cmds:
