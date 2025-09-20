@@ -61,7 +61,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         public ICacheEntryMemoryManager CreateForBucket(uint bucketId)
         {
             //Init a new heap for a individual bucket
-            IUnmangedHeap localHeap = MemoryUtil.InitializeNewHeapForProcess(_config.ZeroAllAllocations);
+            IUnmanagedHeap localHeap = MemoryUtil.InitializeNewHeapForProcess(_config.ZeroAllAllocations);
 
             BucketLocalManager manager = new (localHeap, bucketId);
             _managers.AddLast(manager);
@@ -118,7 +118,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
          * Allocations are rounded to the nearest page size, and can be resized
          */
 
-        private sealed record class BucketLocalManager(IUnmangedHeap Heap, uint BucketId) : ICacheEntryMemoryManager
+        private sealed record class BucketLocalManager(IUnmanagedHeap Heap, uint BucketId) : ICacheEntryMemoryManager
         {
 
             ///<inheritdoc/>

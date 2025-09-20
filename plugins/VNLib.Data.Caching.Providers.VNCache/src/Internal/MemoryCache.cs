@@ -45,7 +45,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
 
         private readonly VNMemoryCacheConfig _config;
         private readonly BlobCacheTable _memCache;
-        private readonly IUnmangedHeap _bufferHeap;
+        private readonly IUnmanagedHeap _bufferHeap;
         private readonly BucketLocalManagerFactory? _blobCacheMemManager;
      
         internal MemoryCache(VNMemoryCacheConfig config) : base(config)

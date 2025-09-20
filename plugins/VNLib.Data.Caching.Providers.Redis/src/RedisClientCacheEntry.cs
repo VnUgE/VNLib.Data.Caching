@@ -59,7 +59,7 @@ namespace VNLib.Data.Caching.Providers.Redis
     {
         private const int InitialWriterBufferSize = 4096;
     
-        private readonly IUnmangedHeap _defaultHeap;
+        private readonly IUnmanagedHeap _defaultHeap;
         private readonly Task OnLoadTask;
       
 
@@ -280,7 +280,7 @@ namespace VNLib.Data.Caching.Providers.Redis
                 await _database.KeyRenameAsync(key, newKey);
             }
             
-            static IMemoryOwner<byte> AllocAndCopy(ObjectDataGet<T> callback, T state, IUnmangedHeap heap, ref int length)
+            static IMemoryOwner<byte> AllocAndCopy(ObjectDataGet<T> callback, T state, IUnmanagedHeap heap, ref int length)
             {
                 //Get the buffer from the callback
                 ReadOnlySpan<byte> data = callback(state);

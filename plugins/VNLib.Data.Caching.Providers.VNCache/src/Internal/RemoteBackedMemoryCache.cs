@@ -55,7 +55,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         private readonly VNMemoryCacheConfig _cacheConfig;
         private readonly BlobCacheTable _memCache;
         private readonly ICacheClient _backing;
-        private readonly IUnmangedHeap _bufferHeap;
+        private readonly IUnmanagedHeap _bufferHeap;
         private readonly BucketLocalManagerFactory? _blobCacheMemManager;
 
         internal RemoteBackedMemoryCache(VNMemoryCacheConfig config, ICacheClient backingStore)

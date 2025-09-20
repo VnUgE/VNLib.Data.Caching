@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -58,7 +58,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         /// <summary>
         /// Used for miscellaneous shared memory allocations (like the cache listener)
         /// </summary>
-        public IUnmangedHeap SharedCacheHeap { get; private set; } = null!;
+        public IUnmanagedHeap SharedCacheHeap { get; private set; } = null!;
 
         /// <summary>
         /// The plugin-wide, shared node configuration
