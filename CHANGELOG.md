@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2025-09-20
+
+### Changed
+
+- Update StackExchange.Redis to version 2.9.17 - (deps) [6bc20fa](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=6bc20fa1b9c5184152a854d9885f0dc9935e59f2)
+- Update Dockerfile for .NET runtime to version 8.0.20 - (deps) [41970ee](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=41970ee769bf1f149b96119d92d1b76c087bc239)
+- Update vnlib.core to v0.1.2 - (deps) [a3876df](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=a3876df65d9e75741c25d219463893ff522c54cf)
+- Update vnlib.plugins.extensions to v0.1.2 - (deps) [5202482](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=520248262d7ee5374bfddc20e2d60b2b400b49af)
+
 ## [0.1.2-rc.8] - 2025-09-10
 
 ### Added
@@ -33,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Patch for vnlib.core IUmanagedHeap typo fix - [8c913c3](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=8c913c33bc423303aead1d3abbcc47816ca3a936)
 - Change native build image to ubuntu:24.04 (aka noble) - (docker) [b5da3ea](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=b5da3eaf2047b9810aaa18a569403565c89d375e)
 - Update vnlib.core to v0.1.2-rc.8 - (deps) [d0fbbe6](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=d0fbbe6da55571422ee479ea80a38ce782f047a7)
 - Update vnlib.plugins.extensions to v0.1.2-rc.6 - (deps) [d5c698c](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=d5c698ce77d7f64936e0b4fef258209dc14a90e1)
@@ -113,6 +123,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - #1 shared cluster index on linux & latested core updates - [456ead9](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=456ead9bc8b0f61357bae93152ad0403c4940101)
 - Update restsharp configuration - [b21ee53](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=b21ee53a99b30a21cecd1687ca337d713c919877)
 
+[0.1.2]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.2&id2=v0.1.2-rc.8
 [0.1.2-rc.8]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.2-rc.8&id2=v0.1.2-rc.7
 [0.1.2-rc.7]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.2-rc.7&id2=v0.1.2-rc.6
 [0.1.2-rc.6]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.2-rc.6&id2=v0.1.2-rc.5
