@@ -12,19 +12,31 @@ version: '3'
 vars:
   TARGET_FRAMEWORK: '{{ .TARGET_FRAMEWORK | default "net8.0" }}'
   BINARY_DIR: '{{ .BINARY_DIR | default "bin" }}'
-  RELEASE_DIR: './bin/release/{{.TARGET_FRAMEWORK}}/publish'
+  RELEASE_DIR: './bin/release/{{ .TARGET_FRAMEWORK }}/publish'
   TARGET_DIR: '{{ .USER_WORKING_DIR }}/{{ .BINARY_DIR }}'
 
 tasks:
+
+  default:
+    desc: 'Builds a single managed library when run from a project root'
+    dir: '{{ .USER_WORKING_DIR }}'
+    vars:
+      CONFIGURATION: '{{ .CONFIGURATION | default "release" }}'
+    cmds:
+      - cmd: dotnet build -c {{ .CONFIGURATION }} {{ .CLI_ARGS }}
 
   #when build succeeds, archive the output into a tgz 
   postbuild_success:
     dir: '{{ .USER_WORKING_DIR }}'
     cmds:
      #remove uncessary files from the release dir
-     - powershell -Command "Get-ChildItem -Recurse '{{ .RELEASE_DIR }}/' -Include *.pdb,*.xml | Remove-Item"
+     - cmd: powershell -Command "Get-ChildItem -Recurse '{{ .RELEASE_DIR }}/' -Include *.pdb,*.xml | Remove-Item"
 
      - task: post_parallel
+
+  postbuild_failed:
+    dir: '{{ .USER_WORKING_DIR }}'
+    cmds: []
 
   post_parallel:
     internal: true
@@ -36,20 +48,20 @@ tasks:
        vars: { BUILD_MODE: release }
 
   postbuild:
-    dir: '{{.USER_WORKING_DIR}}'
+    dir: '{{ .USER_WORKING_DIR }}'
     internal: true
     vars:
       #the build output directory
       BUILD_OUT: "{{ .BINARY_DIR }}/{{ .BUILD_MODE }}/{{ .TARGET_FRAMEWORK }}/publish"     
 
     cmds:
-     - powershell cp ../build.readme.txt '{{ .BUILD_OUT }}/readme.txt'
+     - cmd: cp ../build.readme.txt '{{ .BUILD_OUT }}/readme.txt'
 
      #tar outputs
-     - cd "{{ .BUILD_OUT }}" && tar -czf "{{ .TARGET_DIR }}/{{ .BUILD_MODE }}.tgz" .
+     - cmd: cd "{{ .BUILD_OUT }}" && tar{{ if eq OS "windows" }}.exe{{ end }} -czf "{{ .TARGET_DIR }}/{{ .BUILD_MODE }}.tgz" .
  
   packsource:
-    dir: '{{.USER_WORKING_DIR}}'
+    dir: '{{ .USER_WORKING_DIR }}'
     internal: true
     cmds:
     #copy source code to target
@@ -57,13 +69,13 @@ tasks:
       powershell -Command "Get-ChildItem -Include *.cs,*.csproj -Recurse 
       | Where { \$_.FullName -notlike '*\obj\*' -and \$_.FullName -notlike '*\bin\*' } 
       | Resolve-Path -Relative 
-      | tar --files-from - -czf '{{ .TARGET_DIR }}/src.tgz'"
+      | tar{{ if eq OS "windows" }}.exe{{ end }} --files-from - -czf '{{ .TARGET_DIR }}/src.tgz'"
 
 
 #Remove the output dirs on clean
   clean:
-    dir: '{{.USER_WORKING_DIR}}'
+    dir: '{{ .USER_WORKING_DIR }}'
     ignore_error: true
     cmds:
     - for: [ bin/, obj/ ]
-      cmd: '{{ if eq OS "windows" }}powershell rm -Recurse -Force{{ else }}rm -rf{{ end }} "{{.ITEM}}"'
+      cmd: rm -rf "{{ .ITEM }}"

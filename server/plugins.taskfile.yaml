@@ -33,10 +33,10 @@ tasks:
       silent: true
 
   install-vncache:
-    - cmd: powershell mkdir -Force 'build/plugins/{{ .PLUGIN_NAME }}'
+    - cmd: mkdir -p 'build/plugins/{{ .PLUGIN_NAME }}'
 
     #copy the plugin output
-    - cmd: powershell cp -Recurse -Force '../plugins/ObjectCacheServer/src/bin/release/net8.0/publish/*' 'build/plugins/{{ .PLUGIN_NAME }}/'
+    - cmd: cp -rf '../plugins/ObjectCacheServer/src/bin/release/net8.0/publish/' 'build/plugins/{{ .PLUGIN_NAME }}/'
 
   install-webserver:
     cmds:
@@ -48,7 +48,7 @@ tasks:
         SRC_DIR: '../../core/apps/VNLib.WebServer/src/bin'
 
     #remove the executable since its not needed
-    - cmd: cd build/webserver/ && powershell rm VNlib.WebServer
+    - cmd: cd build/webserver/ && rm VNlib.WebServer
 
   install-compression:
     cmds:
