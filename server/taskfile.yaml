@@ -76,7 +76,7 @@ tasks:
     internal: true
     dir: build/plugins
     vars:
-      FILES:'
+      FILES: '
         */VNLib.Utils.dll
         */VNLib.Net.Http.dll
         */VNLib.Hashing.Portable.dll
