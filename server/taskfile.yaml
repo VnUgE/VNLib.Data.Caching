@@ -89,7 +89,7 @@ tasks:
         */*.pdb'
     cmds:
     - for: { var: FILES }
-      cmd: powershell 'Get-ChildItem -Path . -Recurse -File -Filter "{{ .ITEM }}" | Remove-Item -Force'
+      cmd: '{{ if eq OS "windows" }}powershell rm -Recurse -Force{{ else }}rm -rf{{ end }} "{{ .ITEM }}"'
 
   postbuild_success:
     cmds:
