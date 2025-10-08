@@ -40,30 +40,34 @@ tasks:
     internal: true
     cmds:
       - task: create-env
-        vars: { TARGET_OS: 'container/app' }    
+        vars: { TARGET_OS: 'container/app' }
 
       # raw config templates are necessary for container builds
-      - cmd: cp -rf "config-templates" "build/container/app"
+      - cmd: rm -r "build/arch/container/app/config"
+      - cmd: mkdir -p "build/arch/container/app/config-templates"
+      - cmd: cp -rf "config-templates/" "build/arch/container/app"
 
       #docker specific files go in the root dir
       - for: [ Dockerfile, docker-compose.yaml ]
-        cmd: cp -f {{ .ITEM }} build/container
+        cmd: cp -f {{ .ITEM }} build/arch/container/
 
       # copy the compile script and taskfile, rename the taskfile to Taskfile.yaml
-      - cmd: cp -f "compile.sh" "build/container/app"
-      - cmd: cp -f "release.taskfile.yaml" "build/container/app/Taskfile.yaml"
+      - cmd: cp -f "compile.sh" "build/arch/container/app"
+      - cmd: cp -f "release.taskfile.yaml" "build/arch/container/app/Taskfile.yaml"
 
   create-env:
+    internal: true
     cmds:
     #create dir for env
-    - cmd: mkdir -p "build/{{ .TARGET_OS }}"
+    - cmd: mkdir -p "build/arch/{{ .TARGET_OS }}"
     
     #copy build files for target os
     - for: [ plugins, lib, config, webserver ]
-      cmd: cd build/ && cp -rf "{{ .ITEM }}" "{{ .TARGET_OS }}"
+      cmd: mkdir -p "build/arch/{{ .TARGET_OS }}/{{ .ITEM }}" 
+        && cp -rf "build/{{ .ITEM }}/" "build/arch/{{ .TARGET_OS }}/"
 
     #copy release taskfile and rename it
-    - cmd: cp -f release.taskfile.yaml "build/{{ .TARGET_OS }}/Taskfile.yaml"
+    - cmd: cp -f release.taskfile.yaml "build/arch/{{ .TARGET_OS }}/Taskfile.yaml"
 
   compile-config:
     internal: false
@@ -117,9 +121,8 @@ tasks:
     vars:
       TAR_OUT_DIR: '{{ .USER_WORKING_DIR }}/{{ .BINARY_DIR }}'
     cmds:
-    - cmd: mkdir -p "build/{{ .TARGET_OS }}/"
-      ignore_error: true
-    - cmd: cd build/{{ .TARGET_OS }} && tar{{ if eq OS "windows" }}.exe{{ end }} -czf "{{ .TAR_OUT_DIR }}/{{ .TARGET_OS }}-release.tgz" .
+    - cmd: cd build/arch/{{ .TARGET_OS }}
+        && tar{{ if eq OS "windows" }}.exe{{ end }} -czf "{{ .TAR_OUT_DIR }}/{{ .TARGET_OS }}-release.tgz" .
 
   clean:
     ignore_error: true
