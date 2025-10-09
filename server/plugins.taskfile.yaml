@@ -33,10 +33,14 @@ tasks:
       silent: true
 
   install-vncache:
-    - cmd: powershell mkdir -Force 'build/plugins/{{ .PLUGIN_NAME }}'
+    - cmd: mkdir -p 'build/plugins/{{ .PLUGIN_NAME }}'
 
     #copy the plugin output
-    - cmd: powershell cp -Recurse -Force '../plugins/ObjectCacheServer/src/bin/release/net8.0/publish/*' 'build/plugins/{{ .PLUGIN_NAME }}/'
+    - cmd: cd '../plugins/ObjectCacheServer/src/' && 
+        task 
+        CONFIGURATION=release 
+        --
+        --output '{{ .USER_WORKING_DIR }}/build/plugins/{{ .PLUGIN_NAME }}/'
 
   install-webserver:
     cmds:
@@ -48,7 +52,7 @@ tasks:
         SRC_DIR: '../../core/apps/VNLib.WebServer/src/bin'
 
     #remove the executable since its not needed
-    - cmd: cd build/webserver/ && powershell rm VNlib.WebServer
+    - cmd: cd build/webserver/ && rm VNlib.WebServer
 
   install-compression:
     cmds:
@@ -70,7 +74,7 @@ tasks:
     - task: install:install
       vars: 
         FILE_NAME: 'msvc-x64-release-vnlib_compress.tgz'
-        DIR: 'build/windows-x64/lib/vnlib_compress'
+        DIR: 'build/arch/windows-x64/lib/vnlib_compress'
         SRC_DIR: '../../core/lib/Net.Compression/vnlib_compress/bin'
 
   install-rpmalloc:
@@ -87,7 +91,5 @@ tasks:
     - task: install:install
       vars: 
         FILE_NAME: 'msvc-x64-release-vnlib_rpmalloc.tgz'
-        DIR: 'build/windows-x64/lib/vnlib_rpmalloc'
+        DIR: 'build/arch/windows-x64/lib/vnlib_rpmalloc'
         SRC_DIR: '../../core/lib/Utils.Memory/vnlib_rpmalloc/bin'
-
-

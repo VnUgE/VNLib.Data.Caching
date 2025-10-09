@@ -21,7 +21,7 @@ tasks:
         --nologo
         --configuration debug
         --verbosity normal
-        --no-incremental       
+        --no-incremental
 
      - cmd: dotnet test
         --no-build
