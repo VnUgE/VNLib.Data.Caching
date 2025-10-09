@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2025-10-09
+
+### Changed
+
+- Update build scripts to work with task v3.45 - [89f15ab](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=89f15abbe742ba151a6ccc3eada50b5c5de7b861)
+- Update vnlib.plugins.extensions to v0.1.3 - (deps) [bd675a7](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=bd675a71bdf7f9f23cd24e0f4fad9a38b23a7704)
+- Update vnlib.core to v0.1.3 - (deps) [8d40a3c](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=8d40a3c40456ef226e058f3d048934893c65208a)
+- Update Task in vncache contianer to v3.45.4 - (deps) [e6e74fc](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=e6e74fc44fce2764ebee6653de8c3c5ba7985103)
+- Update StackExchange.Redis to v2.9.25 - (deps) [563df56](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=563df5644f450fea42460b034535b6f12fc9fd6f)
+
 ## [0.1.2] - 2025-09-20
 
 ### Changed
@@ -123,6 +133,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - #1 shared cluster index on linux & latested core updates - [456ead9](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=456ead9bc8b0f61357bae93152ad0403c4940101)
 - Update restsharp configuration - [b21ee53](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=b21ee53a99b30a21cecd1687ca337d713c919877)
 
+[0.1.3]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=vv0.1.3&id2=v0.1.2
 [0.1.2]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.2&id2=v0.1.2-rc.8
 [0.1.2-rc.8]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.2-rc.8&id2=v0.1.2-rc.7
 [0.1.2-rc.7]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.2-rc.7&id2=v0.1.2-rc.6
