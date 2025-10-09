@@ -14,12 +14,6 @@ version: '3'
 # task test (in this directory)
 
 vars:
-  _CP: '{{ if eq OS "windows" }}powershell {{ end }}cp'
-  _CPR: '{{ if eq OS "windows" }}powershell {{ end }}cp -r'
-  _RM: '{{ if eq OS "windows" }}powershell {{ end }}rm'
-  _RMR: '{{ if eq OS "windows" }}powershell {{ end }}rm -r'
-  _MKDIR: '{{ if eq OS "windows" }}powershell {{ end }}mkdir'
-
   TEST_WORKING_DIR: '{{ .USER_WORKING_DIR }}'
   SERVER_BUILD_DIR: '{{ .TEST_WORKING_DIR }}/server'
 
@@ -31,10 +25,10 @@ tasks:
     vars:
       PLATFORM: '{{ if eq OS "windows" }}windows-x64{{ else }}posix{{ end }}'
     cmds:
-     - cmd: '{{ ._MKDIR }} "{{ .SERVER_BUILD_DIR }}"'
+     - cmd: mkdir -p "{{ .SERVER_BUILD_DIR }}"
        ignore_error: true
-     - cmd: '{{ ._CP }} "../../server/bin/{{ .PLATFORM }}-release.tgz" "{{ .SERVER_BUILD_DIR }}/server.tgz"'
-     - cmd: cd '{{ .SERVER_BUILD_DIR }}' && tar -xzf server.tgz
+     - cmd: cp "../../server/bin/{{ .PLATFORM }}-release.tgz" "{{ .SERVER_BUILD_DIR }}/server.tgz"
+     - cmd: cd '{{ .SERVER_BUILD_DIR }}' && tar{{ if eq OS "windows" }}.exe{{ end }} -xzf server.tgz
 
   compile-config:
     desc: Creates/overwrites the server's configuration with test specific settings
@@ -73,7 +67,7 @@ tasks:
       - cmd: pm2 stop --kill-timeout 2000 vncache   
       - cmd: pm2 flush 
       - cmd: pm2 delete vncache # Remove the process from PM2's list  
-      - cmd: powershell Start-Sleep -Seconds 2 # Wait for the server to stop completely
+      - cmd: '{{ if eq OS "windows" }}powershell Start-Sleep -Seconds 2{{ else }}sleep 2{{ end }}' # Wait for the server to stop completely
   
   run-tests:
     desc: "Runs the integration tests"
@@ -118,5 +112,5 @@ tasks:
   clean:
     desc: "Cleans the test server and test files"
     cmds:
-      - cmd: '{{ ._RMR }} "{{ .SERVER_BUILD_DIR }}"'
+      - cmd: rm -rf "{{ .SERVER_BUILD_DIR }}"
         ignore_error: true
