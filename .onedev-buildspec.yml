@@ -216,7 +216,7 @@ jobs:
     name: build docker-hub image
     buildPath: '@project_name@'
     output: !RegistryOutput
-      tags: vnuge/vncache:ubuntu-@branch@ vnuge/vncache:ubuntu-@commit_hash@
+      tags: '@server@/@project_path@/vncache:@branch@'
     condition: SUCCESSFUL
     optional: false
   triggers:
