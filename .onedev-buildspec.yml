@@ -228,7 +228,7 @@ jobs:
     buildPath: '@project_name@'
     output:
       type: RegistryOutput
-      tags: '@server@/@project_path@/vncache:@commit_hash@'
+      tags: '@server_url@/@project_path@/vncache:@commit_hash@'
     condition: SUCCESSFUL
     optional: false
   triggers:
