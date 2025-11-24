@@ -124,13 +124,13 @@ namespace VNLib.Data.Caching.Providers.Redis
                 });
             }
 
-            string? serialzerDllPath = config.GetPropString("serializer_assebly_name");
+            string? serializerDllPath = config.GetPropString("serializer_assembly_name");
 
             //See if user has specified a custom serializer assembly
-            if (!string.IsNullOrWhiteSpace(serialzerDllPath))
+            if (!string.IsNullOrWhiteSpace(serializerDllPath))
             {
                 //Load the custom serializer assembly and get the serializer and deserializer instances
-                DefaultSerializer = plugin.CreateServiceExternal<ICacheObjectSerializer>(serialzerDllPath);
+                DefaultSerializer = plugin.CreateServiceExternal<ICacheObjectSerializer>(serializerDllPath);
 
                 //Avoid creating another instance if the deserializer is the same as the serializer
                 if (DefaultSerializer is ICacheObjectDeserializer cod)
@@ -139,7 +139,7 @@ namespace VNLib.Data.Caching.Providers.Redis
                 }
                 else
                 {
-                    DefaultDeserializer = plugin.CreateServiceExternal<ICacheObjectDeserializer>(serialzerDllPath);
+                    DefaultDeserializer = plugin.CreateServiceExternal<ICacheObjectDeserializer>(serializerDllPath);
                 }
             }
             else
