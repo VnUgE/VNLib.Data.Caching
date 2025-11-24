@@ -231,6 +231,7 @@ jobs:
     buildPath: '@project_name@'
     output:
       type: RegistryOutput
+      tags: vnuge/vncache:@branch@ vnuge/vncache:@commit_hash@
     condition: SUCCESSFUL
     optional: false
   triggers:
@@ -268,6 +269,7 @@ jobs:
     buildPath: '@project_name@'
     output:
       type: RegistryOutput
+      tags: vnuge/vncache:latest vnuge/vncache:@branch@ vnuge/vncache:@commit_hash@
     condition: SUCCESSFUL
     optional: false
   triggers:
