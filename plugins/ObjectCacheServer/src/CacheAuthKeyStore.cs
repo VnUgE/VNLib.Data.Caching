@@ -3,9 +3,9 @@
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
-* File: ObjectCacheServerEntry.cs 
+* File: CacheAuthKeyStore.cs 
 *
-* ObjectCacheServerEntry.cs is part of ObjectCacheServer which is part of the larger 
+* CacheAuthKeyStore.cs is part of ObjectCacheServer which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
 * ObjectCacheServer is free software: you can redistribute it and/or modify 

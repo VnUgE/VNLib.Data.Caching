@@ -137,12 +137,12 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         {
             //Get the known peers array from config, its allowed to be null for master nodes
             IConfigScope? config = plugin.Config().TryGet("known_peers");
-            string[] kownPeers = config?.Deserialize<string[]>() ?? [];
+            string[] knownPeers = config?.Deserialize<string[]>() ?? [];
 
             ILogProvider discLogger = plugin.Log.CreateScope(CacheConstants.LogScopes.PeerDiscovery);
 
             //Allow just origin nodes to be used as known peers
-            IEnumerable<Uri> peerUris = kownPeers.Select(static p =>
+            IEnumerable<Uri> peerUris = knownPeers.Select(static p =>
             {
                 Uri bUri = new(p, UriKind.Absolute);
                 return bUri.LocalPath == "/" ? new Uri(bUri, CacheConstants.DefaultWellKnownPath) : bUri;
@@ -151,7 +151,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             NodeConfig.WithInitialPeers(peerUris)
                 .WithErrorHandler(new ErrorHandler(discLogger));
 
-            discLogger.Information("Inital peer nodes: {nodes}", kownPeers);
+            discLogger.Information("Inital peer nodes: {nodes}", knownPeers);
 
             PeerDiscovery = new PeerDiscoveryManager(
                 NodeConfig,
@@ -159,7 +159,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
                 PeerMonitor,
                 discLogger, 
                 plugin.IsDebug(), 
-                kownPeers.Length > 0
+                knownPeers.Length > 0
             );
 
             //Discovery manager needs to be scheduled for background work to run the discovery loop
