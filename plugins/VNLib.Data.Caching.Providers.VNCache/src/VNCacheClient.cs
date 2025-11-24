@@ -155,8 +155,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
 
             //Create a jwk authenticator from plugin secrets
             cacheClientConfig.AuthManager = JwkAuthManager.FromLazyJwk(
-                sigKey: plugin.GetSecretAsync("client_private_key").ToJsonWebKey().AsLazy(),
-                verifKey: plugin.GetSecretAsync("cache_public_key").ToJsonWebKey().AsLazy()
+                sigKey: plugin.Secrets().GetAsync("client_private_key").ToJsonWebKey().AsLazy(),
+                verifKey: plugin.Secrets().GetAsync("cache_public_key").ToJsonWebKey().AsLazy()
             );
 
             InitSerializers(plugin, extendedConfig, cacheClientConfig);

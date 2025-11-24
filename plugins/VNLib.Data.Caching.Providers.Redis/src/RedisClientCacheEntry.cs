@@ -84,7 +84,7 @@ namespace VNLib.Data.Caching.Providers.Redis
                     if (connectionString.Contains("password=[SECRET]", StringComparison.OrdinalIgnoreCase))
                     {
                         //Load the password from the secret store and replace the placeholder with the found secret
-                        using ISecretResult password = await plugin.GetSecretAsync("redis_password");
+                        using ISecretResult password = await plugin.Secrets().GetAsync("redis_password");
                         connectionString = connectionString.Replace("password=[SECRET]", $"password={password.Result}", StringComparison.OrdinalIgnoreCase);
                     }
                     else
@@ -110,7 +110,7 @@ namespace VNLib.Data.Caching.Providers.Redis
                 OnLoadTask = Task.Run(async () =>
                 {
                     //Retrieve the password last
-                    using ISecretResult password = await plugin.GetSecretAsync("redis_password");
+                    using ISecretResult password = await plugin.Secrets().GetAsync("redis_password");
                     options.Password = password.Result.ToString();
 
                     redisLog.Information("Connecting to Redis server...");
