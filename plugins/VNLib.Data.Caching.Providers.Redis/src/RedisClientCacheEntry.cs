@@ -84,7 +84,7 @@ namespace VNLib.Data.Caching.Providers.Redis
                     if (connectionString.Contains("password=[SECRET]", StringComparison.OrdinalIgnoreCase))
                     {
                         //Load the password from the secret store and replace the placeholder with the found secret
-                        using ISecretResult password = await plugin.GetSecretAsync("redis_password");
+                        using ISecretResult password = await plugin.Secrets().GetAsync("redis_password");
                         connectionString = connectionString.Replace("password=[SECRET]", $"password={password.Result}", StringComparison.OrdinalIgnoreCase);
                     }
                     else
@@ -110,7 +110,7 @@ namespace VNLib.Data.Caching.Providers.Redis
                 OnLoadTask = Task.Run(async () =>
                 {
                     //Retrieve the password last
-                    using ISecretResult password = await plugin.GetSecretAsync("redis_password");
+                    using ISecretResult password = await plugin.Secrets().GetAsync("redis_password");
                     options.Password = password.Result.ToString();
 
                     redisLog.Information("Connecting to Redis server...");
@@ -124,13 +124,13 @@ namespace VNLib.Data.Caching.Providers.Redis
                 });
             }
 
-            string? serialzerDllPath = config.GetPropString("serializer_assebly_name");
+            string? serializerDllPath = config.GetPropString("serializer_assembly_name");
 
             //See if user has specified a custom serializer assembly
-            if (!string.IsNullOrWhiteSpace(serialzerDllPath))
+            if (!string.IsNullOrWhiteSpace(serializerDllPath))
             {
                 //Load the custom serializer assembly and get the serializer and deserializer instances
-                DefaultSerializer = plugin.CreateServiceExternal<ICacheObjectSerializer>(serialzerDllPath);
+                DefaultSerializer = plugin.CreateServiceExternal<ICacheObjectSerializer>(serializerDllPath);
 
                 //Avoid creating another instance if the deserializer is the same as the serializer
                 if (DefaultSerializer is ICacheObjectDeserializer cod)
@@ -139,7 +139,7 @@ namespace VNLib.Data.Caching.Providers.Redis
                 }
                 else
                 {
-                    DefaultDeserializer = plugin.CreateServiceExternal<ICacheObjectDeserializer>(serialzerDllPath);
+                    DefaultDeserializer = plugin.CreateServiceExternal<ICacheObjectDeserializer>(serializerDllPath);
                 }
             }
             else

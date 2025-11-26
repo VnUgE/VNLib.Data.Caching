@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2025-11-24
+
+### Changed
+
+- Update ErrorProne.NET.CoreAnalyzers to v0.8.2-beta.1 - (deps) [672f627](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=672f62754d970946f154ed617bc294ee138da145)
+- Update server container runtime to .NET 8.0.22 - (deps) [061fa5a](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=061fa5a0594614844c47c41448d9dbe27a6a92de)
+- Update StackExchange.Redis to version 2.10.1 - (deps) [9ace2b5](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=9ace2b5eaf0758606358134564a4bac4376e8504)
+- Update vnlib.core to v0.1.4 - (deps) [26cb116](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=26cb116aec65be35c44d2e07ba0a00f8934973e3)
+- Update vnlib.plugins.extensions to v0.1.4 - (deps) [e52e89b](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=e52e89b3be6cb6715236aa54b73463f4232b41b9)
+- Remove `ubuntu-` from container image tags - [b76265e](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=b76265e446011559513f44a37eb8f82aa9ea9c16)
+- Migrate updated extensions APIs like `Config()` and `Secrets()` - [af627be](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=af627beb6562d25067bc963ffd9d730730d1717a)
+- Update container dependency Task to v3.45.5 - (deps) [726f403](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=726f403d844bfcd77467e1927dbfb3ad8a70dd47)
+
+### Fixed
+
+- Corrected a configuration typo that allows the user to specify a serializer assembly file - (redis) [cc755f4](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=cc755f49663a2f86dceb0568cabc9209f26c535c)
+
 ## [0.1.3] - 2025-10-09
 
 ### Changed
@@ -133,7 +150,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - #1 shared cluster index on linux & latested core updates - [456ead9](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=456ead9bc8b0f61357bae93152ad0403c4940101)
 - Update restsharp configuration - [b21ee53](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=b21ee53a99b30a21cecd1687ca337d713c919877)
 
-[0.1.3]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=vv0.1.3&id2=v0.1.2
+[0.1.4]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.4&id2=v0.1.3
+[0.1.3]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.3&id2=v0.1.2
 [0.1.2]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.2&id2=v0.1.2-rc.8
 [0.1.2-rc.8]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.2-rc.8&id2=v0.1.2-rc.7
 [0.1.2-rc.7]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.2-rc.7&id2=v0.1.2-rc.6

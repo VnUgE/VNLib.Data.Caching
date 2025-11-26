@@ -1,10 +1,10 @@
 version: 43
 properties:
 - name: deps_core_version
-  value: master/v0.1.3
+  value: master/v0.1.4
   archived: false
 - name: deps_extensions_version
-  value: master/v0.1.3
+  value: master/v0.1.4
   archived: false
 
 jobs:
@@ -71,7 +71,7 @@ jobs:
     condition: SUCCESSFUL
     optional: false
   - type: CommandStep
-    name: mock build
+    name: build modules
     runInContainer: false
     interpreter:
       type: DefaultInterpreter
@@ -82,7 +82,7 @@ jobs:
     condition: SUCCESSFUL
     optional: false
   - type: CommandStep
-    name: mock publish
+    name: run integration tests
     runInContainer: false
     interpreter:
       type: DefaultInterpreter
@@ -115,7 +115,7 @@ jobs:
     condition: SUCCESSFUL
     optional: false
   - type: CommandStep
-    name: build modules
+    name: mock build
     runInContainer: false
     interpreter:
       type: DefaultInterpreter
@@ -126,7 +126,7 @@ jobs:
     condition: SUCCESSFUL
     optional: false
   - type: CommandStep
-    name: run integration tests
+    name: mock publish
     runInContainer: false
     interpreter:
       type: DefaultInterpreter
@@ -138,10 +138,19 @@ jobs:
     useTTY: true
     condition: SUCCESSFUL
     optional: false
+  - type: PublishArtifactStep
+    name: publish server artifacts
+    sourcePath: '@project_name@/server/bin'
+    artifacts: '*'
+    condition: SUCCESSFUL
+    optional: false
   triggers:
   - type: BranchUpdateTrigger
     branches: develop
     userMatch: anyone
+  jobDependencies:
+  - jobName: Unit Testing
+    requireSuccessful: true
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
@@ -228,7 +237,7 @@ jobs:
     buildPath: '@project_name@'
     output:
       type: RegistryOutput
-      tags: '@server_url@/@project_path@/vncache:@commit_hash@'
+      tags: vnuge/vncache:@branch@ vnuge/vncache:@commit_hash@
     condition: SUCCESSFUL
     optional: false
   triggers:
@@ -266,7 +275,7 @@ jobs:
     buildPath: '@project_name@'
     output:
       type: RegistryOutput
-      tags: vnuge/vncache:ubuntu-latest vnuge/vncache:ubuntu-@branch@ vnuge/vncache:ubuntu-@commit_hash@
+      tags: vnuge/vncache:latest vnuge/vncache:@branch@ vnuge/vncache:@commit_hash@
     condition: SUCCESSFUL
     optional: false
   triggers:

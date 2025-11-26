@@ -1,11 +1,11 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
-* File: ObjectCacheServerEntry.cs 
+* File: CacheAuthKeyStore.cs 
 *
-* ObjectCacheServerEntry.cs is part of ObjectCacheServer which is part of the larger 
+* CacheAuthKeyStore.cs is part of ObjectCacheServer which is part of the larger 
 * VNLib collection of libraries and utilities.
 *
 * ObjectCacheServer is free software: you can redistribute it and/or modify 
@@ -34,10 +34,18 @@ using VNLib.Data.Caching.Extensions;
 
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
-    sealed class CacheAuthKeyStore(PluginBase plugin) : ICacheAuthManager
+    internal sealed class CacheAuthKeyStore(PluginBase plugin) : ICacheAuthManager
     {
-        private readonly IAsyncLazy<ReadOnlyJsonWebKey> _clientPub = plugin.Secrets().GetSecretAsync("client_public_key").ToLazy(r => r.GetJsonWebKey());
-        private readonly IAsyncLazy<ReadOnlyJsonWebKey> _cachePriv = plugin.Secrets().GetSecretAsync("cache_private_key").ToLazy(r => r.GetJsonWebKey());
+        // Fetch keys from key store
+
+        private readonly IAsyncLazy<ReadOnlyJsonWebKey> _clientPub = plugin.Secrets()
+            .GetAsync("client_public_key")
+            .ToLazy(r => r.GetJsonWebKey());
+
+
+        private readonly IAsyncLazy<ReadOnlyJsonWebKey> _cachePriv = plugin.Secrets()
+            .GetAsync("cache_private_key")
+            .ToLazy(r => r.GetJsonWebKey());
 
         ///<inheritdoc/>
         public IReadOnlyDictionary<string, string?> GetJwtHeader()
