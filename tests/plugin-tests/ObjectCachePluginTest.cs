@@ -31,7 +31,7 @@ namespace VNLib.Data.Caching.Tests
                    Assert.IsTrue(services.HasService<IVirtualEndpointDefinition>());
 
                    //Currently 3 endpoints are exported
-                   Assert.AreEqual(3, services.GetEndpoints().Length);
+                   Assert.HasCount(3, services.GetEndpoints());
                })
                .Unload(delayMilliseconds: 3500)
                .TryDispose();
