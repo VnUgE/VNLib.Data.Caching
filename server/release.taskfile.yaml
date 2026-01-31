@@ -124,7 +124,6 @@ tasks:
 
     cmds:
     - cmd: mkdir root/ usr/
-    - cmd: chown -R 1000:1000 /app
     #set all files to read only
     - for: { var: READONLY_FILES }
       cmd: chmod -R 500 {{ .ITEM }}
