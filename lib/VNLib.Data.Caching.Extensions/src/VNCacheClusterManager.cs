@@ -124,7 +124,7 @@ namespace VNLib.Data.Caching.Extensions
         /// <exception cref="ArgumentException"></exception>
         /// <exception cref="CacheDiscoveryFailureException"></exception>
         /// <remarks>
-        /// This method simply combines the <see cref="ResolveWellKnownAsync"/> and <see cref="DiscoverNodesAsync"/>
+        /// This method simply combines the <see cref="ResolveWellKnownAsync"/> and <see cref="DiscoverNodesAsync(CancellationToken)"/>
         /// methods into a single operation
         /// </remarks>
         public async Task DiscoverNodesAsync(CancellationToken cancellation)

@@ -2,10 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
     <RootNamespace>VNLib.Data.Caching</RootNamespace>
     <AssemblyName>VNLib.Data.Caching</AssemblyName>
-    <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
 
   <PropertyGroup>
