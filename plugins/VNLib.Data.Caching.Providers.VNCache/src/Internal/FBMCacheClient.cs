@@ -220,7 +220,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
                         }
                         catch (Exception ex)
                         {
-                            operationLog.Debug("Failed to wait for discovery\n{err}", ex.Message);
+                            operationLog.Debug(ex, "Failed to wait for discovery");
                             //Exception types from the other side so we can't really granually handle
                             //them, but master instance should so we just need to wait
                         }
@@ -322,40 +322,40 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         public override Task<bool> DeleteAsync(string key, CancellationToken cancellation)
         {
             return !IsConnected
-              ? Task.FromException<bool>(new InvalidOperationException("The underlying client is not connected to a cache node"))
-              : _client!.DeleteObjectAsync(key, cancellation);
+                ? Task.FromException<bool>(new InvalidOperationException("The underlying client is not connected to a cache node"))
+                : _client!.DeleteObjectAsync(key, cancellation);
         }
 
         ///<inheritdoc/>
         public override Task<T> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation)
         {
             return !IsConnected
-            ? Task.FromException<T>(new InvalidOperationException("The underlying client is not connected to a cache node"))
-            : _client!.GetObjectAsync<T>(key, deserializer, cancellation);
+                ? Task.FromException<T>(new InvalidOperationException("The underlying client is not connected to a cache node"))
+                : _client!.GetObjectAsync<T>(key, deserializer, cancellation);
         }
 
         ///<inheritdoc/>
         public override Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
         {
             return !IsConnected
-            ? Task.FromException(new InvalidOperationException("The underlying client is not connected to a cache node"))
-            : _client!.AddOrUpdateObjectAsync(key, newKey, value, serialzer, cancellation);
+                ? Task.FromException(new InvalidOperationException("The underlying client is not connected to a cache node"))
+                : _client!.AddOrUpdateObjectAsync(key, newKey, value, serialzer, cancellation);
         }
 
         ///<inheritdoc/>
         public override Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation)
         {
             return !IsConnected
-            ? Task.FromException(new InvalidOperationException("The underlying client is not connected to a cache node"))
-            : _client!.GetObjectAsync(key, callback, state, cancellation);
+                ? Task.FromException(new InvalidOperationException("The underlying client is not connected to a cache node"))
+                : _client!.GetObjectAsync(key, callback, state, cancellation);
         }
 
         ///<inheritdoc/>
         public override Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataGet<T> callback, T state, CancellationToken cancellation)
         {
             return !IsConnected
-            ? Task.FromException(new InvalidOperationException("The underlying client is not connected to a cache node"))
-            : _client!.AddOrUpdateObjectAsync(key, newKey, callback, state, cancellation);
+                ? Task.FromException(new InvalidOperationException("The underlying client is not connected to a cache node"))
+                : _client!.AddOrUpdateObjectAsync(key, newKey, callback, state, cancellation);
         }
 
         ///<inheritdoc/>
