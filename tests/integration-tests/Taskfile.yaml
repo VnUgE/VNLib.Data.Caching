@@ -71,9 +71,9 @@ tasks:
   
   run-tests:
     desc: "Runs the integration tests"
-    dir: 'VNLib.Data.Caching.IntegrationTests/src'
+    dir: 'VNLib.Data.Caching.IntegrationTests'
     vars:
-      TEST_SERVER_URL: 'http://localhost:{{ .TEST_SERVER_PORT }}'
+      TEST_SERVER_URL: '{{ .TEST_SERVER_URL | default "http://localhost:{{ .TEST_SERVER_PORT }}" }}'
       SERVER_KEY_PATH: '{{ .USER_WORKING_DIR }}/test-config/test-server.key'
       CLIENT_KEY_PATH: '{{ .USER_WORKING_DIR }}/test-config/test-client.key'
     cmds:
