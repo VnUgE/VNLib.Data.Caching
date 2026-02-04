@@ -1,5 +1,5 @@
 ﻿/*
-* Copyright (c) 2025 Vaughn Nugent
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.Redis
@@ -22,7 +22,6 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
-
 using System;
 using System.Buffers;
 using System.Text.Json;
@@ -31,12 +30,12 @@ using System.Threading.Tasks;
 
 using StackExchange.Redis;
 
-using VNLib.Utils.IO;
-using VNLib.Utils.Memory;
-using VNLib.Utils.Logging;
-using VNLib.Utils.Extensions;
 using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
+using VNLib.Utils.Extensions;
+using VNLib.Utils.IO;
+using VNLib.Utils.Logging;
+using VNLib.Utils.Memory;
 
 namespace VNLib.Data.Caching.Providers.Redis
 {
@@ -58,13 +57,10 @@ namespace VNLib.Data.Caching.Providers.Redis
     public sealed class RedisClientCacheEntry : ICacheClient
     {
         private const int InitialWriterBufferSize = 4096;
-    
-        private readonly IUnmanagedHeap _defaultHeap;
-        private readonly Task OnLoadTask;
-      
 
-        private ConnectionMultiplexer? _redis;
-        private IDatabase? _database;
+        private readonly IUnmanagedHeap _defaultHeap;
+        private readonly IAsyncLazy<ConnectionMultiplexer> _redis;
+        private readonly IAsyncLazy<IDatabase> _database;
 
         public RedisClientCacheEntry(PluginBase plugin, IConfigScope config)
         {
@@ -78,9 +74,8 @@ namespace VNLib.Data.Caching.Providers.Redis
                 string connectionString = config.GetRequiredProperty("connection_string", el => el.GetString()!);
 
                 //Store load task so it can be awaited by the host
-                OnLoadTask = Task.Run(async () =>
+                _redis = Task.Run(async () =>
                 {
-
                     if (connectionString.Contains("password=[SECRET]", StringComparison.OrdinalIgnoreCase))
                     {
                         //Load the password from the secret store and replace the placeholder with the found secret
@@ -95,38 +90,51 @@ namespace VNLib.Data.Caching.Providers.Redis
                     redisLog.Information("Connecting to Redis server...");
 
                     //Connect to the server
-                    _redis = await ConnectionMultiplexer.ConnectAsync(connectionString);
+                    ConnectionMultiplexer mx = await ConnectionMultiplexer
+                        .ConnectAsync(connectionString)
+                        .ConfigureAwait(false);
 
-                    _database = _redis.GetDatabase();
+                    redisLog.Information("Succesfully connected to redis server");
 
-                    redisLog.Information("Successfully connected to Redis server");
-                });
+                    // Register dispose when successfully loaded
+                    _ = plugin.RegisterForUnload(mx.Dispose);
+
+                    return mx;
+                }).AsLazy();
             }
             else
             {
                 ConfigurationOptions options = GetOptionsFromConfig(config);
 
                 //Store load task so it can be awaited by the host
-                OnLoadTask = Task.Run(async () =>
+                _redis = Task.Run(async () =>
                 {
                     // Set password if defined, user might not have defined a password
                     if (plugin.Secrets().IsSet("redis_password"))
                     {
-                    //Retrieve the password last
-                    using ISecretResult password = await plugin.Secrets().GetAsync("redis_password");
-                    options.Password = password.Result.ToString();
+                        //Retrieve the password last
+                        using ISecretResult password = await plugin.Secrets().GetAsync("redis_password");
+                        options.Password = password.Result.ToString();
                     }
 
                     redisLog.Information("Connecting to Redis server...");
 
-                    //Connect to the server
-                    _redis = await ConnectionMultiplexer.ConnectAsync(options);
+                    //Connect to the server                    
+                    ConnectionMultiplexer mx = await ConnectionMultiplexer
+                        .ConnectAsync(options)
+                        .ConfigureAwait(false);
 
-                    _database = _redis.GetDatabase();
+                    redisLog.Information("Succesfully connected to redis server");
 
-                    redisLog.Information("Successfully connected to Redis server");
-                });
+                    // Register dispose when successfully loaded
+                    _ = plugin.RegisterForUnload(mx.Dispose);
+
+                    return mx;
+                }).AsLazy();
             }
+
+            // Get the database from the redis instance
+            _database = _redis.Transform(static mx => mx.GetDatabase());            
 
             string? serializerDllPath = config.GetPropString("serializer_assembly_name");
 
@@ -151,7 +159,7 @@ namespace VNLib.Data.Caching.Providers.Redis
                 //If no default serializer is set, use the default JSON serializer
                 DefaultDeserializer = new JsonCacheObjectSerializer(256);
                 DefaultSerializer = new JsonCacheObjectSerializer(256);
-            }
+            }        
         }
 
         private static ConfigurationOptions GetOptionsFromConfig(IConfigScope config)
@@ -228,10 +236,10 @@ namespace VNLib.Data.Caching.Providers.Redis
         }
 
         ///<inheritdoc/>
-        public bool IsConnected => _redis?.IsConnected == true;
+        public bool IsConnected => _database.Completed && _redis.Value.IsConnected;
 
-        //Called by the host to wait for the cache to be loaded
-        public Task InitAsync() => OnLoadTask;
+        //Dynamically evaluated and called by the host to wait for the cache to be loaded
+        public Task InitAsync() => _database.AsTask();
 
         ///<inheritdoc/>
         public ICacheObjectDeserializer DefaultDeserializer { get; }
@@ -252,18 +260,20 @@ namespace VNLib.Data.Caching.Providers.Redis
             serialzer.Serialize(value, buffer);
 
             //Update object data
-            await _database.StringSetAsync(key, (RedisValue)buffer.AsMemory());
+            await _database.Value.StringSetAsync(key, (RedisValue)buffer.AsMemory());
 
             if (!string.IsNullOrWhiteSpace(newKey))
             {
-               //also update the key
-                await _database.KeyRenameAsync(key, newKey);
+                //also update the key
+                await _database.Value.KeyRenameAsync(key, newKey);
             }
         }
 
         ///<inheritdoc/>
         public async Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataGet<T> callback, T state, CancellationToken cancellation)
         {
+            ArgumentNullException.ThrowIfNull(callback);
+
             /*
              * Because the redis database only allows ReadonlyMemory when 
              * updating keys, we must copy the object data into a temporary
@@ -276,12 +286,12 @@ namespace VNLib.Data.Caching.Providers.Redis
             using IMemoryOwner<byte> buffer = AllocAndCopy(callback, state, _defaultHeap, ref length);
 
             //Set the value at the old key
-            await _database.StringSetAsync(key, buffer.Memory[..length]);
+            await _database.Value.StringSetAsync(key, buffer.Memory[..length]);
 
             //If required also update the key
             if (!string.IsNullOrWhiteSpace(newKey))
             {
-                await _database.KeyRenameAsync(key, newKey);
+                await _database.Value.KeyRenameAsync(key, newKey);
             }
             
             static IMemoryOwner<byte> AllocAndCopy(ObjectDataGet<T> callback, T state, IUnmanagedHeap heap, ref int length)
@@ -300,7 +310,7 @@ namespace VNLib.Data.Caching.Providers.Redis
         ///<inheritdoc/>
         public async Task<bool> DeleteAsync(string key, CancellationToken cancellation)
         {
-            RedisValue value = await _database.StringGetDeleteAsync(key);
+            RedisValue value = await _database.Value.StringGetDeleteAsync(key);
             return value.IsNull == false;   //Should only be null if the key did not exist
         }
 
@@ -311,15 +321,12 @@ namespace VNLib.Data.Caching.Providers.Redis
             ArgumentNullException.ThrowIfNull(deserializer);
 
             //Try to get the value from the cache
-            RedisValue value = await _database.StringGetAsync(key);
+            RedisValue value = await _database.Value.StringGetAsync(key);
 
             //If the value is found, set the raw data
-            if (value.IsNull)
-            {
-                return default;
-            }
-
-            return deserializer.Deserialize<T>(((ReadOnlyMemory<byte>)value).Span);
+            return value.IsNull 
+                ? default 
+                : deserializer.Deserialize<T>(((ReadOnlyMemory<byte>)value).Span);
         }
 
         ///<inheritdoc/>
@@ -329,7 +336,7 @@ namespace VNLib.Data.Caching.Providers.Redis
             ArgumentNullException.ThrowIfNull(callback);
 
             //Try to get the value from the cache
-            RedisValue value = await _database.StringGetAsync(key);
+            RedisValue value = await _database.Value.StringGetAsync(key);
 
             //If the value is found, set the raw data
             if (!value.IsNull)
@@ -340,9 +347,6 @@ namespace VNLib.Data.Caching.Providers.Redis
         }
 
         ///<inheritdoc/>
-        public object GetUnderlyingStore()
-        {
-            return _database is null ? throw new InvalidOperationException("The cache store is not available") : _database;
-        }     
+        public object GetUnderlyingStore() => _database.Value;
     }
 }
