@@ -2,10 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
     <RootNamespace>VNLib.Plugins.Extensions.VNCache</RootNamespace>
     <AssemblyName>VNLib.Plugins.Extensions.VNCache</AssemblyName>
-    <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
 
   <PropertyGroup>
