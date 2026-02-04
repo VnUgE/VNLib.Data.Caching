@@ -4,7 +4,7 @@ properties:
   value: master/v0.1.5
   archived: false
 - name: deps_extensions_version
-  value: develop/8edcc4b7a590d7c6c52436a4c2344a5a542aed8d
+  value: master/v0.1.5
   archived: false
 
 jobs:
