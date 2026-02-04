@@ -76,6 +76,7 @@ tasks:
       TEST_SERVER_URL: '{{ .TEST_SERVER_URL | default "http://localhost:{{ .TEST_SERVER_PORT }}" }}'
       SERVER_KEY_PATH: '{{ .USER_WORKING_DIR }}/test-config/test-server.key'
       CLIENT_KEY_PATH: '{{ .USER_WORKING_DIR }}/test-config/test-client.key'
+      REDIS_SERVER_URL: '{{ .TEST_REDIS_URL | default "localhost:6379" }}'
     cmds:
      - cmd: dotnet build 
         --nologo
@@ -93,6 +94,7 @@ tasks:
         --environment TEST_VNCACHE_SERVER_URL="{{ .TEST_SERVER_URL }}"
         --environment TEST_VNCACHE_SERVER_KEY_PATH="{{ osClean .SERVER_KEY_PATH }}"
         --environment TEST_VNCACHE_CLIENT_KEY_PATH="{{ osClean .CLIENT_KEY_PATH }}"
+        --environment TEST_REDIS_SERVER_URL="{{ .REDIS_SERVER_URL }}"
         {{ .CLI_ARGS }}
   
   setup-server:
