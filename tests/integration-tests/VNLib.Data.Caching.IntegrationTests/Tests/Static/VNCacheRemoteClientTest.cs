@@ -51,7 +51,7 @@ namespace VNLib.Data.Caching.IntegrationTests.Tests.Static
             is_debug                = true,
             use_tls                 = false,          
 
-            // max_object_size             = 8192,
+            max_object_size             = 8192,
             // max_age_sec                 = 600,
             // zero_all                    = false,                   
             
