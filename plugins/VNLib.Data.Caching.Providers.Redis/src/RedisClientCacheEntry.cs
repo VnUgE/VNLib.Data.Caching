@@ -109,9 +109,13 @@ namespace VNLib.Data.Caching.Providers.Redis
                 //Store load task so it can be awaited by the host
                 OnLoadTask = Task.Run(async () =>
                 {
+                    // Set password if defined, user might not have defined a password
+                    if (plugin.Secrets().IsSet("redis_password"))
+                    {
                     //Retrieve the password last
                     using ISecretResult password = await plugin.Secrets().GetAsync("redis_password");
                     options.Password = password.Result.ToString();
+                    }
 
                     redisLog.Information("Connecting to Redis server...");
 
