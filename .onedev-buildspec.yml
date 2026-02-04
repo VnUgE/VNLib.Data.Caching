@@ -91,7 +91,7 @@ jobs:
         task setup-server
         task test 
     envVars:
-     - name: TEST_REDIS_SERVER_URL
+     - name: TEST_REDIS_URL
        value: '@secret:redis-test-server-url@'
     useTTY: true
     condition: SUCCESSFUL
