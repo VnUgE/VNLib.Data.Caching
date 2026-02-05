@@ -34,10 +34,10 @@ tasks:
   compile-config:
     desc: Creates/overwrites the server's configuration with test specific settings
     env:
-      CACHE_PRIV_KEY: 'file://../test-config/test-server.key'
-      CLIENT_PUB_KEY: 'file://../test-config/test-client.key'
-      HTTP_BIND_PORT: '{{ .TEST_SERVER_PORT }}'
+      CACHE_PRIV_KEY: 'file://{{ .USER_WORKING_DIR }}/test-config/test-server.key'
+      CLIENT_PUB_KEY: 'file://{{ .USER_WORKING_DIR }}/test-config/test-client.key'      
       COMPRESSOR_ASM_PATH: 'lib/VNLib.Net.Compression/VNLib.Net.Compression.dll'
+      HTTP_BIND_PORT: '{{ .TEST_SERVER_PORT }}'
       HTTP_TRACE_ON: 'true'
       DEBUG_PLUGINS: 'true'
     cmds:
