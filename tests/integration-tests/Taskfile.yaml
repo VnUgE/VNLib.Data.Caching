@@ -48,10 +48,6 @@ tasks:
         -OutputDir '{{ .SERVER_BUILD_DIR }}/config'
        platforms: [ windows ]
 
-     - cmd: cd ../../server 
-        && bash './compile.sh' 'config-templates/' '{{ .SERVER_BUILD_DIR }}/config' 
-       platforms: [ linux, darwin ]
-
   start-test-server:
     desc: Starts the test server as a daemon process using PM2  
     preconditions:
