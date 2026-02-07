@@ -47,7 +47,7 @@ namespace VNLib.Data.Caching.IntegrationTests
 
         private static readonly object HostConfig = new
         {
-             // Crete a basic host-level plugins object
+             // Create a basic host-level plugins object
             plugins = new {
 
                 enabled         = true,

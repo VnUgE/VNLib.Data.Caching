@@ -104,7 +104,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
 
                 //When in plugin context, we can use plugin local secrets and a log-based error handler
                 clusterConfig
-                    .WithErrorHandler(new DiscoveryErrHAndler(scoped));
+                    .WithErrorHandler(new DiscoveryErrHandler(scoped));
             }
 
             cluster = clusterConfig.ToClusterClient(clientFactory);
@@ -221,7 +221,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
                         catch (Exception ex)
                         {
                             operationLog.Debug(ex, "Failed to wait for discovery");
-                            //Exception types from the other side so we can't really granually handle
+                            //Exception types from the other side so we can't really granularly handle
                             //them, but master instance should so we just need to wait
                         }
 
@@ -311,7 +311,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             }
             catch (Exception ex)
             {
-                operationLog.Error(ex, "Unhandled exception occured in background cache client listening task");
+                operationLog.Error(ex, "Unhandled exception occurred in background cache client listening task");
             }
 
             operationLog.Information("Cache client exited");
@@ -362,7 +362,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         public override object GetUnderlyingStore() => _client ?? throw new InvalidOperationException("The client is not currently connected");
 
 
-        private sealed record class DiscoveryErrHAndler(ILogProvider Logger) : ICacheDiscoveryErrorHandler
+        private sealed record class DiscoveryErrHandler(ILogProvider Logger) : ICacheDiscoveryErrorHandler
         {
             public void OnDiscoveryError(CacheNodeAdvertisment errorNode, Exception ex)
                 => OnDiscoveryError(ex, errorNode, address: null);

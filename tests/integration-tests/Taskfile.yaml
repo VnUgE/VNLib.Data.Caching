@@ -4,7 +4,7 @@ version: '3'
 # VNLib.Data.Caching module. It's assumed to be run in both local and CI/CD
 # environments.
 # 
-# A full build of local projects and dependencies (VNLib.Core) are succesfully 
+# A full build of local projects and dependencies (VNLib.Core) are successfully 
 # completed, as this test runs against the production server package that users
 # will use. 
 #

@@ -89,7 +89,7 @@ jobs:
       commands: |
         cd @project_name@/tests/integration-tests
         task setup-server
-        task test 
+        task test
     envVars:
      - name: TEST_REDIS_URL
        value: '@secret:redis-test-server-url@'

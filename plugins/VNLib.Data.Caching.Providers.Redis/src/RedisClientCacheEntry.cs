@@ -45,7 +45,7 @@ namespace VNLib.Data.Caching.Providers.Redis
      * application.
      * 
      * The IGlobalCacheProvider primarily performs get/set operations on raw memory 
-     * where possible. Custom serializers are allowed to be used for object serialziation.
+     * where possible. Custom serializers are allowed to be used for object serialization.
      * 
      * The interface also requires that implementations provide a fallback serialization 
      * method. For now, this is a JSON serializer. But will likely have more complex 
@@ -164,7 +164,7 @@ namespace VNLib.Data.Caching.Providers.Redis
 
         private static ConfigurationOptions GetOptionsFromConfig(IConfigScope config)
         {
-            //Try go get the hostname
+            // Try to get the hostname
             string? hostname = config.GetRequiredProperty("url", p => p.GetString()!);
             Uri serverUri = new(hostname, UriKind.RelativeOrAbsolute);
 
@@ -248,16 +248,16 @@ namespace VNLib.Data.Caching.Providers.Redis
         public ICacheObjectSerializer DefaultSerializer { get; }
 
         ///<inheritdoc/>
-        public async Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
+        public async Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serializer, CancellationToken cancellation)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(key);
-            ArgumentNullException.ThrowIfNull(serialzer);
+            ArgumentNullException.ThrowIfNull(serializer);
 
             //Alloc update buffer
             using VnMemoryStream buffer = new(_defaultHeap, InitialWriterBufferSize, zero: false);
 
             //Serialize the object
-            serialzer.Serialize(value, buffer);
+            serializer.Serialize(value, buffer);
 
             //Update object data
             await _database.Value.StringSetAsync(key, (RedisValue)buffer.AsMemory()).ConfigureAwait(false);
