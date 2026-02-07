@@ -87,10 +87,12 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        cd @project_name@
-        cd tests/integration-tests
+        cd @project_name@/tests/integration-tests
         task setup-server
         task test
+    envVars:
+     - name: TEST_REDIS_URL
+       value: '@secret:redis-test-server-url@'
     useTTY: true
     condition: SUCCESSFUL
     optional: false
