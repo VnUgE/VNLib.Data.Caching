@@ -94,7 +94,7 @@ namespace VNLib.Data.Caching.Providers.Redis
                         .ConnectAsync(connectionString)
                         .ConfigureAwait(false);
 
-                    redisLog.Information("Succesfully connected to redis server");
+                    redisLog.Information("Successfully connected to Redis server");
 
                     // Register dispose when successfully loaded
                     _ = plugin.RegisterForUnload(mx.Dispose);
@@ -124,7 +124,7 @@ namespace VNLib.Data.Caching.Providers.Redis
                         .ConnectAsync(options)
                         .ConfigureAwait(false);
 
-                    redisLog.Information("Succesfully connected to redis server");
+                    redisLog.Information("Successfully connected to Redis server");
 
                     // Register dispose when successfully loaded
                     _ = plugin.RegisterForUnload(mx.Dispose);
@@ -260,12 +260,12 @@ namespace VNLib.Data.Caching.Providers.Redis
             serialzer.Serialize(value, buffer);
 
             //Update object data
-            await _database.Value.StringSetAsync(key, (RedisValue)buffer.AsMemory());
+            await _database.Value.StringSetAsync(key, (RedisValue)buffer.AsMemory()).ConfigureAwait(false);
 
             if (!string.IsNullOrWhiteSpace(newKey))
             {
                 //also update the key
-                await _database.Value.KeyRenameAsync(key, newKey);
+                await _database.Value.KeyRenameAsync(key, newKey).ConfigureAwait(false);
             }
         }
 
@@ -286,12 +286,12 @@ namespace VNLib.Data.Caching.Providers.Redis
             using IMemoryOwner<byte> buffer = AllocAndCopy(callback, state, _defaultHeap, ref length);
 
             //Set the value at the old key
-            await _database.Value.StringSetAsync(key, buffer.Memory[..length]);
+            await _database.Value.StringSetAsync(key, buffer.Memory[..length]).ConfigureAwait(false);
 
             //If required also update the key
             if (!string.IsNullOrWhiteSpace(newKey))
             {
-                await _database.Value.KeyRenameAsync(key, newKey);
+                await _database.Value.KeyRenameAsync(key, newKey).ConfigureAwait(false);
             }
             
             static IMemoryOwner<byte> AllocAndCopy(ObjectDataGet<T> callback, T state, IUnmanagedHeap heap, ref int length)
@@ -310,7 +310,7 @@ namespace VNLib.Data.Caching.Providers.Redis
         ///<inheritdoc/>
         public async Task<bool> DeleteAsync(string key, CancellationToken cancellation)
         {
-            RedisValue value = await _database.Value.StringGetDeleteAsync(key);
+            RedisValue value = await _database.Value.StringGetDeleteAsync(key).ConfigureAwait(false);
             return value.IsNull == false;   //Should only be null if the key did not exist
         }
 
@@ -321,7 +321,7 @@ namespace VNLib.Data.Caching.Providers.Redis
             ArgumentNullException.ThrowIfNull(deserializer);
 
             //Try to get the value from the cache
-            RedisValue value = await _database.Value.StringGetAsync(key);
+            RedisValue value = await _database.Value.StringGetAsync(key).ConfigureAwait(false);
 
             //If the value is found, set the raw data
             return value.IsNull 
@@ -336,7 +336,7 @@ namespace VNLib.Data.Caching.Providers.Redis
             ArgumentNullException.ThrowIfNull(callback);
 
             //Try to get the value from the cache
-            RedisValue value = await _database.Value.StringGetAsync(key);
+            RedisValue value = await _database.Value.StringGetAsync(key).ConfigureAwait(false);
 
             //If the value is found, set the raw data
             if (!value.IsNull)
