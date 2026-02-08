@@ -37,13 +37,17 @@ namespace VNLib.Data.Caching.IntegrationTests
     internal static class TestConfig
     {
 
-        public static string ServerKeyPath => Environment.GetEnvironmentVariable("TEST_VNCACHE_SERVER_KEY_PATH")!;
+        public static string ServerKeyPath => Environment.GetEnvironmentVariable("TEST_VNCACHE_SERVER_KEY_PATH")
+            ?? throw new InvalidOperationException("TEST_VNCACHE_SERVER_KEY_PATH environment variable is not set");
 
-        public static string ClientKeyPath => Environment.GetEnvironmentVariable("TEST_VNCACHE_CLIENT_KEY_PATH")!;
+        public static string ClientKeyPath => Environment.GetEnvironmentVariable("TEST_VNCACHE_CLIENT_KEY_PATH")
+            ?? throw new InvalidOperationException("TEST_VNCACHE_CLIENT_KEY_PATH environment variable is not set");
 
-        public static string TestVncacheServerUrl => Environment.GetEnvironmentVariable("TEST_VNCACHE_SERVER_URL")!;
+        public static string TestVncacheServerUrl => Environment.GetEnvironmentVariable("TEST_VNCACHE_SERVER_URL")
+            ?? throw new InvalidOperationException("TEST_VNCACHE_SERVER_URL environment variable is not set");
 
-        public static string TestRedisServerUrl => Environment.GetEnvironmentVariable("TEST_REDIS_SERVER_URL")!;
+        public static string TestRedisServerUrl => Environment.GetEnvironmentVariable("TEST_REDIS_SERVER_URL")
+            ?? throw new InvalidOperationException("TEST_REDIS_SERVER_URL environment variable is not set");
 
         private static readonly object HostConfig = new
         {
