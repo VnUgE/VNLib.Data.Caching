@@ -258,7 +258,7 @@ namespace VNLib.Data.Caching
                 key, 
                 newKey, 
                 value, 
-                serialzer: cache.DefaultSerializer, 
+                serializer: cache.DefaultSerializer, 
                 cancellation
             );
         }      

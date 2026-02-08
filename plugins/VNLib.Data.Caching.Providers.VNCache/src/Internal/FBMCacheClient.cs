@@ -335,11 +335,11 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         }
 
         ///<inheritdoc/>
-        public override Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
+        public override Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serializer, CancellationToken cancellation)
         {
             return !IsConnected
                 ? Task.FromException(new InvalidOperationException("The underlying client is not connected to a cache node"))
-                : _client!.AddOrUpdateObjectAsync(key, newKey, value, serialzer, cancellation);
+                : _client!.AddOrUpdateObjectAsync(key, newKey, value, serializer, cancellation);
         }
 
         ///<inheritdoc/>

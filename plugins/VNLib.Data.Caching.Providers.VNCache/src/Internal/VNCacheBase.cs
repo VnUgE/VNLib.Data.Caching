@@ -42,7 +42,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         public virtual ICacheObjectSerializer DefaultSerializer => conf.CacheObjectSerializer!;
      
         ///<inheritdoc/>
-        public abstract Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation);
+        public abstract Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serializer, CancellationToken cancellation);
 
         ///<inheritdoc/>
         public abstract Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataGet<T> callback, T state, CancellationToken cancellation);

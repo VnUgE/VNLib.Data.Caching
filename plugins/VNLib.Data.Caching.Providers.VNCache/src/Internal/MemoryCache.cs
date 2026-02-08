@@ -169,13 +169,13 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         public override bool IsConnected => _isConnected;
 
         ///<inheritdoc/>
-        public override async Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
+        public override async Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serializer, CancellationToken cancellation)
         {
             //Alloc serialzation buffer
             using VnMemoryStream buffer = new (_bufferHeap);
 
             //Serialze the value
-            serialzer.Serialize(value, buffer);
+            serializer.Serialize(value, buffer);
 
             //Update object data
             await _memCache.AddOrUpdateObjectAsync(

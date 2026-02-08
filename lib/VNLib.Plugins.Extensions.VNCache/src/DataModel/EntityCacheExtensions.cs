@@ -195,7 +195,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
             }
 
             ///<inheritdoc/>
-            public override Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
+            public override Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serializer, CancellationToken cancellation)
             {
                 ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
@@ -205,7 +205,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
                 //If newkey exists, compute the secondary key
                 string? secondary = newKey != null ? KeyGen.ComputedKey(newKey) : null;
 
-                return Cache.AddOrUpdateAsync(primary, secondary, value, serialzer, cancellation);
+                return Cache.AddOrUpdateAsync(primary, secondary, value, serializer, cancellation);
             }
          
             ///<inheritdoc/>
