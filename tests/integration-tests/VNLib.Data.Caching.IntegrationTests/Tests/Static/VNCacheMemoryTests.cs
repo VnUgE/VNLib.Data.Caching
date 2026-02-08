@@ -25,7 +25,6 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 using System;
-using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -78,7 +77,7 @@ namespace VNLib.Data.Caching.IntegrationTests.Tests.Static
             Console.WriteLine($"Client config:\n{asString}");
 
             _clientHandle = VNCacheClient.CreateMemoryCache(clientConfig);
-            _runTask = _clientHandle.RunAsync( new VNCacheRemoteClientTest.SerilogLogger());
+            _runTask = _clientHandle.RunAsync(new SerilogLogger());
 
             _loadTask = Task.Delay(100);
         }
@@ -98,7 +97,7 @@ namespace VNLib.Data.Caching.IntegrationTests.Tests.Static
         [TestMethod]
         public async Task TestKeyTooSmallAsync()
         {
-            //A key less than about 4 charters is not allowed
+            //A key less than about 4 characters is not allowed
             const string key = "a";
 
             await EnsureLoadedAsync();         

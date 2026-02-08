@@ -1,4 +1,4 @@
-﻿/*
+/*
 * Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
@@ -49,7 +49,7 @@ namespace VNLib.Data.Caching.Tests
                .Load()
                .GetServices(services =>
                {
-                   //Onlly an endpoint provider should be exported
+                   //Only an endpoint provider should be exported
                    Assert.AreEqual(1, services.Count);
                    Assert.IsTrue(services.HasService<IVirtualEndpointDefinition>());
 
@@ -61,3 +61,4 @@ namespace VNLib.Data.Caching.Tests
         }
     }
 }
+

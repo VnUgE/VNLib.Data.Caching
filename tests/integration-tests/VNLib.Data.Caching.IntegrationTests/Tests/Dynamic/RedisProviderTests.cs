@@ -93,7 +93,11 @@ namespace VNLib.Data.Caching.IntegrationTests.Tests.Dynamic
              });
 
             // Get the init function to wait for the client to load
-            Func<Task> initAsync = ManagedLibrary.TryGetMethod<Func<Task>>(cache, "InitAsync")!;
+            // redis should always export the InitAsync function
+            Func<Task>? initAsync = ManagedLibrary.TryGetMethod<Func<Task>>(cache, "InitAsync");
+
+            Assert.IsNotNull(initAsync, "InitAsync method should be exported by the plugin");
+
             _onLoadTask = initAsync.Invoke();
 
             return cache;

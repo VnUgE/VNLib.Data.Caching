@@ -47,7 +47,7 @@ namespace VNLib.Data.Caching.IntegrationTests.Tests.Dynamic
         * server runtime loading this data in a json file with the 
         * same structure 
         */
-        static readonly object PluginConfig = new
+        private static readonly object PluginConfig = new
         {
             debug = true,
             cache = new
@@ -134,7 +134,7 @@ namespace VNLib.Data.Caching.IntegrationTests.Tests.Dynamic
                     await Task.Delay(2000);
                 }
 
-                Assert.IsTrue(Client.IsConnected, "Client did not connect after 20 seconds");
+                Assert.IsTrue(Client.IsConnected, "Client did not connect after 25 seconds");
             }
         }
 

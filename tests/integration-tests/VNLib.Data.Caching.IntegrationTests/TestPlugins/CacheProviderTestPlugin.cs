@@ -37,8 +37,6 @@ namespace VNLib.Data.Caching.IntegrationTests.TestPlugins
     /// </summary>
     public sealed class CacheProviderTestPlugin : PluginBase
     {
-        private ICacheClient? _cacheClient;
-
         public override string PluginName => "CacheProviderTestPlugin";
 
         protected override void OnLoad()
@@ -46,10 +44,10 @@ namespace VNLib.Data.Caching.IntegrationTests.TestPlugins
             // Load the cache client using the VNCacheExtensions method
             // This will read the "cache" configuration block and dynamically load
             // the provider assembly specified by "assembly_name"
-            _cacheClient = this.GetDefaultGlobalCache() 
+            ICacheClient? cacheClient = this.GetDefaultGlobalCache() 
                 ?? throw new Exception("Global cache failed to find and load a provider library");
 
-            this.ExportService(_cacheClient, ExportFlags.None);
+            this.ExportService(cacheClient, ExportFlags.None);
 
             Log.Information("Cache provider loaded successfully");
         }

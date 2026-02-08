@@ -24,17 +24,12 @@
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-using Serilog;
-using Serilog.Core;
-using Serilog.Events;
-
 using System;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-using VNLib.Utils.Logging;
 using VNLib.Data.Caching.Exceptions;
 using VNLib.Data.Caching.Providers.VNCache;
 
@@ -44,7 +39,7 @@ namespace VNLib.Data.Caching.IntegrationTests.Tests.Static
     /// Integration tests for VNCache remote client (direct API)
     /// </summary>
     [TestClass]
-    public class VNCacheRemoteClientTest : CacheClientTestBase, IDisposable
+    public sealed class VNCacheRemoteClientTest : CacheClientTestBase, IDisposable
     {
         private static readonly object PluginConfig = new
         {
@@ -111,7 +106,7 @@ namespace VNLib.Data.Caching.IntegrationTests.Tests.Static
                     await Task.Delay(2000);
                 }
 
-                Assert.IsTrue(_clientHandle.Cache.IsConnected, "Client did not connect after 20 seconds");
+                Assert.IsTrue(_clientHandle.Cache.IsConnected, "Client did not connect after 25 seconds");
             }
         }
        
@@ -147,40 +142,6 @@ namespace VNLib.Data.Caching.IntegrationTests.Tests.Static
             _runTask.Wait(TimeSpan.FromSeconds(1));
 
             GC.SuppressFinalize(this);
-        }
-
-        internal sealed class SerilogLogger : ILogProvider
-        {
-            private readonly Logger _log;
-
-            public SerilogLogger()
-            {
-                LoggerConfiguration lc = new();
-                
-                lc.WriteTo.Console();
-                lc.MinimumLevel.Verbose();
-
-                _log = lc.CreateLogger();
-            }
-
-            public void Flush()
-            { }
-
-            public object GetLogProvider() => _log;
-
-            public bool IsEnabled(LogLevel level) => true;
-
-            public void Write(LogLevel level, string value)
-                => _log.Write((LogEventLevel)level, value);
-
-            public void Write(LogLevel level, Exception exception, string value = "")
-                => _log.Write((LogEventLevel)level, exception, value);
-
-            public void Write(LogLevel level, string value, params object?[] args)
-                => _log.Write((LogEventLevel)level, value, args);
-
-            public void Write(LogLevel level, string value, params ValueType[] args)
-                => _log.Write((LogEventLevel)level, value, args);
         }
     }
 }
