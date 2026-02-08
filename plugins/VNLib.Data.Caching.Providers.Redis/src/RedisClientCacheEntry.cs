@@ -272,6 +272,7 @@ namespace VNLib.Data.Caching.Providers.Redis
         ///<inheritdoc/>
         public async Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataGet<T> callback, T state, CancellationToken cancellation)
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
             ArgumentNullException.ThrowIfNull(callback);
 
             /*
@@ -310,6 +311,8 @@ namespace VNLib.Data.Caching.Providers.Redis
         ///<inheritdoc/>
         public async Task<bool> DeleteAsync(string key, CancellationToken cancellation)
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
+
             RedisValue value = await _database.Value.StringGetDeleteAsync(key).ConfigureAwait(false);
             return value.IsNull == false;   //Should only be null if the key did not exist
         }
