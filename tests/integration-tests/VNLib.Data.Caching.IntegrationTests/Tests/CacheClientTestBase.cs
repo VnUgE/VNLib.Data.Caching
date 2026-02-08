@@ -148,6 +148,19 @@ namespace VNLib.Data.Caching.IntegrationTests.Tests
                 retrievedValue = await Client.GetAsync<string>(key, CancellationToken.None);
                 Assert.IsNull(retrievedValue, "Value should be null after deletion");
             }
+
+            // Verify deleting the already-moved key returns false
+            {               
+                string secondKey = $"{KeyPrefix}-test-key-delete-new";
+
+                bool deleted = await Client.DeleteAsync(key, CancellationToken.None);
+                Assert.IsFalse(deleted, "Delete should return false for non-existent key");
+
+                // Verify double-delete also returns false
+                await Client.DeleteAsync(secondKey, CancellationToken.None);
+                deleted = await Client.DeleteAsync(secondKey, CancellationToken.None);
+                Assert.IsFalse(deleted, "Double-delete should return false");
+            }
         }
 
         [TestMethod]
@@ -204,6 +217,7 @@ namespace VNLib.Data.Caching.IntegrationTests.Tests
                 bool deleted = await Client.DeleteAsync(newKey, CancellationToken.None);
                 Assert.IsTrue(deleted, "Delete should succeed");
             }
+           
         }
 
         [TestMethod]
