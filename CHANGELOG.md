@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2026-02-08
+
+### Added
+
+- Allow optional redis password when loading with manual config (not connection string) - (redis) [7838057](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=78380576df690385da68fd3c25b81be578583f50)
+
+### Changed
+
+- Update mstest to v4.0.2 and upgrade test files - (deps) [adde456](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=adde456342cdba02c1f5e1eda2d3a5abb9381e11)
+- Update vnlib.core to v0.1.5 - (deps) [7748b57](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=7748b57a67da1a351d28b3a5236c724a59d94e8e)
+- Update .NET runtime to 8.0.23 in Dockerfile - (deps) [ed3a565](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=ed3a565b8e0c438f3d843a0e4f9c2d4492d0a5ee)
+- Update Task CLI to v3.48.0 in Dockerfile - (deps) [2759e45](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=2759e45bfa32634a0c59aacb4409800110fa6fb6)
+- Update vnlib.plugins.extensions to v0.1.5 - (deps) [e3a4f6d](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=e3a4f6d0b8f13cc0e1533be142944710cfc1339a)
+- Print full exception stack trace to debug log during discovery errors - (vncache) [27ff214](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=27ff214c4028c03acfa5772dea49436bbd6431f7)
+- Large code cleanup and lazy immutability updates for Redis Cache client package - (redis) [b1c50a4](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=b1c50a4dad23a43f492b27f2bd9c577ecde259ee)
+- Fix basic spelling and format errors - [93ac688](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=93ac6886ee69fe73a33e4b721451f6791e1381fa)
+- Fix typo in paramter `serializer` on the `ICacheClient` interface. - [36416b1](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=36416b15ea4cf24636678ec2a050f0e6a689537b)
+
+### Fixed
+
+- Remove invlaid chown during container image build - (container) [2af21ac](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=2af21ac629c51047239d886acb89fbe2b8079f24)
+- Reorder source files, updated/combine test classes and workloads, and update config - (integration) [b013c0e](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=b013c0ef2e770152f490edf58f432deb61319109)
+- Add integration testing for redis asset package - (redis) [baea0eb](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=baea0eb7cb45ecb6e1d227888b765ca9a90979bb)
+- Add additional dynamic asset loading and unit testing for vncache - (vncache) [3f1f58e](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=3f1f58e4aabe3bfb73a49b80fc5f58a473195d34)
+- Complete Redis public api argument validation - [be395e2](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=be395e2e52f3de97b970fc3f5dcca85a19d48779)
+
 ## [0.1.4] - 2025-11-24
 
 ### Changed
@@ -150,6 +176,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - #1 shared cluster index on linux & latested core updates - [456ead9](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=456ead9bc8b0f61357bae93152ad0403c4940101)
 - Update restsharp configuration - [b21ee53](https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/commit/?id=b21ee53a99b30a21cecd1687ca337d713c919877)
 
+[0.1.5]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.5&id2=v0.1.4
 [0.1.4]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.4&id2=v0.1.3
 [0.1.3]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.3&id2=v0.1.2
 [0.1.2]: https://git.vaughnnugent.com/cgit/vnuge/vnlib-data-caching.git/diff?id=v0.1.2&id2=v0.1.2-rc.8
