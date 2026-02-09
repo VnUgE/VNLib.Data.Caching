@@ -75,7 +75,9 @@ tasks:
     dir: 'lib/'
     cmds:
     #build rpmalloc library for linux/mac
-    - cmd: cd vnlib_rpmalloc/ && task && cp build/{{ OS }}/libvn_rpmalloc{{if eq OS "darwin"}}.dylib{{else}}.so{{end}} ../vnlib_rpmalloc.so      
+    - cmd: cd vnlib_rpmalloc/ && 
+        task && 
+        cp build/{{ OS }}/libvn_rpmalloc{{ if eq OS "darwin" }}.dylib{{ else }}.so{{ end }} ../vnlib_rpmalloc.so
       platforms: [ linux, darwin ]
       
     #for windows just copy the existing dll
@@ -90,7 +92,7 @@ tasks:
     - cmd: 
         cd vnlib_compress/ && 
         task -- "-DCOMPRESS_RPMALLOC_SOURCE_DIR={{ .USER_WORKING_DIR }}/lib/vnlib_rpmalloc" && 
-        cp build/{{ OS }}/libvn_compress{{if eq OS "darwin"}}.dylib{{else}}.so{{end}} ../vnlib_compress.so
+        cp build/{{ OS }}/libvn_compress{{ if eq OS "darwin" }}.dylib{{ else }}.so{{ end }} ../vnlib_compress.so
       platforms: [ linux, darwin ]
 
     #windows now supports pre-compiled libs
@@ -124,7 +126,6 @@ tasks:
 
     cmds:
     - cmd: mkdir root/ usr/
-    - cmd: chown -R 1000:1000 /app
     #set all files to read only
     - for: { var: READONLY_FILES }
       cmd: chmod -R 500 {{ .ITEM }}

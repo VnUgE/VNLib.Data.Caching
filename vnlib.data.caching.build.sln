@@ -47,7 +47,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "integration-tests", "integr
 		tests\integration-tests\Taskfile.yaml = tests\integration-tests\Taskfile.yaml
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VNLib.Data.Caching.IntegrationTests", "tests\integration-tests\VNLib.Data.Caching.IntegrationTests\src\VNLib.Data.Caching.IntegrationTests.csproj", "{F6DFCE52-0A72-73AF-126A-D4A2CB5C567F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VNLib.Data.Caching.IntegrationTests", "tests\integration-tests\VNLib.Data.Caching.IntegrationTests\VNLib.Data.Caching.IntegrationTests.csproj", "{F6DFCE52-0A72-73AF-126A-D4A2CB5C567F}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ci", "ci", "{032A34D2-3A8E-4D25-8F6A-88AB4B00F7EF}"
 	ProjectSection(SolutionItems) = preProject

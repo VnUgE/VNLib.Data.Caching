@@ -1,9 +1,9 @@
 ﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Extensions
-* File: VNCacheClusterManager.cs 
+* File: VNCacheClusterManager.cs
 *
 * VNCacheClusterManager.cs is part of VNLib.Data.Caching.Extensions 
 * which is part of the larger VNLib collection of libraries and utilities.
@@ -124,7 +124,7 @@ namespace VNLib.Data.Caching.Extensions
         /// <exception cref="ArgumentException"></exception>
         /// <exception cref="CacheDiscoveryFailureException"></exception>
         /// <remarks>
-        /// This method simply combines the <see cref="ResolveWellKnownAsync"/> and <see cref="DiscoverNodesAsync"/>
+        /// This method simply combines the <see cref="ResolveWellKnownAsync"/> and <see cref="DiscoverNodesAsync(CancellationToken)"/>
         /// methods into a single operation
         /// </remarks>
         public async Task DiscoverNodesAsync(CancellationToken cancellation)

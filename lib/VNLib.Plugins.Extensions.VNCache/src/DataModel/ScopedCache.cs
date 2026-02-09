@@ -59,7 +59,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         public abstract Task<T?> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation);
 
         ///<inheritdoc/>
-        public abstract Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation);
+        public abstract Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serializer, CancellationToken cancellation);
 
         ///<inheritdoc/>
         public abstract Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation);

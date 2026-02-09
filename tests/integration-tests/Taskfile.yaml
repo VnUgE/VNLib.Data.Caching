@@ -4,7 +4,7 @@ version: '3'
 # VNLib.Data.Caching module. It's assumed to be run in both local and CI/CD
 # environments.
 # 
-# A full build of local projects and dependencies (VNLib.Core) are succesfully 
+# A full build of local projects and dependencies (VNLib.Core) are successfully 
 # completed, as this test runs against the production server package that users
 # will use. 
 #
@@ -18,6 +18,7 @@ vars:
   SERVER_BUILD_DIR: '{{ .TEST_WORKING_DIR }}/server'
 
   TEST_SERVER_PORT: '9856'
+  TEST_SERVER_URL: '{{ .TEST_SERVER_URL | default "http://localhost:9856" }}'
 
 tasks:
 
@@ -47,10 +48,6 @@ tasks:
         -OutputDir '{{ .SERVER_BUILD_DIR }}/config'
        platforms: [ windows ]
 
-     - cmd: cd ../../server 
-        && bash './compile.sh' 'config-templates/' '{{ .SERVER_BUILD_DIR }}/config' 
-       platforms: [ linux, darwin ]
-
   start-test-server:
     desc: Starts the test server as a daemon process using PM2  
     preconditions:
@@ -71,11 +68,13 @@ tasks:
   
   run-tests:
     desc: "Runs the integration tests"
-    dir: 'VNLib.Data.Caching.IntegrationTests/src'
-    vars:
-      TEST_SERVER_URL: 'http://localhost:{{ .TEST_SERVER_PORT }}'
+    dir: 'VNLib.Data.Caching.IntegrationTests'
+    requires: 
+      vars: [ TEST_SERVER_URL ]
+    vars:      
       SERVER_KEY_PATH: '{{ .USER_WORKING_DIR }}/test-config/test-server.key'
       CLIENT_KEY_PATH: '{{ .USER_WORKING_DIR }}/test-config/test-client.key'
+      TEST_REDIS_URL: '{{ .TEST_REDIS_URL | default "localhost:6379" }}'
     cmds:
      - cmd: dotnet build 
         --nologo
@@ -93,6 +92,7 @@ tasks:
         --environment TEST_VNCACHE_SERVER_URL="{{ .TEST_SERVER_URL }}"
         --environment TEST_VNCACHE_SERVER_KEY_PATH="{{ osClean .SERVER_KEY_PATH }}"
         --environment TEST_VNCACHE_CLIENT_KEY_PATH="{{ osClean .CLIENT_KEY_PATH }}"
+        --environment TEST_REDIS_SERVER_URL="{{ .TEST_REDIS_URL }}"
         {{ .CLI_ARGS }}
   
   setup-server:

@@ -1,0 +1,65 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ErrorProne.NET.CoreAnalyzers" Version="0.8.2-beta.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="ErrorProne.NET.Structs" Version="0.6.1-beta.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageReference Include="MSTest.TestAdapter" Version="4.1.0" />
+    <PackageReference Include="MSTest.TestFramework" Version="4.1.0" />
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Core dependencies for testing infrastructure -->
+    <ProjectReference Include="..\..\..\..\core\lib\Plugins.Essentials.ServiceStack\src\VNLib.Plugins.Essentials.ServiceStack.csproj" />
+    <ProjectReference Include="..\..\..\lib\VNLib.Plugins.Extensions.VNCache\src\VNLib.Plugins.Extensions.VNCache.csproj" />
+    <ProjectReference Include="..\..\..\lib\VNLib.Data.Caching\src\VNLib.Data.Caching.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Cache Provider references - to access types directly in the project for testing -->
+    <ProjectReference Include="..\..\..\plugins\VNLib.Data.Caching.Providers.VNCache\src\VNLib.Data.Caching.Providers.VNCache.csproj">
+      <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\plugins\VNLib.Data.Caching.Providers.Redis\src\VNLib.Data.Caching.Providers.Redis.csproj">
+      <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+  </ItemGroup>
+
+  <!-- Custom target to copy cache provider binaries to separate directories in the assets folder -->
+  <Target Name="CopyCacheProviders" AfterTargets="Build">
+    <PropertyGroup>
+      <AssetsDir>$(OutDir)assets\</AssetsDir>
+    </PropertyGroup>
+    
+    <!-- Create assets directory structure -->
+    <MakeDir Directories="$(AssetsDir)VNLib.Data.Caching.Providers.VNCache" />
+    <MakeDir Directories="$(AssetsDir)VNLib.Data.Caching.Providers.Redis" />
+    
+    <!-- Copy VNCache provider -->
+    <ItemGroup>
+      <VNCacheFiles Include="..\..\..\plugins\VNLib.Data.Caching.Providers.VNCache\src\bin\$(Configuration)\net8.0\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(VNCacheFiles)" DestinationFolder="$(AssetsDir)VNLib.Data.Caching.Providers.VNCache\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    
+    <!-- Copy Redis provider -->
+    <ItemGroup>
+      <RedisFiles Include="..\..\..\plugins\VNLib.Data.Caching.Providers.Redis\src\bin\$(Configuration)\net8.0\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(RedisFiles)" DestinationFolder="$(AssetsDir)VNLib.Data.Caching.Providers.Redis\%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

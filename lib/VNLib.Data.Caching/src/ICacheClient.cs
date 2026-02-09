@@ -144,9 +144,9 @@ namespace VNLib.Data.Caching
         /// <param name="newKey">An optional key that will be changed for the new object</param>
         /// <param name="cancellation">A token to cancel the async operation</param>
         /// <param name="value">The value to set at the given key</param>
-        /// <param name="serialzer">The <see cref="ICacheObjectSerializer"/> used to serialze the entity</param>
+        /// <param name="serializer">The <see cref="ICacheObjectSerializer"/> used to serialize the entity</param>
         /// <returns>A task that completes when the update operation has compelted</returns>
-        Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation);
+        Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serializer, CancellationToken cancellation);
 
         /// <summary>
         /// Asynchronously gets a value from the backing cache store and writes it to the 

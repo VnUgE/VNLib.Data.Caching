@@ -1,10 +1,10 @@
 version: 43
 properties:
 - name: deps_core_version
-  value: master/v0.1.4
+  value: master/v0.1.5
   archived: false
 - name: deps_extensions_version
-  value: master/v0.1.4
+  value: master/v0.1.5
   archived: false
 
 jobs:
@@ -15,8 +15,8 @@ jobs:
     remoteUrl: https://github.com/VnUgE/VNLib.Data.Caching.git
     userName: VnUgE
     passwordSecret: github-access-token
-    force: false
-    condition: SUCCESSFUL
+    force: true
+    condition: ALWAYS
     optional: false
   - type: PushRepository
     name: Codeberg push sync
@@ -24,7 +24,7 @@ jobs:
     userName: VnUgE
     passwordSecret: codeberg-access-token
     force: true
-    condition: SUCCESSFUL
+    condition: ALWAYS
     optional: false
   triggers:
   - type: TagCreateTrigger
@@ -49,7 +49,7 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        vnbuild test --include @project_name@
+        vnbuild test --include @project_name@ --verbose
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -87,10 +87,12 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        cd @project_name@
-        cd tests/integration-tests
+        cd @project_name@/tests/integration-tests
         task setup-server
         task test
+    envVars:
+     - name: TEST_REDIS_URL
+       value: '@secret:redis-test-server-url@'
     useTTY: true
     condition: SUCCESSFUL
     optional: false

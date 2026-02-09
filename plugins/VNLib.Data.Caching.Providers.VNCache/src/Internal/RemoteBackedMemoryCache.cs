@@ -241,17 +241,17 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         }
 
         ///<inheritdoc/>
-        public override async Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serialzer, CancellationToken cancellation)
+        public override async Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serializer, CancellationToken cancellation)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(key);
-            ArgumentNullException.ThrowIfNull(serialzer);
+            ArgumentNullException.ThrowIfNull(serializer);
             CheckConnected();
 
             //Alloc serialization buffer
             using VnMemoryStream buffer = new(_bufferHeap);
 
             //Serialize the value
-            serialzer.Serialize(value, buffer);
+            serializer.Serialize(value, buffer);
 
             await AddOrUpdateAsync(key, newKey, static p => p.AsSpan(), buffer, cancellation);
         }
