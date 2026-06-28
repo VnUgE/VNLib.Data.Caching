@@ -49,7 +49,8 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        vnbuild test --include @project_name@ --verbose
+        cd @project_name@
+        mise run-vnbuild test --include @project_name@ --verbose
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -76,8 +77,9 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        vnbuild build --no-delay --include vnlib.core
-        vnbuild build --no-delay --include @project_name@ --verbose
+        cd @project_name@
+        mise run-vnbuild build --no-delay --include vnlib.core
+        mise run-vnbuild build --no-delay --include @project_name@ --verbose
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -87,9 +89,8 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        cd @project_name@/tests/integration-tests
-        task setup-server
-        task test
+        cd @project_name@
+        mise run-integration-tests
     envVars:
      - name: TEST_REDIS_URL
        value: '@secret:redis-test-server-url@'
@@ -119,8 +120,8 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        vnbuild build --no-delay --include vnlib.core
-        vnbuild build --no-delay --include @project_name@ --verbose
+        mise run-vnbuild build --no-delay --include vnlib.core
+        mise run-vnbuild build --no-delay --include @project_name@ --verbose
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -130,7 +131,8 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        vnbuild publish -i @project_name@
+        cd @project_name@/
+        mise run-vnbuild publish --include @project_name@
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -167,7 +169,7 @@ jobs:
       type: DefaultInterpreter
       commands: |
         cd @project_name@
-        task -t Module.Taskfile.yaml tag-current-commit
+        mise run-task -t Module.Taskfile.yaml tag-current-commit
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -177,8 +179,8 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        vnbuild build --no-delay --include vnlib.core
-        vnbuild build --no-delay --include @project_name@
+        mise run-vnbuild  build --no-delay --include vnlib.core
+        mise run-vnbuild  build --no-delay --include @project_name@
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -188,7 +190,8 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        vnbuild publish -i @project_name@ --ftp "@secret:ftp_server_address@" --sign
+        cd @project_name@
+        mise run-vnbuild publish --include @project_name@ --ftp "@secret:ftp_server_address@" --sign
     envVars:
     - name: FTP_USERNAME
       value: '@secret:ftp_username@'
@@ -298,8 +301,13 @@ stepTemplates:
       type: DefaultInterpreter
       commands: |
         git clone @server_url@/@project_path@ --branch @branch@ @project_name@
-        task -t @project_name@/Module.Taskfile.yaml configure-dep "DEP_REPO=@server_url@/vnuge/vnlib/VNLib.Core" "DEP_REVISION=@property:deps_core_version@" "DEP_DIR=core"
-        task -t @project_name@/Module.Taskfile.yaml configure-dep "DEP_REPO=@server_url@/vnuge/vnlib/VNLib.Plugins.Extensions" "DEP_REVISION=@property:deps_extensions_version@"
+
+        cd @project_name@
+        mise trust mise.toml
+        mise install
+
+        mise configure-dep -t @project_name@/Module.Taskfile.yaml "DEP_REPO=@server_url@/vnuge/vnlib/VNLib.Core" "DEP_REVISION=@property:deps_core_version@" "DEP_DIR=core"
+        mise configure-dep -t @project_name@/Module.Taskfile.yaml "DEP_REPO=@server_url@/vnuge/vnlib/VNLib.Plugins.Extensions" "DEP_REVISION=@property:deps_extensions_version@"
     useTTY: true
     condition: SUCCESSFUL
     optional: false
