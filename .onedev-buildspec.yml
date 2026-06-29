@@ -120,6 +120,7 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
+        cd @project_name@
         mise ci-vnbuild build --no-delay --include vnlib.core
         mise ci-vnbuild build --no-delay --include @project_name@ --verbose
     useTTY: true
@@ -131,7 +132,7 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        cd @project_name@/
+        cd @project_name@
         mise ci-vnbuild publish --include @project_name@
     useTTY: true
     condition: SUCCESSFUL
@@ -179,6 +180,7 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
+        cd @project_name@
         mise ci-vnbuild  build --no-delay --include vnlib.core
         mise ci-vnbuild  build --no-delay --include @project_name@
     useTTY: true
