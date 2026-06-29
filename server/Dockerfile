@@ -7,8 +7,8 @@ FROM ubuntu:24.04 AS native-cont
 WORKDIR /build
 
 #download and install task (its easier and faster without npm)
-ADD --checksum=sha256:c61513b91cacc2d958cfd7b62b4e67e7e386e43b924fc129ffffcc34c805833a \
-  https://github.com/go-task/task/releases/download/v3.48.0/task_3.48.0_linux_amd64.deb \
+ADD --checksum=sha256:e6c9ee89eb9679c6c430c085113cf7781b8a768714c3c776c068b5c9a74531e5 \
+  https://github.com/go-task/task/releases/download/v3.51.1/task_3.51.1_linux_amd64.deb \
   task_linux_amd64.deb
 
 RUN dpkg -i task_linux_amd64.deb
@@ -22,7 +22,7 @@ RUN task setup-apt
 
 #APP CONTAINER
 #move into a clean dotnet ubuntu lean image
-FROM mcr.microsoft.com/dotnet/runtime:8.0.24-noble AS app-cont
+FROM mcr.microsoft.com/dotnet/runtime:8.0.28-noble AS app-cont
 
 LABEL name="vnuge/vncache"
 LABEL maintainer="Vaughn Nugent <vnpublic@proton.me>"
