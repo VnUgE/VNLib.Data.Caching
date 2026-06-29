@@ -2,8 +2,7 @@
 version: "0.5"
 
 is_tui_disabled: true
-is_dotenv_disabled: true
-log_level: info
+log_level: debug
 
 processes:
   vncache:
@@ -16,15 +15,16 @@ processes:
     working_dir: ${SERVER_BUILD_DIR}
     availability:
       restart: "always"
+      backoff_seconds: 2
       max_restarts: 5
-    # probe against the open well-known endpoint
+    # probe against the open well-known endpoint when server is up
     readiness_probe:
       http_get:
         host: 127.0.0.1
         port: ${TEST_SERVER_PORT}
         path: /.well-known/vncache
-      initial_delay_seconds: 3
-      period_seconds: 3
+      initial_delay_seconds: 10
+      period_seconds: 5
 
   # run tests after vncache starts and is healthy, then run tests and exit
   tests:

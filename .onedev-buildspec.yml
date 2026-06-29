@@ -40,7 +40,7 @@ jobs:
   steps:
   - type: UseTemplateStep
     name: init deps
-    templateName: checkout deps
+    templateName: mise setup-windows
     condition: SUCCESSFUL
     optional: false
   - type: CommandStep
@@ -68,7 +68,7 @@ jobs:
   steps:
   - type: UseTemplateStep
     name: init deps
-    templateName: checkout deps
+    templateName: mise setup-windows
     condition: SUCCESSFUL
     optional: false
   - type: CommandStep
@@ -111,7 +111,7 @@ jobs:
   steps:
   - type: UseTemplateStep
     name: init deps
-    templateName: checkout deps
+    templateName: mise setup-windows
     condition: SUCCESSFUL
     optional: false
   - type: CommandStep
@@ -159,7 +159,7 @@ jobs:
   steps:
   - type: UseTemplateStep
     name: init deps
-    templateName: checkout deps
+    templateName: mise setup-windows
     condition: SUCCESSFUL
     optional: false
   - type: CommandStep
@@ -292,7 +292,7 @@ jobs:
   timeout: 14400
 
 stepTemplates:
-- name: checkout deps
+- name: mise setup-windows
   steps:
   - type: CommandStep
     name: checkout local deps

@@ -16,15 +16,15 @@ version: '3.45'
 
 vars:
   TEST_WORKING_DIR: '{{ .USER_WORKING_DIR }}'
-  SERVER_BUILD_DIR: '{{ .TEST_WORKING_DIR }}/server'
 
-  TEST_SERVER_PORT: '9856'
-  TEST_SERVER_URL: '{{ .TEST_SERVER_URL | default "http://localhost:9856" }}'
+dotenv: ['.env']
 
 tasks:
 
   copy-server-dist:
     desc: Copies the distribution server package into the test environment
+    requires:
+      vars: [ SERVER_BUILD_DIR ]
     vars:
       PLATFORM: '{{ if eq OS "windows" }}windows-x64{{ else }}posix{{ end }}'
     cmds:
@@ -35,6 +35,8 @@ tasks:
 
   compile-config:
     desc: Creates/overwrites the server's configuration with test specific settings
+    requires:
+      vars: [ TEST_SERVER_PORT, TEST_SERVER_URL, SERVER_BUILD_DIR ]
     env:
       CACHE_PRIV_KEY: 'file://../test-config/test-server.key'
       CLIENT_PUB_KEY: 'file://../test-config/test-client.key'
@@ -47,10 +49,12 @@ tasks:
      - cmd: cd ../../server 
         && powershell './compile.ps1' 
         -InputDir 'config-templates/' 
-        -OutputDir '{{ .SERVER_BUILD_DIR }}/config'
+        -OutputDir '{{ .USER_WORKING_DIR}}/{{ .SERVER_BUILD_DIR }}/config'
        platforms: [ windows ]
 
   setup-server:
+    requires:
+      vars: [ SERVER_BUILD_DIR ]
     cmds:
      - task: copy-server-dist
      - task: compile-config
@@ -87,6 +91,8 @@ tasks:
 
   clean:
     desc: "Cleans the test server and test files"
+    requires:
+      vars: [ SERVER_BUILD_DIR ]
     cmds:
       - cmd: rm -rf "{{ .SERVER_BUILD_DIR }}"
         ignore_error: true
