@@ -40,7 +40,7 @@ jobs:
   steps:
   - type: UseTemplateStep
     name: init deps
-    templateName: checkout deps
+    templateName: mise setup-windows
     condition: SUCCESSFUL
     optional: false
   - type: CommandStep
@@ -49,7 +49,8 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        vnbuild test --include @project_name@ --verbose
+        cd @project_name@
+        mise ci-vnbuild test --include @project_name@ --verbose
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -67,7 +68,7 @@ jobs:
   steps:
   - type: UseTemplateStep
     name: init deps
-    templateName: checkout deps
+    templateName: mise setup-windows
     condition: SUCCESSFUL
     optional: false
   - type: CommandStep
@@ -76,8 +77,9 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        vnbuild build --no-delay --include vnlib.core
-        vnbuild build --no-delay --include @project_name@ --verbose
+        cd @project_name@
+        mise ci-vnbuild build --no-delay --include vnlib.core
+        mise ci-vnbuild build --no-delay --include @project_name@ --verbose
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -87,9 +89,8 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        cd @project_name@/tests/integration-tests
-        task setup-server
-        task test
+        cd @project_name@
+        mise ci-integration-tests
     envVars:
      - name: TEST_REDIS_URL
        value: '@secret:redis-test-server-url@'
@@ -110,7 +111,7 @@ jobs:
   steps:
   - type: UseTemplateStep
     name: init deps
-    templateName: checkout deps
+    templateName: mise setup-windows
     condition: SUCCESSFUL
     optional: false
   - type: CommandStep
@@ -119,8 +120,9 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        vnbuild build --no-delay --include vnlib.core
-        vnbuild build --no-delay --include @project_name@ --verbose
+        cd @project_name@
+        mise ci-vnbuild build --no-delay --include vnlib.core
+        mise ci-vnbuild build --no-delay --include @project_name@ --verbose
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -130,7 +132,8 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        vnbuild publish -i @project_name@
+        cd @project_name@
+        mise ci-vnbuild publish --include @project_name@
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -157,7 +160,7 @@ jobs:
   steps:
   - type: UseTemplateStep
     name: init deps
-    templateName: checkout deps
+    templateName: mise setup-windows
     condition: SUCCESSFUL
     optional: false
   - type: CommandStep
@@ -167,7 +170,7 @@ jobs:
       type: DefaultInterpreter
       commands: |
         cd @project_name@
-        task -t Module.Taskfile.yaml tag-current-commit
+        mise ci-task -t Module.Taskfile.yaml tag-current-commit
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -177,8 +180,9 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        vnbuild build --no-delay --include vnlib.core
-        vnbuild build --no-delay --include @project_name@
+        cd @project_name@
+        mise ci-vnbuild  build --no-delay --include vnlib.core
+        mise ci-vnbuild  build --no-delay --include @project_name@
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -188,7 +192,8 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        vnbuild publish -i @project_name@ --ftp "@secret:ftp_server_address@" --sign
+        cd @project_name@
+        mise ci-vnbuild publish --include @project_name@ --ftp "@secret:ftp_server_address@" --sign
     envVars:
     - name: FTP_USERNAME
       value: '@secret:ftp_username@'
@@ -289,7 +294,7 @@ jobs:
   timeout: 14400
 
 stepTemplates:
-- name: checkout deps
+- name: mise setup-windows
   steps:
   - type: CommandStep
     name: checkout local deps
@@ -298,8 +303,13 @@ stepTemplates:
       type: DefaultInterpreter
       commands: |
         git clone @server_url@/@project_path@ --branch @branch@ @project_name@
-        task -t @project_name@/Module.Taskfile.yaml configure-dep "DEP_REPO=@server_url@/vnuge/vnlib/VNLib.Core" "DEP_REVISION=@property:deps_core_version@" "DEP_DIR=core"
-        task -t @project_name@/Module.Taskfile.yaml configure-dep "DEP_REPO=@server_url@/vnuge/vnlib/VNLib.Plugins.Extensions" "DEP_REVISION=@property:deps_extensions_version@"
+
+        cd @project_name@
+        mise trust mise.toml
+        mise install
+
+        mise ci-configure-dep -t @project_name@/Module.Taskfile.yaml "DEP_REPO=@server_url@/vnuge/vnlib/VNLib.Core" "DEP_REVISION=@property:deps_core_version@" "DEP_DIR=core"
+        mise ci-configure-dep -t @project_name@/Module.Taskfile.yaml "DEP_REPO=@server_url@/vnuge/vnlib/VNLib.Plugins.Extensions" "DEP_REVISION=@property:deps_extensions_version@"
     useTTY: true
     condition: SUCCESSFUL
     optional: false

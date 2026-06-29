@@ -3,7 +3,7 @@
 #Inlcuded taskfile for object cache server that is used to produce
 #ci builds for standalone caching servers
 
-version: "3"
+version: "3.45"
 
 vars:
   DATA_DIR: "data"
@@ -16,8 +16,8 @@ tasks:
     interactive: true
     env: 
       #libraries intentionally do not have extensions, for cross-platform compatibility, the server will load them regardless
-      VNLIB_SHARED_HEAP_FILE_PATH: lib/vnlib_rpmalloc{{if eq OS "windows"}}.dll{{else}}.so{{end}}
-      VNLIB_COMPRESS_DLL_PATH: lib/vnlib_compress{{if eq OS "windows"}}.dll{{else}}.so{{end}}
+      VNLIB_SHARED_HEAP_FILE_PATH: lib/vnlib_rpmalloc{{ if eq OS "windows" }}.dll{{ else }}.so{{ end }}
+      VNLIB_COMPRESS_DLL_PATH: lib/vnlib_compress{{ if eq OS "windows" }}.dll{{ else }}.so{{ end }}
     cmds:
     - cmd: dotnet webserver/VNLib.WebServer.dll --config config/config.json {{ .CLI_ARGS }}
 

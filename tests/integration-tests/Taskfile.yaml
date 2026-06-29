@@ -1,4 +1,5 @@
-version: '3'
+
+version: '3.45'
 
 # This taskfile is responsible for running full integration tests against the 
 # VNLib.Data.Caching module. It's assumed to be run in both local and CI/CD
@@ -15,24 +16,27 @@ version: '3'
 
 vars:
   TEST_WORKING_DIR: '{{ .USER_WORKING_DIR }}'
-  SERVER_BUILD_DIR: '{{ .TEST_WORKING_DIR }}/server'
 
-  TEST_SERVER_PORT: '9856'
-  TEST_SERVER_URL: '{{ .TEST_SERVER_URL | default "http://localhost:9856" }}'
+dotenv: ['.env']
 
 tasks:
 
   copy-server-dist:
+    desc: Copies the distribution server package into the test environment
+    requires:
+      vars: [ SERVER_BUILD_DIR ]
     vars:
       PLATFORM: '{{ if eq OS "windows" }}windows-x64{{ else }}posix{{ end }}'
     cmds:
      - cmd: mkdir -p "{{ .SERVER_BUILD_DIR }}"
        ignore_error: true
-     - cmd: cp "../../server/bin/{{ .PLATFORM }}-release.tgz" "{{ .SERVER_BUILD_DIR }}/server.tgz"
+     - cmd: cp -f "../../server/bin/{{ .PLATFORM }}-release.tgz" "{{ .SERVER_BUILD_DIR }}/server.tgz"
      - cmd: cd '{{ .SERVER_BUILD_DIR }}' && tar{{ if eq OS "windows" }}.exe{{ end }} -xzf server.tgz
 
   compile-config:
     desc: Creates/overwrites the server's configuration with test specific settings
+    requires:
+      vars: [ TEST_SERVER_PORT, TEST_SERVER_URL, SERVER_BUILD_DIR ]
     env:
       CACHE_PRIV_KEY: 'file://../test-config/test-server.key'
       CLIENT_PUB_KEY: 'file://../test-config/test-client.key'
@@ -45,26 +49,16 @@ tasks:
      - cmd: cd ../../server 
         && powershell './compile.ps1' 
         -InputDir 'config-templates/' 
-        -OutputDir '{{ .SERVER_BUILD_DIR }}/config'
+        -OutputDir '{{ .USER_WORKING_DIR}}/{{ .SERVER_BUILD_DIR }}/config'
        platforms: [ windows ]
 
-  start-test-server:
-    desc: Starts the test server as a daemon process using PM2  
-    preconditions:
-      - pm2 --version # Ensure PM2 is installed
+  setup-server:
+    requires:
+      vars: [ SERVER_BUILD_DIR ]
     cmds:
-      - cmd: pm2 start ecosystem.config.js --env {{ lower OS }} --cwd '{{ .SERVER_BUILD_DIR }}'       
-
-  stop-test-server:
-    desc: Stops the test server daemon gracefully    
-    preconditions:
-      - pm2 --version # Ensure PM2 is installed
-    cmds:
-      - cmd: pm2 sendSignal SIGINT vncache # Gracefully stop the process
-      - cmd: pm2 stop --kill-timeout 2000 vncache   
-      - cmd: pm2 flush 
-      - cmd: pm2 delete vncache # Remove the process from PM2's list  
-      - cmd: '{{ if eq OS "windows" }}powershell Start-Sleep -Seconds 2{{ else }}sleep 2{{ end }}' # Wait for the server to stop completely
+     - task: copy-server-dist
+     - task: compile-config
+     - cmd: cd '{{ .SERVER_BUILD_DIR }}' && task setup
   
   run-tests:
     desc: "Runs the integration tests"
@@ -94,23 +88,11 @@ tasks:
         --environment TEST_VNCACHE_CLIENT_KEY_PATH="{{ osClean .CLIENT_KEY_PATH }}"
         --environment TEST_REDIS_SERVER_URL="{{ .TEST_REDIS_URL }}"
         {{ .CLI_ARGS }}
-  
-  setup-server:
-    cmds:
-     - task: copy-server-dist
-     - task: compile-config
-     - cmd: cd '{{ .SERVER_BUILD_DIR }}' && task setup
-
-  test:
-    desc: "Starts the server and runs all tests"
-    cmds:
-      - task: start-test-server
-      - defer: { task: stop-test-server }
-      - task: run-tests
-      - cmd: echo "Tests completed successfully."  
 
   clean:
     desc: "Cleans the test server and test files"
+    requires:
+      vars: [ SERVER_BUILD_DIR ]
     cmds:
       - cmd: rm -rf "{{ .SERVER_BUILD_DIR }}"
         ignore_error: true
