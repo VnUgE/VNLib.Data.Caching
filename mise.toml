@@ -7,8 +7,6 @@ lockfile = true
 dotnet = "8.0"
 "aqua:go-task/task" = "3.51"
 "dotnet:GitVersion.Tool" = "6.4.0"
-
-#required for testing 
 process-compose = "1.116"
 
 [tools."http:vnbuild"]
@@ -26,19 +24,19 @@ osx-arm64 = { url = "https://www.vaughnnugent.com/public/resources/software/buil
 DOTNET_SYSTEM_GLOBALIZATION_INVARIANT = "1"
 DOTNET_CLI_TELEMETRY_OPTOUT = "1"
 
-[tasks.run-task]
+[tasks.ci-task]
 run = 'task'
 
-[tasks.run-vnbuild]
+[tasks.ci-vnbuild]
 dir = '../'
 run = 'vnbuild'
 
 # configure deps in the parent dir to our module
-[tasks.configure-dep]
+[tasks.ci-configure-dep]
 dir = '../'
 run = 'task configure-dep'
 
-[tasks.run-integration-tests]
+[tasks.ci-integration-tests]
 dir = 'tests/integration-tests/'
 run = [
 	'task setup-server',

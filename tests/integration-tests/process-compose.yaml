@@ -7,13 +7,13 @@ log_level: info
 
 processes:
   vncache:
-    command: > 
-      cd ${SERVER_BUILD_DIR} && task run --
+    command: task run --
       --threads 2 
       --verbose 
       --log-transport 
       --log-http 
       --input-off
+    working_dir: ${SERVER_BUILD_DIR}
     availability:
       restart: "always"
       max_restarts: 5
