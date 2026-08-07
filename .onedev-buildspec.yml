@@ -1,10 +1,10 @@
 version: 43
 properties:
 - name: deps_core_version
-  value: master/v0.1.5
+  value: develop::HEAD
   archived: false
 - name: deps_extensions_version
-  value: master/v0.1.5
+  value: feature/no-ref/v0.2.0::head
   archived: false
 
 jobs:
