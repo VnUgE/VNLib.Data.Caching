@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -64,7 +64,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
 
         private readonly string AudienceLocalServerId = Guid.NewGuid().ToString("N");
 
-        private readonly ObjectCacheSystemState _sysState = plugin.GetOrCreateSingleton<ObjectCacheSystemState>();
+        private readonly ObjectCacheSystemState _sysState = plugin.Deps().GetOrCreateSingleton<ObjectCacheSystemState>();
 
         private CacheMemoryConfiguration CacheConfig => _sysState.MemoryConfiguration;
 

@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2025 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -65,7 +65,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
 
         public CacheNodeReplicationMaanger(PluginBase plugin)
         {
-            _sysState = plugin.GetOrCreateSingleton<ObjectCacheSystemState>();
+            _sysState = plugin.Deps().GetOrCreateSingleton<ObjectCacheSystemState>();
 
             //Init fbm config with fixed message size
             FBMClientConfig clientConfig = FBMDataCacheExtensions.GetDefaultConfig(
@@ -115,7 +115,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Clustering
                         //Connect to each peer as a background task
                         foreach (CacheNodeAdvertisment peer in peers)
                         {
-                            _ = _plugin.ObserveWork(() => OnNewPeerDoWorkAsync(peer, _log, exitToken));
+                            _ = _plugin.Tasks()
+                                       .ObserveWork(() => OnNewPeerDoWorkAsync(peer, _log, exitToken));
                         }
                     }
 

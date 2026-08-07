@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2025 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -26,9 +26,11 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
+using VNLib.Utils.Extensions;
 using VNLib.Utils.Logging;
 using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;
+using VNLib.Plugins.Extensions.Loading.Secrets;
 using VNLib.Data.Caching.Providers.VNCache.Internal;
 using VNLib.Plugins.Extensions.Loading.Configuration;
 
@@ -206,7 +208,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
             if (!string.IsNullOrWhiteSpace(pluginConfig.SerializerDllPath))
             {
                 //Load the custom serializer assembly and get the serializer and deserializer instances
-                config.CacheObjectSerializer = plugin.CreateServiceExternal<ICacheObjectSerializer>(pluginConfig.SerializerDllPath);
+                config.CacheObjectSerializer = plugin.Deps()
+                    .LoadExternal<ICacheObjectSerializer>(pluginConfig.SerializerDllPath);
 
                 //Avoid creating another instance if the deserializer is the same as the serializer
                 if (config.CacheObjectSerializer is ICacheObjectDeserializer cod)
@@ -215,7 +218,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
                 }
                 else
                 {
-                    config.CacheObjectDeserializer = plugin.CreateServiceExternal<ICacheObjectDeserializer>(pluginConfig.SerializerDllPath);
+                    config.CacheObjectDeserializer = plugin.Deps()
+                        .LoadExternal<ICacheObjectDeserializer>(pluginConfig.SerializerDllPath);
                 }
             }
             else

@@ -1,4 +1,4 @@
-﻿/*
+/*
 * Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
@@ -55,7 +55,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// <param name="search">The directory search option</param>
         /// <returns>The loaded <see cref="ICacheClient"/> instance</returns>
         public static ICacheClient LoadCacheLibrary(this PluginBase plugin, string asmDllPath, SearchOption search = SearchOption.AllDirectories)
-             => plugin.CreateServiceExternal<ICacheClient>(asmDllPath, search, defaultCtx: null);
+             => plugin.Deps().LoadExternal<ICacheClient>(asmDllPath, search, defaultCtx: null);
 
         /// <summary>
         /// Gets the configuration assigned global cache provider, if defined. If the configuration does not 
@@ -65,18 +65,18 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// <returns>The assgined global cache provider or null if undefined</returns>
         public static ICacheClient? GetDefaultGlobalCache(this PluginBase plugin)
         {
-            if (plugin.TryGetConfig(CACHE_CONFIG_KEY) == null)
+            if (plugin.Config().TryGet(CACHE_CONFIG_KEY) == null)
             {
                 return null;
             }
 
-            return LoadingExtensions.GetOrCreateSingleton(plugin, SingletonCacheLoader);
+            return plugin.Deps().GetOrCreateSingleton(SingletonCacheLoader);
         }
 
         private static ICacheClient SingletonCacheLoader(PluginBase plugin)
         {
             //Get the cache configuration
-            IConfigScope config = plugin.GetConfig(CACHE_CONFIG_KEY);
+            IConfigScope config = plugin.Config().Get(CACHE_CONFIG_KEY);
 
             string dllPath = config.GetRequiredProperty(EXTERN_CACHE_LIB_PATH, p => p.GetString()!);
 
@@ -93,7 +93,8 @@ namespace VNLib.Plugins.Extensions.VNCache
             //Schedule the async init if it exists
             if (asyncInit != null)
             {
-                _ = plugin.ObserveWork(asyncInit, 100);
+                _ = plugin.Tasks()
+                    .ObserveWork(asyncInit, 100);
             }
 
             return _client;

@@ -1,4 +1,4 @@
-﻿/*
+/*
 * Copyright (c) 2024 Vaughn Nugent
 * 
 * Library: VNLib
@@ -35,10 +35,9 @@ using VNLib.Utils.Logging;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Plugins.Extensions.Loading.Events;
 
-
 namespace VNLib.Data.Caching.ObjectCache.Server.Cache
 {
-    internal sealed class PeerEventQueueManager : ICacheEventQueueManager, IIntervalScheduleable
+    internal sealed class PeerEventQueueManager : ICacheEventQueueManager, IIntervalSchedulable
     {
         private readonly int MaxQueueDepth;
 
@@ -58,7 +57,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
             plugin.ScheduleInterval(this, config.EventQueuePurgeInterval);
             
             //Cleanup disposeables on unload
-            _ = plugin.RegisterForUnload(() =>
+            _ = plugin.Tasks().RegisterForUnload(() =>
             {
                 QueueStore.Clear();
                 Subscribers.Clear();
@@ -187,7 +186,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
         }
 
         //Interval to purge stale subscribers
-        Task IIntervalScheduleable.OnIntervalAsync(ILogProvider log, CancellationToken cancellationToken)
+        Task IIntervalSchedulable.OnIntervalAsync(ILogProvider log, CancellationToken cancellationToken)
         {
             log.Debug("Purging stale peer event queues");
 

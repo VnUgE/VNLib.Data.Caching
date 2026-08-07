@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2025 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -63,7 +63,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         /// <summary>
         /// The plugin-wide, shared node configuration
         /// </summary>
-        public ServerClusterConfig ClusterConfig { get; } = plugin.GetOrCreateSingleton<ServerClusterConfig>();
+        public ServerClusterConfig ClusterConfig { get; } = plugin.Deps().GetOrCreateSingleton<ServerClusterConfig>();
 
         /// <summary>
         /// The system wide cache authenticator
@@ -163,7 +163,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             );
 
             //Discovery manager needs to be scheduled for background work to run the discovery loop
-            _ = plugin.ObserveWork(PeerDiscovery, 10);
+            _ = plugin.Tasks().ObserveWork(PeerDiscovery, 10);
         }
 
         private void ConfigureCacheListener()
@@ -176,11 +176,11 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             if (string.IsNullOrWhiteSpace(MemoryConfiguration.ExternLibPath))
             {
                 //Get the memory manager
-                manager = plugin.GetOrCreateSingleton<BucketLocalManagerFactory>();
+                manager = plugin.Deps().GetOrCreateSingleton<BucketLocalManagerFactory>();
             }
             else
             {
-                manager = plugin.CreateServiceExternal<ICacheMemoryManagerFactory>(MemoryConfiguration.ExternLibPath);
+                manager = plugin.Deps().LoadExternal<ICacheMemoryManagerFactory>(MemoryConfiguration.ExternLibPath);
             }
 
             _cacheMemManager = manager;
@@ -188,14 +188,15 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             CacheListenerPubQueue queue = new(plugin, PeerEventQueue);
 
             //Must register the queue background worker to listen for changes
-            _ = plugin.ObserveWork(queue, 150);
+            _ = plugin.Tasks()
+                .ObserveWork(queue, 150);
 
             BlobCacheListenerConfig conf = new()
             {
-                Log = plugin.Log.CreateScope(CacheConstants.LogScopes.BlobCacheListener),
-                MemoryManager = new SharedHeapFBMMemoryManager(SharedCacheHeap),
-                EnableMessageChecksums = MemoryConfiguration.EnableChecksums,
-                LogTransactions = plugin.IsDebug() || plugin.HostArgs.HasArgument("--log-cache-events")
+                Log                     = plugin.Log.CreateScope(CacheConstants.LogScopes.BlobCacheListener),
+                MemoryManager           = new SharedHeapFBMMemoryManager(SharedCacheHeap),
+                EnableMessageChecksums  = MemoryConfiguration.EnableChecksums,
+                LogTransactions         = plugin.IsDebug() || plugin.HostArgs.HasArgument("--log-cache-events")
             };
 
             if (conf.LogTransactions)

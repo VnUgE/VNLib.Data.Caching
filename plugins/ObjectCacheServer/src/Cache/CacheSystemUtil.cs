@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -38,7 +38,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
         const string PERSISTANT_ASM_CONFIF_KEY = "persistant_cache_asm";
         const string USER_CACHE_ASM_CONFIG_KEY = "custom_cache_impl_asm";
         const string INITIALIZE_METHOD_NAME = "OnInitializeForBucket";
-        const string LOAD_METHOD_NAME = "OnRuntimeLoad";        
+        const string LOAD_METHOD_NAME = "OnRuntimeLoad";
 
         /// <summary>
         /// Loads the <see cref="IBlobCacheTable"/> implementation (dynamic or default) into the process
@@ -54,8 +54,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
         {
 #pragma warning disable CA2000 // Dispose objects before losing scope
 
-            //First, try to load persitant cache store
-            IPersistantCacheStore? pCManager = GetPersistantStore(plugin, config);
+            //First, try to load persistent cache store
+            IPersistantCacheStore? pCManager = GetPersistentStore(plugin, config);
 
 #pragma warning restore CA2000 // Dispose objects before losing scope
 
@@ -66,10 +66,11 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
             {
                 string asmName = customEl.GetString() ?? throw new FileNotFoundException("User defined a custom blob cache assembly but the file name was null");
 
-                //Return the runtime loaded table
-                table = plugin.CreateServiceExternal<IBlobCacheTable>(asmName);
+                // Return the runtime loaded table
+                table = plugin.Deps()
+                    .LoadExternal<IBlobCacheTable>(asmName);
 
-                //Try to get the load method and pass the persistant cache instance
+                //Try to get the load method and pass the persistent cache instance
                 ManagedLibrary.TryGetMethod<Action<PluginBase, IPersistantCacheStore?>>(table, LOAD_METHOD_NAME)?.Invoke(plugin, pCManager);
             }
             else
@@ -78,7 +79,7 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
                 table = new BlobCacheTable(cacheConf.BucketCount, cacheConf.MaxCacheEntries, heap, pCManager);
             }
 
-            if(pCManager != null)
+            if (pCManager != null)
             {
                 //Initialize the subsystem from the cache table
                 InitializeSubsystem(pCManager, table);
@@ -92,16 +93,16 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
             //Try to get the Initialize method
             Action<uint>? initMethod = ManagedLibrary.TryGetMethod<Action<uint>>(store, INITIALIZE_METHOD_NAME);
 
-            if(initMethod != null)
+            if (initMethod != null)
             {
-                //Itterate all buckets
+                //Iterate all buckets
                 table.ForEach(bucket => initMethod(bucket.Id));
             }
         }
 
-        private static IPersistantCacheStore? GetPersistantStore(PluginBase plugin, IConfigScope config)
+        private static IPersistantCacheStore? GetPersistentStore(PluginBase plugin, IConfigScope config)
         {
-            //Get the persistant assembly 
+            // Get the persistent assembly 
             if (!config.TryGetValue(PERSISTANT_ASM_CONFIF_KEY, out JsonElement asmEl))
             {
                 return null;
@@ -113,9 +114,9 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
                 return null;
             }
 
-            //Return the 
-            return plugin.CreateServiceExternal<IPersistantCacheStore>(asmName);
+            // Return the 
+            return plugin.Deps()
+                .LoadExternal<IPersistantCacheStore>(asmName);
         }
-        
     }
 }

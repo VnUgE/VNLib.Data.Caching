@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2025 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -30,7 +30,8 @@ using System.Security.Cryptography;
 using VNLib.Hashing;
 using VNLib.Hashing.IdentityUtility;
 using VNLib.Data.Caching.Extensions;
-using VNLib.Plugins.Extensions.Loading;
+using VNLib.Utils.Async;
+using VNLib.Utils.Extensions;
 
 namespace VNLib.Data.Caching.Providers.VNCache
 {

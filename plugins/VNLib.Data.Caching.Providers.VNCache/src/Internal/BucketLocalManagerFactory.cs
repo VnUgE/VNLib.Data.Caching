@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2025 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -97,7 +97,8 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             };
 
             // Register dispose on plugin exit to cleanup heaps
-            _ = plugin.RegisterForUnload(fac.Dispose);
+            _ = plugin.Tasks()
+                .RegisterForUnload(fac.Dispose);
 
             return fac;
         }

@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -59,13 +59,13 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
         public WellKnownEndpoint(PluginBase plugin)
         {
             //Get the node config
-            ObjectCacheSystemState conf = plugin.GetOrCreateSingleton<ObjectCacheSystemState>();
+            ObjectCacheSystemState conf = plugin.Deps().GetOrCreateSingleton<ObjectCacheSystemState>();
 
             //serialize the config, discovery may not be enabled
             _advertisment = conf.NodeConfig.Advertisment;
             _keyStore = conf.KeyStore;
 
-            InitPathAndLog(conf.ClusterConfig.WellKnownPath, plugin.Log);
+            InitEndpoint(conf.ClusterConfig.WellKnownPath, plugin.Log);
         }
 
         protected override VfReturnType Get(HttpEntity entity)

@@ -1,4 +1,4 @@
-﻿/*
+/*
 * Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
@@ -150,7 +150,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
                 await Task.Delay(initNodeDelay, exitToken);
 
                 //See if the current client index is a master index
-                if (index is IIntervalScheduleable masterIndex)
+                if (index is IIntervalSchedulable masterIndex)
                 {
                     if (plugin is not null)
                     {
@@ -159,7 +159,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
                         //Schedule discovery interval on the plugin scheduler
                         plugin.ScheduleInterval(masterIndex, _config.DiscoveryInterval);
 
-                        _ = plugin.ObserveWork(
+                        _ = plugin.Tasks().ObserveWork(
                             asyncTask: () => masterIndex.OnIntervalAsync(scoped, plugin.UnloadToken),
                             delayMs: (int)initNodeDelay.TotalMilliseconds
                         );
@@ -178,7 +178,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
                      * instance is holding the master index, it will be scheduleable, and 
                      * can be manually invoked if no nodes are found
                      */
-                    if (index is IIntervalScheduleable sch)
+                    if (index is IIntervalSchedulable sch)
                     {
                         try
                         {

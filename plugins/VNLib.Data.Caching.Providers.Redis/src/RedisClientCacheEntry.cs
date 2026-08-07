@@ -1,4 +1,4 @@
-﻿/*
+/*
 * Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
@@ -30,12 +30,14 @@ using System.Threading.Tasks;
 
 using StackExchange.Redis;
 
-using VNLib.Plugins;
-using VNLib.Plugins.Extensions.Loading;
+using VNLib.Utils.Async;
 using VNLib.Utils.Extensions;
 using VNLib.Utils.IO;
 using VNLib.Utils.Logging;
 using VNLib.Utils.Memory;
+using VNLib.Plugins;
+using VNLib.Plugins.Extensions.Loading;
+using VNLib.Plugins.Extensions.Loading.Secrets;
 
 namespace VNLib.Data.Caching.Providers.Redis
 {
@@ -97,7 +99,9 @@ namespace VNLib.Data.Caching.Providers.Redis
                     redisLog.Information("Successfully connected to Redis server");
 
                     // Register dispose when successfully loaded
-                    _ = plugin.RegisterForUnload(mx.Dispose);
+                    _ = plugin
+                        .Tasks()
+                        .RegisterForUnload(mx.Dispose);
 
                     return mx;
                 }).AsLazy();
@@ -127,7 +131,9 @@ namespace VNLib.Data.Caching.Providers.Redis
                     redisLog.Information("Successfully connected to Redis server");
 
                     // Register dispose when successfully loaded
-                    _ = plugin.RegisterForUnload(mx.Dispose);
+                    _ = plugin
+                         .Tasks()
+                         .RegisterForUnload(mx.Dispose);
 
                     return mx;
                 }).AsLazy();
@@ -142,7 +148,7 @@ namespace VNLib.Data.Caching.Providers.Redis
             if (!string.IsNullOrWhiteSpace(serializerDllPath))
             {
                 //Load the custom serializer assembly and get the serializer and deserializer instances
-                DefaultSerializer = plugin.CreateServiceExternal<ICacheObjectSerializer>(serializerDllPath);
+                DefaultSerializer = plugin.Deps().LoadExternal<ICacheObjectSerializer>(serializerDllPath);
 
                 //Avoid creating another instance if the deserializer is the same as the serializer
                 if (DefaultSerializer is ICacheObjectDeserializer cod)
@@ -151,7 +157,7 @@ namespace VNLib.Data.Caching.Providers.Redis
                 }
                 else
                 {
-                    DefaultDeserializer = plugin.CreateServiceExternal<ICacheObjectDeserializer>(serializerDllPath);
+                    DefaultDeserializer = plugin.Deps().LoadExternal<ICacheObjectDeserializer>(serializerDllPath);
                 }
             }
             else

@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -114,7 +114,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Clustering
          * Unless VNLib.Core supports a new way to safley share types across ALCs, this is my solution.
          */
 
-        sealed class LocalHandler(VNCacheClusterManager cluster) : IClusterNodeIndex, IIntervalScheduleable
+        sealed class LocalHandler(VNCacheClusterManager cluster) : IClusterNodeIndex, IIntervalSchedulable
         {
             private Task _currentUpdate = Task.CompletedTask;
 

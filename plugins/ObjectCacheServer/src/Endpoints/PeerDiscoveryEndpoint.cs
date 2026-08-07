@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -58,9 +58,9 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
 
         public PeerDiscoveryEndpoint(PluginBase plugin)
         {
-            _sysState = plugin.GetOrCreateSingleton<ObjectCacheSystemState>();
+            _sysState = plugin.Deps().GetOrCreateSingleton<ObjectCacheSystemState>();
 
-            InitPathAndLog(_sysState.ClusterConfig.DiscoveryPath!, plugin.Log);
+            InitEndpoint(_sysState.ClusterConfig.DiscoveryPath!, plugin.Log);
         }
 
         protected override VfReturnType Get(HttpEntity entity)

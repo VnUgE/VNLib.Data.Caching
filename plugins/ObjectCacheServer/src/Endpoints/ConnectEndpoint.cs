@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -87,16 +87,16 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Endpoints
 
         public ConnectEndpoint(PluginBase plugin)
         {
-            _sysState = plugin.GetOrCreateSingleton<ObjectCacheSystemState>();
+            _sysState = plugin.Deps().GetOrCreateSingleton<ObjectCacheSystemState>();
 
             //Init from config and create a new log scope
-            InitPathAndLog(
+            InitEndpoint(
                 path: ClusterConfiguration.ConnectPath, 
                 log: plugin.Log.CreateScope(CacheConstants.LogScopes.ConnectionEndpoint)
             );
          
             //Get the auth manager
-            AuthManager = plugin.GetOrCreateSingleton<CacheNegotationManager>();
+            AuthManager = plugin.Deps().GetOrCreateSingleton<CacheNegotationManager>();
         }
       
 

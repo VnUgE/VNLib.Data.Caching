@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: ObjectCacheServer
@@ -22,17 +22,15 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
-using System;
-using System.Collections.Generic;
-
-using VNLib.Plugins;
 using VNLib.Utils;
 using VNLib.Utils.Logging;
+using VNLib.Plugins;
+using VNLib.Plugins.Attributes;
 using VNLib.Plugins.Extensions.Loading;
 using VNLib.Plugins.Extensions.Loading.Routing;
 
-using VNLib.Data.Caching.ObjectCache.Server.Endpoints;
 using VNLib.Data.Caching.ObjectCache.Server.Clustering;
+using VNLib.Data.Caching.ObjectCache.Server.Endpoints;
 
 namespace VNLib.Data.Caching.ObjectCache.Server
 {
@@ -46,22 +44,30 @@ namespace VNLib.Data.Caching.ObjectCache.Server
         protected override void OnLoad()
         {
             //Initialize the cache node builder
-            sysState = this.GetOrCreateSingleton<ObjectCacheSystemState>();
+            sysState = this.Deps()
+                           .GetOrCreateSingleton<ObjectCacheSystemState>();
+
             sysState.Initialize();
 
             //Route well-known endpoint
-            this.Route<WellKnownEndpoint>();
+            this.Host()
+                .Routes()
+                .Add<WellKnownEndpoint>();
 
             //Init connect endpoint
-            this.Route<ConnectEndpoint>();
+            this.Host()
+                .Routes()
+                .Add<ConnectEndpoint>();
 
             //We must initialize the replication manager
-            _ = this.GetOrCreateSingleton<CacheNodeReplicationMaanger>();
+            _ = this.Deps().GetOrCreateSingleton<CacheNodeReplicationMaanger>();
 
             //Setup discovery endpoint only if the user enabled clustering
             if (!string.IsNullOrWhiteSpace(sysState.ClusterConfig.DiscoveryPath))
             {
-                this.Route<PeerDiscoveryEndpoint>();
+                this.Host()
+                    .Routes()
+                    .Add<PeerDiscoveryEndpoint>();
             }
 
             Log.Information("Plugin loaded");
@@ -72,7 +78,8 @@ namespace VNLib.Data.Caching.ObjectCache.Server
             Log.Information("Plugin unloaded");
         }
 
-        protected override void ProcessHostCommand(string cmd)
+        [ConsoleEventHandler]
+        public void OnConsoleCommand(string cmd)
         {
             if(string.IsNullOrWhiteSpace(cmd))
             {

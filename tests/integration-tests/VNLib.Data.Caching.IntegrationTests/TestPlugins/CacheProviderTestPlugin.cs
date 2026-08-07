@@ -47,7 +47,9 @@ namespace VNLib.Data.Caching.IntegrationTests.TestPlugins
             ICacheClient? cacheClient = this.GetDefaultGlobalCache() 
                 ?? throw new Exception("Global cache failed to find and load a provider library");
 
-            this.ExportService(cacheClient, ExportFlags.None);
+            this.Host()
+                .Services()
+                .Export(cacheClient, ExportFlags.None);
 
             Log.Information("Cache provider loaded successfully");
         }
@@ -55,9 +57,6 @@ namespace VNLib.Data.Caching.IntegrationTests.TestPlugins
         protected override void OnUnLoad()
         {
             Log.Information("Cache provider unloading");
-        }
-
-        protected override void ProcessHostCommand(string cmd) { }        
-       
+        }       
     }
 }
