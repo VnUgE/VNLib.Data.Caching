@@ -5,7 +5,7 @@ lockfile = true
 
 [tools]
 dotnet = "8.0"
-"aqua:go-task/task" = "3.52"
+"aqua:go-task/task" = "3.53"
 "dotnet:GitVersion.Tool" = "6.4.0"
 process-compose = "1.120"
 
