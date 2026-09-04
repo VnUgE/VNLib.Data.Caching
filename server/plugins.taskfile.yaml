@@ -36,7 +36,7 @@ tasks:
     - cmd: mkdir -p 'build/plugins/{{ .PLUGIN_NAME }}'
 
     #copy the plugin output
-    - cmd: cd '../plugins/ObjectCacheServer/src/' && 
+    - cmd: cd '../plugins/ObjectCacheServer/' && 
         task 
         CONFIGURATION=release 
         --
