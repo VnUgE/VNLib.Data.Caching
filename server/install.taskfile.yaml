@@ -9,6 +9,8 @@ tasks:
 
   install:
     internal: true
+    requires:
+      vars: [DIR, SRC_DIR, FILE_NAME]
     cmds:
     #make the plugin directory
     - cmd: mkdir -p {{ .DIR }}
