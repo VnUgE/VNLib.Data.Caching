@@ -1,4 +1,4 @@
-version: 43
+version: 53
 properties:
 - name: deps_core_version
   value: master/v0.1.5
@@ -33,6 +33,8 @@ jobs:
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
+  includeUpstreamWhenRebuild: false
+  includeDownstreamWhenRebuild: false
   timeout: 3600
 
 - name: Unit Testing
@@ -47,10 +49,12 @@ jobs:
     name: run unit tests
     runInContainer: false
     interpreter:
-      type: DefaultInterpreter
+      type: PowerShellInterpreter
+      powershell: powershell.exe
       commands: |
         cd @project_name@
         mise ci-vnbuild test --include @project_name@ --verbose
+    runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -61,6 +65,8 @@ jobs:
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
+  includeUpstreamWhenRebuild: false
+  includeDownstreamWhenRebuild: false
   timeout: 14400
 
 - name: Windows CI Tests
@@ -75,11 +81,13 @@ jobs:
     name: build modules
     runInContainer: false
     interpreter:
-      type: DefaultInterpreter
+      type: PowerShellInterpreter
+      powershell: powershell.exe
       commands: |
         cd @project_name@
         mise ci-vnbuild build --no-delay --include vnlib.core
         mise ci-vnbuild build --no-delay --include @project_name@ --verbose
+    runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -87,13 +95,15 @@ jobs:
     name: run integration tests
     runInContainer: false
     interpreter:
-      type: DefaultInterpreter
+      type: PowerShellInterpreter
+      powershell: powershell.exe
       commands: |
         cd @project_name@
         mise ci-integration-tests
+    runAs: 0:0
     envVars:
-     - name: TEST_REDIS_URL
-       value: '@secret:redis-test-server-url@'
+    - name: TEST_REDIS_URL
+      value: '@secret:redis-test-server-url@'
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -104,6 +114,8 @@ jobs:
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
+  includeUpstreamWhenRebuild: false
+  includeDownstreamWhenRebuild: false
   timeout: 14400
 
 - name: Staging build
@@ -118,11 +130,13 @@ jobs:
     name: mock build
     runInContainer: false
     interpreter:
-      type: DefaultInterpreter
+      type: PowerShellInterpreter
+      powershell: powershell.exe
       commands: |
         cd @project_name@
         mise ci-vnbuild build --no-delay --include vnlib.core
         mise ci-vnbuild build --no-delay --include @project_name@ --verbose
+    runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -130,10 +144,12 @@ jobs:
     name: mock publish
     runInContainer: false
     interpreter:
-      type: DefaultInterpreter
+      type: PowerShellInterpreter
+      powershell: powershell.exe
       commands: |
         cd @project_name@
         mise ci-vnbuild publish --include @project_name@
+    runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -153,6 +169,8 @@ jobs:
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
+  includeUpstreamWhenRebuild: false
+  includeDownstreamWhenRebuild: false
   timeout: 14400
 
 - name: Publish master
@@ -167,10 +185,12 @@ jobs:
     name: Create git tag
     runInContainer: false
     interpreter:
-      type: DefaultInterpreter
+      type: PowerShellInterpreter
+      powershell: powershell.exe
       commands: |
         cd @project_name@
         mise ci-task -t Module.Taskfile.yaml tag-current-commit
+    runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -178,11 +198,13 @@ jobs:
     name: VNBuild build
     runInContainer: false
     interpreter:
-      type: DefaultInterpreter
+      type: PowerShellInterpreter
+      powershell: powershell.exe
       commands: |
         cd @project_name@
         mise ci-vnbuild  build --no-delay --include vnlib.core
         mise ci-vnbuild  build --no-delay --include @project_name@
+    runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -190,10 +212,12 @@ jobs:
     name: VNBuild publish
     runInContainer: false
     interpreter:
-      type: DefaultInterpreter
+      type: PowerShellInterpreter
+      powershell: powershell.exe
       commands: |
         cd @project_name@
         mise ci-vnbuild publish --include @project_name@ --ftp "@secret:ftp_server_address@" --sign
+    runAs: 0:0
     envVars:
     - name: FTP_USERNAME
       value: '@secret:ftp_username@'
@@ -215,6 +239,8 @@ jobs:
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
+  includeUpstreamWhenRebuild: false
+  includeDownstreamWhenRebuild: false
   timeout: 14400
 
 - name: build image
@@ -225,11 +251,13 @@ jobs:
     runInContainer: true
     image: ubuntu:25.04
     interpreter:
-      type: DefaultInterpreter
+      type: PosixInterpreter
+      shell: sh
       commands: |
         cd @project_name@
         ls -lah
         tar -xzf container-release.tgz
+    runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -253,6 +281,8 @@ jobs:
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
+  includeUpstreamWhenRebuild: false
+  includeDownstreamWhenRebuild: false
   timeout: 14400
 
 - name: build master image
@@ -263,11 +293,13 @@ jobs:
     runInContainer: true
     image: ubuntu:25.04
     interpreter:
-      type: DefaultInterpreter
+      type: PosixInterpreter
+      shell: sh
       commands: |
         cd @project_name@
         ls -lah
         tar -xzf container-release.tgz
+    runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -291,6 +323,8 @@ jobs:
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
+  includeUpstreamWhenRebuild: false
+  includeDownstreamWhenRebuild: false
   timeout: 14400
 
 stepTemplates:
@@ -300,7 +334,8 @@ stepTemplates:
     name: checkout local deps
     runInContainer: false
     interpreter:
-      type: DefaultInterpreter
+      type: PowerShellInterpreter
+      powershell: powershell.exe
       commands: |
         git clone @server_url@/@project_path@ --branch @branch@ @project_name@
 
@@ -310,6 +345,7 @@ stepTemplates:
 
         mise ci-configure-dep -t @project_name@/Module.Taskfile.yaml "DEP_REPO=@server_url@/vnuge/vnlib/VNLib.Core" "DEP_REVISION=@property:deps_core_version@" "DEP_DIR=core"
         mise ci-configure-dep -t @project_name@/Module.Taskfile.yaml "DEP_REPO=@server_url@/vnuge/vnlib/VNLib.Plugins.Extensions" "DEP_REVISION=@property:deps_extensions_version@"
+    runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL
     optional: false
