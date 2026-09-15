@@ -3,7 +3,7 @@
 #Called by the vnbuild system to produce builds for my website
 #https://www.vaughnnugent.com/resources/software
 
-version: "3"
+version: '3.45'
 
 includes:
   install:
