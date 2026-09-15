@@ -27,7 +27,7 @@ using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 using VNLib.Data.Caching.ObjectCache.Server;
-using VNLib.Plugins.Essentials.Runtime;
+using VNLib.Plugins.Essentials.Endpoints;
 using VNLib.Plugins.Essentials.ServiceStack.Testing;
 
 namespace VNLib.Data.Caching.Tests
