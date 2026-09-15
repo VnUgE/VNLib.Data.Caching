@@ -47,7 +47,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
 {
     /// <summary>
     /// The VNCache global cache provider client, that is intended to be loaded
-    /// using <see cref="LoadingExtensions.GetOrCreateSingleton{T}(PluginBase)"/> directly
+    /// using <see cref="PluginDependencyExtensions.PluginDependencies.GetOrCreateSingleton{T}()"/> directly
     /// on the plugin loading a cache client.
     /// <para>
     /// Users may also create cache instances outside of plugin context using static 
@@ -60,10 +60,10 @@ namespace VNLib.Data.Caching.Providers.VNCache
     {
 
         /// <summary>
-        /// Allows you to programatically create a remote-only VNCache instance
+        /// Allows you to programmatically create a remote-only VNCache instance
         /// </summary>
         /// <param name="config">The remote cache configuration, required for VNCache remote cache servers</param>
-        /// <returns>An opreator handle that can schedule the remote cache worker task</returns>
+        /// <returns>An operator handle that can schedule the remote cache worker task</returns>
         /// <exception cref="ArgumentNullException"></exception>
         /// <remarks>
         /// The returned <see cref="VNCacheClientHandle"/> implements the <see cref="IAsyncBackgroundWork"/>
@@ -82,12 +82,12 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         /// <summary>
-        /// Allows you to programatically create your own instance if a VNCache remote server backed
-        /// memory cache programatically. 
+        /// Allows you to programmatically create your own instance if a VNCache remote server backed
+        /// memory cache programmatically. 
         /// </summary>
         /// <param name="remote">The remote cache configuration, required for VNCache remote cache servers</param>
         /// <param name="memory">The local memory backed configuration</param>
-        /// <returns>An opreator handle that can schedule the remote cache worker task</returns>
+        /// <returns>An operator handle that can schedule the remote cache worker task</returns>
         /// <exception cref="ArgumentNullException"></exception>
         /// <remarks>
         /// The returned <see cref="VNCacheClientHandle"/> implements the <see cref="IAsyncBackgroundWork"/>
@@ -118,7 +118,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         /// <summary>
-        /// Allows you to programatically create a memory only <see cref="ICacheClient"/>
+        /// Allows you to programmatically create a memory only <see cref="ICacheClient"/>
         /// cache instance.
         /// </summary>
         /// <param name="config">The memory cache configuration</param>

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2025 Vaughn Nugent
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Plugins.Extensions.VNCache
@@ -62,7 +62,7 @@ namespace VNLib.Plugins.Extensions.VNCache
         /// define a cache provider, this method returns null. This method loads a singleton instance.
         /// </summary>
         /// <param name="plugin"></param>
-        /// <returns>The assgined global cache provider or null if undefined</returns>
+        /// <returns>The assigned global cache provider or null if undefined</returns>
         public static ICacheClient? GetDefaultGlobalCache(this PluginBase plugin)
         {
             if (plugin.Config().TryGet(CACHE_CONFIG_KEY) == null)
