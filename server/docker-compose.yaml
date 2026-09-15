@@ -1,20 +1,20 @@
 #Copyright (c) Vaughn Nugent
 #Licensed under the GNU AGPLv3
 
-version: '3.6'
-
 services:
   vncache:
     build:
       context: .
     image: vnuge/vncache
     container_name: vncache
-    restart: unless-stopped
     hostname: vncache-server
+    restart: unless-stopped
+    stop_grace_period: 30s
+    mem_limit: 4g
+    mem_reservation: 512m    
     volumes:
       - ./data/:/app/data:rw             # optional writes log files to the host (may be required in the future)
       - ./assets:/app/usr/assets:ro      # optional if assets are required
-      #- ./ssl:/app/ssl:ro                # optional only if SSL is enabled (currently not a feature)
     ports:
       - 2557:2557
     environment:
@@ -22,16 +22,16 @@ services:
       # MAX_ENTIRES x CACHE_BUCKETS x CACHE_MAX_MESSAGE = max memory consumption
 
       MAX_CLIENT_CONNECTIONS: "1000"        # max number of concurrent client connections
-      MAX_ENTRIES: "10000"                  # max number of cache entries per bucket
-      CACHE_BUCKETS: "100"                  # number of cache buckets for load balancing
+      MAX_ENTRIES: "2000"                   # max number of cache entries per bucket
+      CACHE_BUCKETS: "50"                   # number of cache buckets for load balancing
       CACHE_MAX_MESSAGE: "20480"            # 20KB
-      VERIFY_IP: "true"                     # verfies the IP address of clients during negotiation (recommended)
-      MAX_PEER_NODES: "10"                  # max number of other peer nodes this node shoud connect to
+      VERIFY_IP: "true"                     # verifies the IP address of clients during negotiation (recommended)
+      MAX_PEER_NODES: "10"                  # max number of other peer nodes this node should connect to
       DISCOVERY_INTERVAL_SEC: "360"         # time (in seconds) between peer node discovery
       KNOWN_PEERS: '[]'                     # array of known peer nodes in the cluster
       ENABLE_CHECKSUMS: "true"              # enables checksums for messages
 
-      #SECRETS (must be JWK formatted keys)
+      #SECRETS (must be JWK formatted key)
       CACHE_PRIV_KEY: ''                    # REQUIRED local private key used to identify and sign messages to clients and other nodes
       CLIENT_PUB_KEY: ''                    # REQUIRED used to verify client messages
 
@@ -42,5 +42,12 @@ services:
 
       #HTTP
       #HTTP_DOWNSTREAM_SERVERS: '[]'
-      HTTP_MAX_CONNS: "5000"
+      HTTP_MAX_CONS: "5000"
 
+
+# Notes:
+# vnlib accepts secrets with the following formats 
+#   - raw: "super_secret_value"
+#   - file: "file://path/to/your-file.txt"
+#   - env var: "env://NAME_OF_YOUR_VAR"
+#   - hcp vault: "vault://<your>/<path>?secret=<secret_name>"

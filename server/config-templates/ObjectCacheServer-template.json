@@ -1,4 +1,4 @@
-﻿{
+{
   "debug": ${DEBUG_PLUGINS:-false},
 
   //enables cache server cluster node data
@@ -20,8 +20,8 @@
 
   //Cache configuration object, FBM protocol variables
   "cache": {
-    "max_cache": ${MAX_ENTRIES:-10000},   //Max number of cache entires to be stored
-    "buckets": ${CACHE_BUCKETS:-100},     //the number of cache buckets to distribute load
+    "max_cache": ${MAX_ENTRIES:-2000},   //Max number of cache entires to be stored per bucket
+    "buckets": ${CACHE_BUCKETS:-50},     //the number of cache buckets to distribute load
 
     //FBM buffer config
     "buffer_recv_max": ${CACHE_MAX_MESSAGE:-20480},   //Max transfer buffer 
@@ -30,6 +30,11 @@
     "buffer_header_min": 128,                         //128 byte min request header buffer size
     "max_message_size": ${CACHE_MAX_MESSAGE:-20480},  //Absolute maxium message size allowed, also the maxium size of cache entires
     "enable_checksums": ${ENABLE_CHECKSUMS:-true}     //Enable checksums for cache entries
-  }
+  },
 
+  // Sets the cache server's shared private key, and the client shared public key
+  "secrets": {
+    "cache_private_key": "${CACHE_PRIV_KEY}",
+    "client_public_key": "${CLIENT_PUB_KEY}"
+  }
 }
