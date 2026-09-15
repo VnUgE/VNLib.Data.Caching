@@ -60,6 +60,10 @@ namespace VNLib.Data.Caching.Providers.Redis
     {
         private const int InitialWriterBufferSize = 4096;
 
+        //Name of the secret holding the redis password. Its value may be a raw
+        //secret or a reader uri (env://, file://, vault://)
+        private const string RedisPasswordSecretName = "redis_password";
+
         private readonly IUnmanagedHeap _defaultHeap;
         private readonly IAsyncLazy<ConnectionMultiplexer> _redis;
         private readonly IAsyncLazy<IDatabase> _database;
@@ -81,12 +85,20 @@ namespace VNLib.Data.Caching.Providers.Redis
                     if (connectionString.Contains("password=[SECRET]", StringComparison.OrdinalIgnoreCase))
                     {
                         //Load the password from the secret store and replace the placeholder with the found secret
-                        using ISecretResult password = await plugin.Secrets().GetAsync("redis_password");
-                        connectionString = connectionString.Replace("password=[SECRET]", $"password={password.Result}", StringComparison.OrdinalIgnoreCase);
+                        using ISecretResult password = await plugin.Secrets().GetAsync(RedisPasswordSecretName);
+
+                        connectionString = connectionString.Replace(
+                            oldValue: "password=[SECRET]", 
+                            newValue: $"password={password.Result}", 
+                            StringComparison.OrdinalIgnoreCase
+                        );
                     }
                     else
                     {
-                        redisLog.Information("-- You can set 'password=[SECRET]' in your connection string to substitute 'redis_password' from the 'secrets' configuration --");
+                        redisLog.Information(
+                            "-- You can set 'password=[SECRET]' in your connection string to substitute {name} from the 'secrets' configuration --",
+                            RedisPasswordSecretName
+                        );
                     }
 
                     redisLog.Information("Connecting to Redis server...");
@@ -99,9 +111,8 @@ namespace VNLib.Data.Caching.Providers.Redis
                     redisLog.Information("Successfully connected to Redis server");
 
                     // Register dispose when successfully loaded
-                    _ = plugin
-                        .Tasks()
-                        .RegisterForUnload(mx.Dispose);
+                    plugin.Tasks()
+                        .RegisterForUnload(mx);
 
                     return mx;
                 }).AsLazy();
@@ -114,10 +125,10 @@ namespace VNLib.Data.Caching.Providers.Redis
                 _redis = Task.Run(async () =>
                 {
                     // Set password if defined, user might not have defined a password
-                    if (plugin.Secrets().IsSet("redis_password"))
+                    if (plugin.Secrets().IsSet(RedisPasswordSecretName))
                     {
                         //Retrieve the password last
-                        using ISecretResult password = await plugin.Secrets().GetAsync("redis_password");
+                        using ISecretResult password = await plugin.Secrets().GetAsync(RedisPasswordSecretName);
                         options.Password = password.Result.ToString();
                     }
 
@@ -131,9 +142,8 @@ namespace VNLib.Data.Caching.Providers.Redis
                     redisLog.Information("Successfully connected to Redis server");
 
                     // Register dispose when successfully loaded
-                    _ = plugin
-                         .Tasks()
-                         .RegisterForUnload(mx.Dispose);
+                    plugin.Tasks()
+                         .RegisterForUnload(mx);
 
                     return mx;
                 }).AsLazy();
@@ -266,12 +276,14 @@ namespace VNLib.Data.Caching.Providers.Redis
             serializer.Serialize(value, buffer);
 
             //Update object data
-            await _database.Value.StringSetAsync(key, (RedisValue)buffer.AsMemory()).ConfigureAwait(false);
+            await _database.Value.StringSetAsync(key, (RedisValue)buffer.AsMemory())
+                                 .ConfigureAwait(false);
 
             if (!string.IsNullOrWhiteSpace(newKey))
             {
                 //also update the key
-                await _database.Value.KeyRenameAsync(key, newKey).ConfigureAwait(false);
+                await _database.Value.KeyRenameAsync(key, newKey)
+                                     .ConfigureAwait(false);
             }
         }
 
@@ -293,12 +305,14 @@ namespace VNLib.Data.Caching.Providers.Redis
             using IMemoryOwner<byte> buffer = AllocAndCopy(callback, state, _defaultHeap, ref length);
 
             //Set the value at the old key
-            await _database.Value.StringSetAsync(key, buffer.Memory[..length]).ConfigureAwait(false);
+            await _database.Value.StringSetAsync(key, buffer.Memory[..length])
+                                 .ConfigureAwait(false);
 
             //If required also update the key
             if (!string.IsNullOrWhiteSpace(newKey))
             {
-                await _database.Value.KeyRenameAsync(key, newKey).ConfigureAwait(false);
+                await _database.Value.KeyRenameAsync(key, newKey)
+                                     .ConfigureAwait(false);
             }
             
             static IMemoryOwner<byte> AllocAndCopy(ObjectDataGet<T> callback, T state, IUnmanagedHeap heap, ref int length)
@@ -319,7 +333,9 @@ namespace VNLib.Data.Caching.Providers.Redis
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
-            RedisValue value = await _database.Value.StringGetDeleteAsync(key).ConfigureAwait(false);
+            RedisValue value = await _database.Value.StringGetDeleteAsync(key)
+                                                    .ConfigureAwait(false);
+            
             return value.IsNull == false;   //Should only be null if the key did not exist
         }
 
@@ -330,7 +346,8 @@ namespace VNLib.Data.Caching.Providers.Redis
             ArgumentNullException.ThrowIfNull(deserializer);
 
             //Try to get the value from the cache
-            RedisValue value = await _database.Value.StringGetAsync(key).ConfigureAwait(false);
+            RedisValue value = await _database.Value.StringGetAsync(key)
+                                                    .ConfigureAwait(false);
 
             //If the value is found, set the raw data
             return value.IsNull 
@@ -345,7 +362,8 @@ namespace VNLib.Data.Caching.Providers.Redis
             ArgumentNullException.ThrowIfNull(callback);
 
             //Try to get the value from the cache
-            RedisValue value = await _database.Value.StringGetAsync(key).ConfigureAwait(false);
+            RedisValue value = await _database.Value.StringGetAsync(key)
+                                                    .ConfigureAwait(false);
 
             //If the value is found, set the raw data
             if (!value.IsNull)

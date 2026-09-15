@@ -56,12 +56,10 @@ namespace VNLib.Data.Caching.ObjectCache.Server.Cache
            */
             plugin.ScheduleInterval(this, config.EventQueuePurgeInterval);
             
-            //Cleanup disposeables on unload
-            _ = plugin.Tasks().RegisterForUnload(() =>
-            {
-                QueueStore.Clear();
-                Subscribers.Clear();
-            });
+            //Cleanup disposables on unload
+            plugin.Tasks()
+                .RegisterForUnload(QueueStore.Clear)
+                .RegisterForUnload(Subscribers.Clear);
         }
 
         ///<inheritdoc/>

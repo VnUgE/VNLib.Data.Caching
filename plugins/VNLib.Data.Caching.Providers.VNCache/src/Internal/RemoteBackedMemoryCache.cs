@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2025 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -104,19 +104,39 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             }
         }
 
-        ///<inheritdoc/>
-        public override async Task RunAsync(PluginBase? plugin, ILogProvider clientLog, CancellationToken cancellation)
+        private void PruneExpired(IBlobCache cache)
         {
-            // Run the backing store if the cache client is an internal client
-            Task backingTask = Task.CompletedTask;
-            if (_backing is IInternalCacheClient client)
+            DateTime current = DateTime.UtcNow;
+
+            // Enumerate all cache entries to determine if they have expired
+            string[] expired = (from ec in cache
+                                where ec.Value.GetTime().Add(_cacheConfig.MaxCacheAge) < current
+                                select ec.Key)
+                                    .ToArray();
+
+            // Remove expired entries
+            for (int i = 0; i < expired.Length; i++)
             {
-                backingTask = client.RunAsync(plugin, clientLog, cancellation);
+                cache.Remove(expired[i]);
+            }
+        }
+
+        private async Task OnIntervalAsync(ILogProvider log, CancellationToken cancellationToken)
+        {
+            if (!IsConnected)
+            {
+                return;
             }
 
-            Task intervalTask = RunIntervalAsync(clientLog, cancellation);
+            foreach (IBlobCacheBucket bucket in _memCache)
+            {
+                //enter bucket lock
+                using CacheBucketHandle handle = await bucket.WaitAsync(cancellationToken)
+                                                             .ConfigureAwait(false);
 
-            await Task.WhenAny(backingTask, intervalTask);
+                //Prune expired entries
+                PruneExpired(handle.Cache);
+            }
         }
 
         private async Task RunIntervalAsync(ILogProvider clientLog, CancellationToken cancellation)
@@ -131,14 +151,38 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             {
                 while (true)
                 {
-                    await Task.Delay(_cacheConfig.RefreshInterval, cancellation);
+                    await Task.Delay(_cacheConfig.RefreshInterval, cancellation)
+                        .ConfigureAwait(false);
 
-                    await OnIntervalAsync(clientLog, cancellation);
+                    await OnIntervalAsync(clientLog, cancellation)
+                        .ConfigureAwait(false);
                 }
             }
-            //Its normal to throw when the plugin exits or is cancelled
-            catch (TaskCanceledException)
+            // Normal exit when task cancelled
+            catch (TaskCanceledException) when (cancellation.IsCancellationRequested)
             { }
+            // A disposed bucket just means we lost a race with shutdown, nothing is wrong
+            catch (ObjectDisposedException)
+            { }
+        }
+
+        ///<inheritdoc/>
+        public override async Task RunAsync(PluginBase? plugin, ILogProvider clientLog, CancellationToken cancellation)
+        {
+            // Run the backing store if the cache client is an internal client
+            Task backingTask = Task.CompletedTask;
+            if (_backing is IInternalCacheClient client)
+            {
+                backingTask = client.RunAsync(plugin, clientLog, cancellation);
+            }
+
+            Task intervalTask = RunIntervalAsync(clientLog, cancellation);
+
+            Task complete = await Task.WhenAny(backingTask, intervalTask);
+
+            //Surface background failures instead of exiting silently. A faulted task
+            //means something is actually wrong and the host needs to see it.
+            complete.GetAwaiter().GetResult();
         }
 
         ///<inheritdoc/>
@@ -182,11 +226,12 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             GetStateResult<T?> state = new()
             {
                 Deserialzer = deserializer,
-                Value = default
+                Value       = default
             };
 
             //Try to get the object from the cache and if found, deserialize it and store the result
-            await GetAsync(key, static (r, data) => r.SetState(data), state, cancellation);
+            await GetAsync(key, static (r, data) => r.SetState(data), state, cancellation)
+                .ConfigureAwait(false);
 
             return state.Value!;
         }
@@ -220,20 +265,25 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             using VnMemoryStream getBuffer = new(_bufferHeap);
 
             //Get the object from the server
-            await _backing.GetAsync(key, static (b, data) => b.Write(data), getBuffer, cancellation);
+            await _backing.GetAsync(
+                key,
+                static (b, data) => b.Write(data),
+                getBuffer,
+                cancellation
+            ).ConfigureAwait(false);
 
             //See if object data was set
             if (getBuffer.Length > 0)
             {
                 //Update local cache
                 await _memCache.AddOrUpdateObjectAsync(
-                    key, 
-                    alternateId: null, 
-                    static b => b.AsSpan(), 
-                    getBuffer, 
-                    DateTime.UtcNow, 
+                    key,
+                    alternateId: null,
+                    static b => b.AsSpan(),
+                    getBuffer,
+                    DateTime.UtcNow,
                     CancellationToken.None
-                );
+                ).ConfigureAwait(false);
 
                 //Invoke the setter
                 setter(state, getBuffer.AsSpan());
@@ -253,7 +303,8 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             //Serialize the value
             serializer.Serialize(value, buffer);
 
-            await AddOrUpdateAsync(key, newKey, static p => p.AsSpan(), buffer, cancellation);
+            await AddOrUpdateAsync(key, newKey, static p => p.AsSpan(), buffer, cancellation)
+                .ConfigureAwait(false);
         }
 
         ///<inheritdoc/>
@@ -269,55 +320,24 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             try
             {
                 //Update remote first, and if exceptions are raised, do not update local cache
-                await _backing.AddOrUpdateAsync(key, newKey, callback, state, cancellation);
+                await _backing.AddOrUpdateAsync(key, newKey, callback, state, cancellation)
+                              .ConfigureAwait(false);
 
                 //Safe to update local cache
-                await _memCache.AddOrUpdateObjectAsync(key, newKey, callback, state, currentTime, CancellationToken.None);
+                await _memCache.AddOrUpdateObjectAsync(key, newKey, callback, state, currentTime, CancellationToken.None)
+                               .ConfigureAwait(false);
             }
             catch
             {
                 //Remove local cache if exception occurs
-                await _memCache.DeleteObjectAsync(key, CancellationToken.None);
+                await _memCache.DeleteObjectAsync(key, CancellationToken.None)
+                               .ConfigureAwait(false);
+                
                 throw;
             }
         }
 
-        private async Task OnIntervalAsync(ILogProvider log, CancellationToken cancellationToken)
-        {
-            if (!IsConnected)
-            {
-                return;
-            }
-
-            //Get buckets 
-            IBlobCacheBucket[] buckets = _memCache.ToArray();
-
-            foreach (IBlobCacheBucket bucket in buckets)
-            {
-                //enter bucket lock
-                using CacheBucketHandle handle = await bucket.WaitAsync(cancellationToken);
-
-                //Prune expired entries
-                PruneExpired(handle.Cache);
-            }
-        }
-
-        private void PruneExpired(IBlobCache cache)
-        {
-            DateTime current = DateTime.UtcNow;
-
-            //Enumerate all cache entries to determine if they have expired
-            string[] expired = (from ec in cache
-                                where ec.Value.GetTime().Add(_cacheConfig.MaxCacheAge) < current
-                                select ec.Key)
-                                    .ToArray();
-
-            //Remove expired entries
-            for (int i = 0; i < expired.Length; i++)
-            {
-                cache.Remove(expired[i]);
-            }
-        }
+      
 
         /*
          * Stores temporary state for a cache get operation

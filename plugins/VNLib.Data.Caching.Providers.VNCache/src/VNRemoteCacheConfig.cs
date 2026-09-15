@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2025 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -37,6 +37,16 @@ namespace VNLib.Data.Caching.Providers.VNCache
     /// </summary>
     public class VNRemoteCacheConfig : VNCacheConfig
     {
+        /// <summary>
+        /// Nobody needs to wait longer than an hour to retry, reject anything bigger
+        /// </summary>
+        const uint MaxReconnectDelayMs = 3600000;
+
+        /// <summary>
+        /// The old fixed delay, used when the reconnect bounds are not configured
+        /// </summary>
+        const uint DefaultReconnectDelayMs = 10000;
+
         const string DefaultWellKnownEndpoint = "/.well-known/vncache";
 
         /// <summary>
@@ -95,6 +105,32 @@ namespace VNLib.Data.Caching.Providers.VNCache
         public uint? InitialNodeDelay { get; set; }
 
         /// <summary>
+        /// The initial delay in milliseconds before the first reconnect attempt after a failure.
+        /// When null, the default reconnect delay is used.
+        /// </summary>
+        [JsonPropertyName("reconnect_initial_delay_ms")]
+        public uint? ReconnectInitialDelayMs { get; set; }
+
+        /// <summary>
+        /// The longest we will ever wait between retries. Leave unset and
+        /// we just wait a fixed delay like before.
+        /// </summary>
+        [JsonPropertyName("reconnect_max_delay_ms")]
+        public uint? ReconnectMaxDelayMs { get; set; }       
+
+        /// <summary>
+        /// Initial reconnect delay, or the default when unconfigured
+        /// </summary>
+        internal TimeSpan ReconnectInitialDelay 
+            => TimeSpan.FromMilliseconds(ReconnectInitialDelayMs ?? DefaultReconnectDelayMs);
+
+        /// <summary>
+        /// Maximum reconnect delay, or the default when unconfigured
+        /// </summary>
+        internal TimeSpan ReconnectMaxDelay 
+            => TimeSpan.FromMilliseconds(ReconnectMaxDelayMs ?? DefaultReconnectDelayMs);
+
+        /// <summary>
         /// The initial peers to connect to
         /// </summary>
         [JsonPropertyName("initial_nodes")]
@@ -128,6 +164,25 @@ namespace VNLib.Data.Caching.Providers.VNCache
 
             Validate.Assert(RequestTimeoutSeconds.HasValue, "A request timeout is required");
             Validate.Range(RequestTimeoutSeconds.Value, 1, int.MaxValue);
+
+            if (ReconnectInitialDelayMs.HasValue)
+            {                
+                //An hour is plenty, anything bigger is a typo that would quietly stop us reconnecting
+                Validate.Range(ReconnectInitialDelayMs.Value, 1u, MaxReconnectDelayMs);
+            }
+
+            if (ReconnectMaxDelayMs.HasValue)
+            {
+                Validate.Range(ReconnectMaxDelayMs.Value, 1u, MaxReconnectDelayMs);
+            }
+
+            if (ReconnectInitialDelayMs.HasValue && ReconnectMaxDelayMs.HasValue)
+            {
+                Validate.Assert(
+                    ReconnectMaxDelayMs.Value >= ReconnectInitialDelayMs.Value,
+                    "The maximum reconnect delay must be greater than or equal to the initial reconnect delay"
+                );
+            }
 
             Validate.NotNull(InitialNodes, "You must specify at least one initial cache node to connect to");
             Validate.Assert(InitialNodes.Length > 0, "You must specify at least one initial cache node to connect to");

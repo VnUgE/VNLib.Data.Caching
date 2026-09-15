@@ -97,8 +97,8 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             };
 
             // Register dispose on plugin exit to cleanup heaps
-            _ = plugin.Tasks()
-                .RegisterForUnload(fac.Dispose);
+            plugin.Tasks()
+                .RegisterForUnload(fac);
 
             return fac;
         }

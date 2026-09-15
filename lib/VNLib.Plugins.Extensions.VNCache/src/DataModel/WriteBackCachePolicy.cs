@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Plugins.Extensions.VNCache
@@ -32,29 +32,10 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
     /// Provides a policy for observing the completion of cache operations
     /// </summary>
     /// <param name="onFaulted">
-    /// A callback function that is executed when a cache operation has fauled due to an exception
+    /// A callback function that is executed when a cache operation has failed due to an exception
     /// </param>
     public class WriteBackCachePolicy(Action<Task> onFaulted) : ICacheTaskPolicy
     {
-        ///<inheritdoc/>
-        public Task ObserveOperationAsync(Task operation)
-        {
-            ArgumentNullException.ThrowIfNull(operation);
-
-            if (!operation.IsCompleted)
-            {
-                //Defer the observation to the callback function to watch for errors
-                _ = operation.ContinueWith(
-                    ObserveOperation, 
-                    cancellationToken: default,
-                    TaskContinuationOptions.ExecuteSynchronously,
-                    TaskScheduler.Default
-                );
-            }
-
-            return Task.CompletedTask;
-        }
-
         private void ObserveOperation(Task operation)
         {
             //Should only be called on a completed task
@@ -65,6 +46,30 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
                 onFaulted(operation);
             }
         }
-    }
-   
+
+        ///<inheritdoc/>
+        public Task ObserveOperationAsync(Task operation)
+        {
+            ArgumentNullException.ThrowIfNull(operation);
+
+            if (operation.IsCompleted)
+            {
+                //Already finished, observe it right now so a synchronous fault still gets reported
+                ObserveOperation(operation);
+            }
+            else
+            {
+                //Defer the observation to the callback function to watch for errors. Runs on
+                //the pool so a slow fault handler never stalls the thread finishing the operation.
+                _ = operation.ContinueWith(
+                    ObserveOperation,
+                    cancellationToken: default,
+                    TaskContinuationOptions.None,
+                    TaskScheduler.Default
+                );
+            }
+
+            return Task.CompletedTask;
+        }        
+    }   
 }
