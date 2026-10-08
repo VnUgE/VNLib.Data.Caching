@@ -1,4 +1,4 @@
-﻿/*
+/*
 * Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
@@ -22,6 +22,7 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
+using System.Buffers;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -62,7 +63,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
         public abstract Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serializer, CancellationToken cancellation);
 
         ///<inheritdoc/>
-        public abstract Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation);
+        public abstract Task GetAsync<T>(string key, ReadOnlySpanAction<byte, T> callback, T state, CancellationToken cancellation);
 
         ///<inheritdoc/>
         public abstract Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataGet<T> callback, T state, CancellationToken cancellation);

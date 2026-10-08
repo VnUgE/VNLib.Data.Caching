@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2025 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Plugins.Extensions.VNCache
@@ -23,6 +23,7 @@
 */
 
 using System;
+using System.Buffers;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.CompilerServices;
@@ -209,7 +210,7 @@ namespace VNLib.Plugins.Extensions.VNCache.DataModel
             }
          
             ///<inheritdoc/>
-            public override Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation)
+            public override Task GetAsync<T>(string key, ReadOnlySpanAction<byte, T> callback, T state, CancellationToken cancellation)
             {
                 ArgumentException.ThrowIfNullOrWhiteSpace(key);
 

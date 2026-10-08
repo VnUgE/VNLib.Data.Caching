@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2025 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -376,14 +376,14 @@ namespace VNLib.Data.Caching
         {
             ArgumentNullException.ThrowIfNull(getter);
 
-            //Get state will store the object result if successfull get operation
+            //Get state will store the object result if successful get operation
             GetObjectState<T, TState> st = new(state, getter);
 
-            //Get the object, if successfull, compute the result
+            //Get the object, if successful, compute the result
             bool success = await GetObjectAsync(
                 client,
                 objectId, 
-                setter: static (s, d) => s.ComputeResult(d), 
+                setter: static (d, s) => s.ComputeResult(d), 
                 state: st, 
                 cancellationToken
             );
@@ -426,7 +426,7 @@ namespace VNLib.Data.Caching
         }
 
         /// <summary>
-        /// Gets an object from the server if it exists. If data is retreived, it sets
+        /// Gets an object from the server if it exists. If data is retrieved, it sets
         /// the <see cref="IObjectData.SetData(ReadOnlySpan{byte})"/>, if no data is 
         /// found, this method returns and never calls SetData.
         /// </summary>
@@ -450,7 +450,7 @@ namespace VNLib.Data.Caching
             return GetObjectAsync(
                 client, 
                 objectId, 
-                setter: static (p, d) => p.SetData(d), 
+                setter: static (d, p) => p.SetData(d), 
                 data, 
                 cancellationToken
             );
@@ -475,7 +475,7 @@ namespace VNLib.Data.Caching
         public static async Task<bool> GetObjectAsync<T>(
             this FBMClient client, 
             string objectId, 
-            ObjectDataSet<T> setter, 
+            ReadOnlySpanAction<byte, T> setter, 
             T state,
             CancellationToken cancellationToken = default
         )
@@ -516,7 +516,7 @@ namespace VNLib.Data.Caching
                         if (!FbmMessageChecksum.VerifyFnv1aChecksum(checksum.Value, response.ResponseBody))
                         {
                             throw new InvalidChecksumException(
-                                $"The response data integrety check failed. The message data was corrupted for id: {checksum.GetValueString()}"
+                                $"The response data integrity check failed. The message data was corrupted for id: {checksum.GetValueString()}"
                             );
                         }
 
@@ -524,7 +524,7 @@ namespace VNLib.Data.Caching
                     }
 
                     //Write the object data
-                    setter(state, response.ResponseBody);
+                    setter(response.ResponseBody, state);
                     return true;
                 }
 
@@ -534,7 +534,7 @@ namespace VNLib.Data.Caching
                     return false;
                 }
 
-                throw new InvalidStatusException("Invalid status code recived for object get request", status.ToString());
+                throw new InvalidStatusException("Invalid status code received for object get request", status.ToString());
             }
             finally
             {

@@ -356,7 +356,7 @@ namespace VNLib.Data.Caching.Providers.Redis
         }
 
         ///<inheritdoc/>
-        public async Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation)
+        public async Task GetAsync<T>(string key, ReadOnlySpanAction<byte, T> callback, T state, CancellationToken cancellation)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(key);
             ArgumentNullException.ThrowIfNull(callback);
@@ -369,7 +369,7 @@ namespace VNLib.Data.Caching.Providers.Redis
             if (!value.IsNull)
             {
                 //Invoke callback with object data
-                callback(state, ((ReadOnlyMemory<byte>)value).Span);
+                callback(((ReadOnlyMemory<byte>)value).Span, state);
             }
         }
 

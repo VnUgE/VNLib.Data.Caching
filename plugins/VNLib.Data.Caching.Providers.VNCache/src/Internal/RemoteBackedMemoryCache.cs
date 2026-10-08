@@ -230,14 +230,14 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             };
 
             //Try to get the object from the cache and if found, deserialize it and store the result
-            await GetAsync(key, static (r, data) => r.SetState(data), state, cancellation)
+            await GetAsync(key, static (data, r) => r.SetState(data), state, cancellation)
                 .ConfigureAwait(false);
 
             return state.Value!;
         }
 
         ///<inheritdoc/>
-        public override async Task GetAsync<T>(string key, ObjectDataSet<T> setter, T state, CancellationToken cancellation)
+        public override async Task GetAsync<T>(string key, ReadOnlySpanAction<byte, T> setter, T state, CancellationToken cancellation)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(key);
             ArgumentNullException.ThrowIfNull(setter);
@@ -252,7 +252,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
                 //Try to read the value
                 if (handle.Cache.TryGetValue(key, out CacheEntry entry))
                 {
-                    setter(state, entry.GetDataSegment());
+                    setter(entry.GetDataSegment(), state);
                     return;
                 }
             }
@@ -267,7 +267,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
             //Get the object from the server
             await _backing.GetAsync(
                 key,
-                static (b, data) => b.Write(data),
+                static (data, b) => b.Write(data),
                 getBuffer,
                 cancellation
             ).ConfigureAwait(false);
@@ -286,7 +286,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
                 ).ConfigureAwait(false);
 
                 //Invoke the setter
-                setter(state, getBuffer.AsSpan());
+                setter(getBuffer.AsSpan(), state);
             }
         }
 

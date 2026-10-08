@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2025 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -22,6 +22,7 @@
 * along with this program.  If not, see https://www.gnu.org/licenses/.
 */
 
+using System.Buffers;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -54,7 +55,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         public abstract Task<T?> GetAsync<T>(string key, ICacheObjectDeserializer deserializer, CancellationToken cancellation);
 
         ///<inheritdoc/>
-        public abstract Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation);
+        public abstract Task GetAsync<T>(string key, ReadOnlySpanAction<byte, T> callback, T state, CancellationToken cancellation);
 
         ///<inheritdoc/>
         public abstract object GetUnderlyingStore();

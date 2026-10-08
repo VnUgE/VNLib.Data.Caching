@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2025 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -23,6 +23,7 @@
 */
 
 using System;
+using System.Buffers;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -216,7 +217,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         }
 
         ///<inheritdoc/>
-        public override async Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation)
+        public override async Task GetAsync<T>(string key, ReadOnlySpanAction<byte, T> callback, T state, CancellationToken cancellation)
         {
             //Get the bucket from the desired key
             IBlobCacheBucket bucket = _memCache.GetBucket(key);
@@ -230,7 +231,7 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
                 if (cache.TryGetValue(key, out CacheEntry entry))
                 {
                     //Set result data
-                    callback(state, entry.GetDataSegment());
+                    callback(entry.GetDataSegment(), state);
                 }
             }
             finally

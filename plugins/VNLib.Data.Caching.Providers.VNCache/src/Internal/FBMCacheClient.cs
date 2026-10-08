@@ -24,6 +24,7 @@
 
 using System;
 using System.IO;
+using System.Buffers;
 using System.Net.Http;
 using System.Diagnostics;
 using System.Threading;
@@ -379,11 +380,11 @@ namespace VNLib.Data.Caching.Providers.VNCache.Internal
         }
 
         ///<inheritdoc/>
-        public override Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation)
+        public override Task GetAsync<T>(string key, ReadOnlySpanAction<byte, T> callback, T state, CancellationToken cancellation)
         {
             return !IsConnected
                 ? Task.FromException(new InvalidOperationException("The underlying client is not connected to a cache node"))
-                : _client!.GetObjectAsync(key, callback, state, cancellation);
+                : _client!.GetObjectAsync<T>(key, callback, state, cancellation);
         }
 
         ///<inheritdoc/>

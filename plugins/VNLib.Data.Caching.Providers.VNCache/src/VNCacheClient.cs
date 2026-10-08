@@ -23,6 +23,7 @@
 */
 
 using System;
+using System.Buffers;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -157,8 +158,8 @@ namespace VNLib.Data.Caching.Providers.VNCache
 
             //Create a jwk authenticator from plugin secrets
             cacheClientConfig.AuthManager = JwkAuthManager.FromLazyJwk(
-                sigKey: plugin.Secrets().GetAsync("client_private_key").ToJsonWebKey().AsLazy(),
-                verifKey: plugin.Secrets().GetAsync("cache_public_key").ToJsonWebKey().AsLazy()
+                sigKey: plugin.Secrets().GetAsync("client_private_key").ToLazy(s => s.GetJsonWebKey()),
+                verifKey: plugin.Secrets().GetAsync("cache_public_key").ToLazy(s => s.GetJsonWebKey())
             );
 
             InitSerializers(plugin, extendedConfig, cacheClientConfig);
@@ -285,7 +286,7 @@ namespace VNLib.Data.Caching.Providers.VNCache
         }
 
         ///<inheritdoc/>
-        public Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation)
+        public Task GetAsync<T>(string key, ReadOnlySpanAction<byte, T> callback, T state, CancellationToken cancellation)
         {
             return _client.GetAsync(key, callback, state, cancellation);
         }

@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2025 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -30,16 +30,6 @@ using System.Threading.Tasks;
 
 namespace VNLib.Data.Caching
 {
-
-    /// <summary>
-    /// A delegate method that will set the raw object data on the state object
-    /// if data was found
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
-    /// <param name="state">The state passed to the original call</param>
-    /// <param name="objectData">The raw data of the cached object</param>
-    public delegate void ObjectDataSet<T>(T state, ReadOnlySpan<byte> objectData);
-
     /// <summary>
     /// A delegate method that will get the raw object data from a state object
     /// </summary>
@@ -157,7 +147,7 @@ namespace VNLib.Data.Caching
         /// <param name="state">The state parameter to pass to the callback when invoked</param>
         /// <param name="cancellation">A token to cancel the async operation</param>
         /// <returns>A task that complets when the object data has been written to the data buffer</returns>
-        Task GetAsync<T>(string key, ObjectDataSet<T> callback, T state, CancellationToken cancellation);
+        Task GetAsync<T>(string key, ReadOnlySpanAction<byte, T> callback, T state, CancellationToken cancellation);
 
         /// <summary>
         /// Asynchronously sets (or updates) a cached value in the backing cache store 

@@ -1,4 +1,4 @@
-﻿/*
+/*
 * Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
@@ -56,7 +56,7 @@ namespace VNLib.Data.Caching
             ArgumentNullException.ThrowIfNull(cache);
             return cache.GetAsync(
                 key, 
-                callback: static (cd, data) => cd.SetData(data), 
+                callback: static (data, cd) => cd.SetData(data), 
                 state: rawData, 
                 cancellation
             );
@@ -210,7 +210,7 @@ namespace VNLib.Data.Caching
             //Get the object, if successfull, compute the result
             await cache.GetAsync(
                 objectId, 
-                callback: static (s, d) => s.ComputeResult(d), 
+                callback: static (d, s) => s.ComputeResult(d), 
                 state: st, 
                 cancellationToken
             );
