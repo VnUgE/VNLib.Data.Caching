@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -32,7 +32,7 @@ using static VNLib.Data.Caching.Constants;
 namespace VNLib.Data.Caching
 {
     /// <summary>
-    /// Provides caching hemper methods for <see cref="FBMContext"/>
+    /// Provides caching helper methods for <see cref="FBMContext"/>
     /// </summary>
     public static class FBMCacheHeaders
     {
@@ -64,7 +64,7 @@ namespace VNLib.Data.Caching
         /// Gets the new ID of the object if specified from the request. Null if the request did not specify an id update
         /// </summary>
         /// <param name="context">The server message context</param>
-        /// <returns>The new ID of the object if speicifed, null otherwise</returns>
+        /// <returns>The new ID of the object if specified, null otherwise</returns>
         public static string? GetNewObjectId(FBMContext context)
         {
             return context.Request.Headers

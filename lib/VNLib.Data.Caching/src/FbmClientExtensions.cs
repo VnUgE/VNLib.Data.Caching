@@ -64,7 +64,7 @@ namespace VNLib.Data.Caching
         /// <param name="objectId">The id of the object to update or replace</param>
         /// <param name="newId">An optional parameter to specify a new ID for the old object</param>
         /// <param name="data">The payload data to serialize and set as the data state of the session</param>
-        /// <param name="serializer">The custom serializer to used to serialze the object to binary</param>
+        /// <param name="serializer">The custom serializer to used to serialize the object to binary</param>
         /// <param name="cancellationToken">A token to cancel the operation</param>
         /// <returns>A task that resolves when the server responds</returns>
         /// <exception cref="ArgumentException"></exception>
@@ -340,7 +340,7 @@ namespace VNLib.Data.Caching
                     }
 
                     //Invalid status
-                    throw new InvalidStatusException("Invalid status code recived for object upsert request", status.ToString());
+                    throw new InvalidStatusException("Invalid status code received for object upsert request", status.ToString());
                 }
                 finally
                 {
@@ -457,7 +457,7 @@ namespace VNLib.Data.Caching
         }
 
         /// <summary>
-        /// Gets an object from the server if it exists. If data is retreived, it sets
+        /// Gets an object from the server if it exists. If data is retrieved, it sets
         /// the <see cref="IObjectData.SetData(ReadOnlySpan{byte})"/>, if no data is 
         /// found, this method returns and never calls SetData.
         /// </summary>
@@ -600,8 +600,8 @@ namespace VNLib.Data.Caching
         /// </summary>
         /// <param name="client"></param>
         /// <param name="change">The instance to store change event data to</param>
-        /// <param name="cancellationToken">A token to cancel the deuque operation</param>
-        /// <returns>A task that completes when a change has occured</returns>
+        /// <param name="cancellationToken">A token to cancel the dequeue operation</param>
+        /// <returns>A task that completes when a change has occurred</returns>
         /// <exception cref="InvalidResponseException"></exception>
         /// <exception cref="InvalidOperationException"></exception>
         public static async Task WaitForChangeAsync(this FBMClient client, WaitForChangeResult change, CancellationToken cancellationToken = default)
@@ -641,7 +641,7 @@ namespace VNLib.Data.Caching
         {
             context.Response.WriteHeader(HeaderCommand.Status, responseCode);
         }
-
+       
         /// <summary>
         /// Determines if the the client sent a message checksum, and if so, verifies the checksum
         /// if the checksum type is supported.
@@ -655,17 +655,16 @@ namespace VNLib.Data.Caching
         /// </returns>
         public static int IsClientChecksumValid(this FBMRequestMessage message)
         {
-            string? type = message.Headers.FirstOrDefault(static h => h.Header == ChecksumType).GetValueString();
+            ReadOnlySpan<char> type = message.Headers.FirstOrDefault(static h => h.Header == ChecksumType).Value;
             ReadOnlySpan<char> value = message.Headers.FirstOrDefault(static h => h.Header == ChecksumValue).Value;
 
-            if (type == null || value.IsEmpty)
+            if (value.IsEmpty)
             {
                 return -1;
             }
 
             if (type.Equals(ChecksumTypes.Fnv1a, StringComparison.OrdinalIgnoreCase))
             {
-                //Verify the checksum
                 return FbmMessageChecksum.VerifyFnv1aChecksum(value, message.BodyData) ? 1 : 0;
             }
 

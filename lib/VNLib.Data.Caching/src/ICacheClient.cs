@@ -113,7 +113,7 @@ namespace VNLib.Data.Caching
         /// </summary>
         /// <param name="key">The key identifying the item to delete</param>
         /// <param name="cancellation">A token to cancel the async operation</param>
-        /// <returns>A task that completes when the delete operation has compelted</returns>
+        /// <returns>A task that completes when the delete operation has completed</returns>
         Task<bool> DeleteAsync(string key, CancellationToken cancellation);
 
         /// <summary>
@@ -135,7 +135,7 @@ namespace VNLib.Data.Caching
         /// <param name="cancellation">A token to cancel the async operation</param>
         /// <param name="value">The value to set at the given key</param>
         /// <param name="serializer">The <see cref="ICacheObjectSerializer"/> used to serialize the entity</param>
-        /// <returns>A task that completes when the update operation has compelted</returns>
+        /// <returns>A task that completes when the update operation has completed</returns>
         Task AddOrUpdateAsync<T>(string key, string? newKey, T value, ICacheObjectSerializer serializer, CancellationToken cancellation);
 
         /// <summary>
@@ -146,7 +146,7 @@ namespace VNLib.Data.Caching
         /// <param name="callback">The callback method that will get the raw object data</param>
         /// <param name="state">The state parameter to pass to the callback when invoked</param>
         /// <param name="cancellation">A token to cancel the async operation</param>
-        /// <returns>A task that complets when the object data has been written to the data buffer</returns>
+        /// <returns>A task that completes when the object data has been written to the data buffer</returns>
         Task GetAsync<T>(string key, ReadOnlySpanAction<byte, T> callback, T state, CancellationToken cancellation);
 
         /// <summary>
@@ -158,7 +158,7 @@ namespace VNLib.Data.Caching
         /// <param name="callback">A callback method that will set the raw object data when received</param>
         /// <param name="state">The callback state parameter</param>
         /// <param name="cancellation">A token to cancel the async operation</param>
-        /// <returns>A task that completes when the update operation has compelted</returns>
+        /// <returns>A task that completes when the update operation has completed</returns>
         Task AddOrUpdateAsync<T>(string key, string? newKey, ObjectDataGet<T> callback, T state, CancellationToken cancellation);
     }
 }

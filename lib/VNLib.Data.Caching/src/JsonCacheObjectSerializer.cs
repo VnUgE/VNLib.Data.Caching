@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2025 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -52,18 +52,18 @@ namespace VNLib.Data.Caching
         /// </summary>
         public JsonCacheObjectSerializer(int bufferSize)
         {
-            //Configure default serialzation options
+            //Configure default serialization options
             _options = new()
             {
-                DictionaryKeyPolicy = JsonNamingPolicy.CamelCase,
-                NumberHandling = JsonNumberHandling.Strict,
-                ReadCommentHandling = JsonCommentHandling.Disallow,
-                WriteIndented = false,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-                IgnoreReadOnlyFields = true,
+                DictionaryKeyPolicy         = JsonNamingPolicy.CamelCase,
+                NumberHandling              = JsonNumberHandling.Strict,
+                ReadCommentHandling         = JsonCommentHandling.Disallow,
+                WriteIndented               = false,
+                DefaultIgnoreCondition      = JsonIgnoreCondition.WhenWritingNull,
+                IgnoreReadOnlyFields        = true,
                 PropertyNameCaseInsensitive = true,
-                IncludeFields = false,
-                DefaultBufferSize = bufferSize
+                IncludeFields               = false,
+                DefaultBufferSize           = bufferSize
             };
         }
 

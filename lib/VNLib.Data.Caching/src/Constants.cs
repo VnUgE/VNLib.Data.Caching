@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2024 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching
@@ -41,7 +41,7 @@ namespace VNLib.Data.Caching
         }
 
         /// <summary>
-        /// Containts constants for operation response codes
+        /// Contains constants for operation response codes
         /// </summary>
         public static class ResponseCodes
         {
