@@ -643,20 +643,6 @@ namespace VNLib.Data.Caching
         }
 
         /// <summary>
-        /// Initializes the worker for a reconnect policy and returns an object that can listen for changes
-        /// and configure the connection as necessary
-        /// </summary>
-        /// <param name="worker"></param>
-        /// <param name="retryDelay">The amount of time to wait between retries</param>
-        /// <param name="serverUri">The uri to reconnect the client to</param>
-        /// <returns>A <see cref="ClientRetryManager{T}"/> for listening for retry events</returns>
-        public static ClientRetryManager<T> SetReconnectPolicy<T>(this T worker, TimeSpan retryDelay, Uri serverUri) where T : IStatefulConnection
-        {
-            //Return new manager
-            return new(worker, retryDelay, serverUri);
-        }
-
-        /// <summary>
         /// Determines if the the client sent a message checksum, and if so, verifies the checksum
         /// if the checksum type is supported.
         /// </summary>
