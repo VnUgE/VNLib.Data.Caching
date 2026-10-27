@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2023 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.Providers.VNCache
@@ -25,7 +25,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-using VNLib.Data.Caching.Extensions.Clustering;
+using VNLib.Data.Caching.VNCache.Clustering;
 
 namespace VNLib.Data.Caching.Providers.VNCache.Clustering
 {

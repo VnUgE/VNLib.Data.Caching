@@ -36,8 +36,8 @@ using System.Security.Cryptography;
 using VNLib.Utils.Memory;
 using VNLib.Utils.Logging;
 using VNLib.Net.Messaging.FBM.Client;
-using VNLib.Data.Caching.Extensions;
-using VNLib.Data.Caching.Extensions.Clustering;
+using VNLib.Data.Caching.VNCache;
+using VNLib.Data.Caching.VNCache.Clustering;
 
 using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;

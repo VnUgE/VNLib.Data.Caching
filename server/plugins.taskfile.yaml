@@ -10,7 +10,7 @@ includes:
     taskfile: install.taskfile.yaml
 
 vars:
-  PLUGIN_NAME: 'ObjectCacheServer'
+  PLUGIN_NAME: 'VNLib.Data.Caching.VNCache.Server'
   
 tasks:
 
@@ -36,7 +36,7 @@ tasks:
     - cmd: mkdir -p 'build/plugins/{{ .PLUGIN_NAME }}'
 
     #copy the plugin output
-    - cmd: cd '../plugins/ObjectCacheServer/' && 
+    - cmd: cd '../plugins/VNLib.Data.Caching.VNCache.Server/' && 
         task 
         CONFIGURATION=release 
         --

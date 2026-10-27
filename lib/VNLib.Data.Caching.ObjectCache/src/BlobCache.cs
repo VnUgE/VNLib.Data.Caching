@@ -1,5 +1,5 @@
-﻿/*
-* Copyright (c) 2025 Vaughn Nugent
+/*
+* Copyright (c) 2026 Vaughn Nugent
 * 
 * Library: VNLib
 * Package: VNLib.Data.Caching.ObjectCache
@@ -57,7 +57,7 @@ namespace VNLib.Data.Caching.ObjectCache
         /// <param name="bucketId">The id of the bucket that manages this instance</param>
         /// <param name="maxCapacity">The maximum number of items to keep in memory</param>
         /// <param name="manager">The cache entry memory manager instance</param>
-        /// <param name="store">The optional backing persistant cache storage</param>
+        /// <param name="store">The optional backing persistent cache storage</param>
         /// <exception cref="ArgumentException"></exception>
         public BlobCache(uint bucketId, int maxCapacity, ICacheEntryMemoryManager manager, IPersistantCacheStore? store)
             : base(maxCapacity, StringComparer.Ordinal)
@@ -83,7 +83,7 @@ namespace VNLib.Data.Caching.ObjectCache
                 return false;
             }
 
-            //Use the persistant cache
+            //Use the persistent cache
             return _persistance.OnCacheMiss(BucketId, key, MemoryManager, out value);
         }
 
@@ -92,7 +92,7 @@ namespace VNLib.Data.Caching.ObjectCache
         {
             try
             {
-                //Call persistance store record eviction
+                //Call persistence store record eviction
                 _persistance?.OnEntryEvicted(BucketId, evicted.Key, evicted.Value);
             }
             finally
@@ -137,7 +137,7 @@ namespace VNLib.Data.Caching.ObjectCache
         {
             ObjectDisposedException.ThrowIf(disposedValue, this);
 
-            //Remove from persistant store also
+            //Remove from persistent store also
             _persistance?.OnEntryDeleted(BucketId, key);
 
             //Remove the item from the lookup table and if it exists, remove the node from the list
@@ -157,7 +157,7 @@ namespace VNLib.Data.Caching.ObjectCache
         }
 
         /// <summary>
-        /// Removes all cache entires and disposes their held resources
+        /// Removes all cache entries and disposes their held resources
         /// </summary>
         public override void Clear()
         {
@@ -191,7 +191,7 @@ namespace VNLib.Data.Caching.ObjectCache
             //Start from first node
             LinkedListNode<KeyValuePair<string, CacheEntry>>? node = List.First;
 
-            //Classic ll node itteration
+            //Classic ll node iteration
             while (node != null)
             {
                 //Dispose the cache entry
@@ -201,7 +201,7 @@ namespace VNLib.Data.Caching.ObjectCache
                 node = node.Next;
             }
 
-            //empty all cache entires in the store
+            //empty all cache entries in the store
             base.Clear();
         }
 

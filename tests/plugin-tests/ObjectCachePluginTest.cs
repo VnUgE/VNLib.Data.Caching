@@ -26,7 +26,7 @@ using System;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-using VNLib.Data.Caching.ObjectCache.Server;
+using VNLib.Data.Caching.VNCache.Server;
 using VNLib.Plugins.Essentials.Endpoints;
 using VNLib.Plugins.Essentials.ServiceStack.Testing;
 
@@ -35,7 +35,7 @@ namespace VNLib.Data.Caching.Tests
     [TestClass()]
     public class ObjectCachePluginTest
     {
-        const string TestPluginConfigPath = "../../../../../plugins/ObjectCacheServer/src/ObjectCacheServer.sample.json";
+        const string TestPluginConfigPath = "../../../../../plugins/VNLib.Data.Caching.VNCache.Server/src/VNLib.Data.Caching.VNCache.Server.sample.json";
 
         private static string HostConfigFilePath => Environment.GetEnvironmentVariable("TEST_HOST_CONFIG_FILE")!;
 

@@ -1,0 +1,48 @@
+﻿/*
+* Copyright (c) 2026 Vaughn Nugent
+* 
+* Library: VNLib
+* Package: VNLib.Data.Caching.VNCache
+* File: ClientCacheConfiguration.cs 
+*
+* ClientCacheConfiguration.cs is part of VNLib.Data.Caching.VNCache which is part of the larger 
+* VNLib collection of libraries and utilities.
+*
+* VNLib.Data.Caching.VNCache is free software: you can redistribute it and/or modify 
+* it under the terms of the GNU Affero General Public License as 
+* published by the Free Software Foundation, either version 3 of the
+* License, or (at your option) any later version.
+*
+* VNLib.Data.Caching.VNCache is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Affero General Public License for more details.
+*
+* You should have received a copy of the GNU Affero General Public License
+* along with this program.  If not, see https://www.gnu.org/licenses/.
+*/
+
+using System;
+
+namespace VNLib.Data.Caching.VNCache.Clustering
+{
+    /// <summary>
+    /// Represents an type that will handle errors that occur during the discovery process
+    /// </summary>
+    public interface ICacheDiscoveryErrorHandler
+    {
+        /// <summary>
+        /// Invoked when an error occurs during the discovery process
+        /// </summary>
+        /// <param name="errorNode">The node that the error occured on</param>
+        /// <param name="ex">The exception that caused the invocation</param>
+        void OnDiscoveryError(CacheNodeAdvertisment errorNode, Exception ex);
+
+        /// <summary>
+        /// Invoked when an error occurs during the discovery process
+        /// </summary>
+        /// <param name="errorAddress">The server address that failed to connect</param>
+        /// <param name="ex">The exception that caused the invocation</param>
+        void OnDiscoveryError(Uri errorAddress, Exception ex);
+    }
+}

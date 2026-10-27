@@ -27,7 +27,7 @@ using System.Linq;
 using System.Text.Json.Serialization;
 
 using VNLib.Utils.Logging;
-using VNLib.Data.Caching.Extensions;
+using VNLib.Data.Caching.VNCache;
 using VNLib.Plugins.Extensions.Loading.Configuration;
 
 namespace VNLib.Data.Caching.Providers.VNCache

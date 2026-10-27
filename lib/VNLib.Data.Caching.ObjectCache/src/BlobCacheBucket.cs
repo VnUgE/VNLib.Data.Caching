@@ -1,4 +1,4 @@
-﻿/*
+/*
 * Copyright (c) 2025 Vaughn Nugent
 * 
 * Library: VNLib
@@ -32,15 +32,15 @@ namespace VNLib.Data.Caching.ObjectCache
     /// A concrete implementation of an <see cref="IBlobCacheBucket"/>
     /// </summary>
     /// <remarks>
-    /// Initialzies a new <see cref="BlobCacheBucket"/> and its underlying
+    /// Initializes a new <see cref="BlobCacheBucket"/> and its underlying
     /// <see cref="IBlobCache"/>
     /// </remarks>
     /// <param name="bucketCapacity">
-    /// The maxium number of entries allowed in the LRU cache
+    /// The maximum number of entries allowed in the LRU cache
     /// before LRU overflow happens.
     /// </param>
     /// <param name="bucketId">The unique id of the new bucket</param>
-    /// <param name="memMan">The cache entry memory manager intance</param>
+    /// <param name="memMan">The cache entry memory manager instance</param>
     /// <param name="persistantCache">An optional <see cref="IPersistantCacheStore"/> for cache persistance</param>
     public sealed class BlobCacheBucket(
         uint bucketId, 
@@ -56,7 +56,7 @@ namespace VNLib.Data.Caching.ObjectCache
         public uint Id { get; } = bucketId;
 
         /// <summary>
-        /// Gets the number of entires in the current bucket
+        /// Gets the number of entries in the current bucket
         /// </summary>
         public int EntryCount => _cacheTable.Count;
 

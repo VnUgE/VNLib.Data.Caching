@@ -27,7 +27,6 @@ using System.Buffers;
 using System.Threading;
 using System.Threading.Tasks;
 
-using VNLib.Utils.Extensions;
 using VNLib.Utils.Logging;
 using VNLib.Plugins;
 using VNLib.Plugins.Extensions.Loading;

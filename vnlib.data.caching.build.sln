@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -9,13 +9,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "libs", "libs", "{FBF12BFF-5
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VNLib.Data.Caching", "lib\VNLib.Data.Caching\src\VNLib.Data.Caching.csproj", "{31DE8FD7-AF05-4075-A5EE-747E76B5D134}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VNLib.Data.Caching.Extensions", "lib\VNLib.Data.Caching.Extensions\src\VNLib.Data.Caching.Extensions.csproj", "{D02BAAFC-818A-4D2C-B46F-6BB5C7BB14DB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VNLib.Data.Caching.VNCache", "lib\VNLib.Data.Caching.VNCache\src\VNLib.Data.Caching.VNCache.csproj", "{D02BAAFC-818A-4D2C-B46F-6BB5C7BB14DB}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VNLib.Data.Caching.ObjectCache", "lib\VNLib.Data.Caching.ObjectCache\src\VNLib.Data.Caching.ObjectCache.csproj", "{FEDACFD5-2529-4E37-8D11-3E0143954368}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VNLib.Plugins.Extensions.VNCache", "lib\VNLib.Plugins.Extensions.VNCache\src\VNLib.Plugins.Extensions.VNCache.csproj", "{E21ED553-4B08-41A5-B329-4BAF7701A99F}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ObjectCacheServer", "plugins\ObjectCacheServer\src\ObjectCacheServer.csproj", "{AAECEC05-2439-47B4-A50D-D46EDDFA420C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VNLib.Data.Caching.VNCache.Server", "plugins\VNLib.Data.Caching.VNCache.Server\src\VNLib.Data.Caching.VNCache.Server.csproj", "{AAECEC05-2439-47B4-A50D-D46EDDFA420C}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{26A1C649-73F9-4B26-847F-4E40578CA2D6}"
 	ProjectSection(SolutionItems) = preProject

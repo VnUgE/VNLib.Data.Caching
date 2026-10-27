@@ -30,8 +30,8 @@ using System.Threading.Tasks;
 
 using VNLib.Utils.Logging;
 using VNLib.Utils.Resources;
-using VNLib.Data.Caching.Extensions;
-using VNLib.Data.Caching.Extensions.Clustering;
+using VNLib.Data.Caching.VNCache;
+using VNLib.Data.Caching.VNCache.Clustering;
 using VNLib.Plugins.Extensions.Loading.Events;
 
 namespace VNLib.Data.Caching.Providers.VNCache.Clustering

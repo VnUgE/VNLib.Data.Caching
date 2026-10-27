@@ -1,0 +1,93 @@
+/*
+* Copyright (c) 2026 Vaughn Nugent
+* 
+* Library: VNLib
+* Package: VNLib.Data.Caching.VNCache.Server
+* File: WellKnownEndpoint.cs 
+*
+* WellKnownEndpoint.cs is part of VNLib.Data.Caching.VNCache.Server which is part of the larger 
+* VNLib collection of libraries and utilities.
+*
+* VNLib.Data.Caching.VNCache.Server is free software: you can redistribute it and/or modify 
+* it under the terms of the GNU Affero General Public License as 
+* published by the Free Software Foundation, either version 3 of the
+* License, or (at your option) any later version.
+*
+* VNLib.Data.Caching.VNCache.Server is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Affero General Public License for more details.
+*
+* You should have received a copy of the GNU Affero General Public License
+* along with this program.  If not, see https://www.gnu.org/licenses/.
+*/
+
+using System;
+using System.Net;
+
+using VNLib.Hashing;
+using VNLib.Hashing.IdentityUtility;
+using VNLib.Plugins;
+using VNLib.Plugins.Essentials;
+using VNLib.Plugins.Essentials.Endpoints;
+using VNLib.Plugins.Essentials.Extensions;
+using VNLib.Plugins.Extensions.Loading;
+using VNLib.Data.Caching.VNCache;
+using VNLib.Data.Caching.VNCache.Clustering;
+
+namespace VNLib.Data.Caching.VNCache.Server.Endpoints
+{
+
+    /*
+     * The well-known endpoint is used to advertise the node's existence to 
+     * the network. Clients need to know the endpoint layout to be able to
+     * connect and discover other nodes.
+     */
+    internal sealed class WellKnownEndpoint : ResourceEndpointBase
+    {       
+
+        //Store serialized advertisment
+        private readonly CacheNodeAdvertisment _advertisment;
+        private readonly ICacheAuthManager _keyStore;
+
+        //Loosen up security requirements
+        protected override ProtectionSettings EndpointProtectionSettings { get; } = new()
+        {
+            DisableSessionsRequired = true,
+        };
+
+        public WellKnownEndpoint(PluginBase plugin)
+        {
+            //Get the node config
+            ObjectCacheSystemState conf = plugin.Deps().GetOrCreateSingleton<ObjectCacheSystemState>();
+
+            //serialize the config, discovery may not be enabled
+            _advertisment = conf.NodeConfig.Advertisment;
+            _keyStore = conf.KeyStore;
+
+            InitEndpoint(conf.ClusterConfig.WellKnownPath, plugin.Log);
+        }
+
+        protected override VfReturnType Get(HttpEntity entity)
+        {
+            string entropy = RandomHash.GetRandomBase32(16);
+
+            //Create jwt signed for the client
+            using JsonWebToken jwt = new();
+            
+            jwt.WriteHeader(_keyStore.GetJwtHeader());
+            //Write the advertisment as the message body
+            jwt.InitPayloadClaim()
+                .AddClaim("sub", _advertisment)
+                .AddClaim("chl", entropy)
+                .AddClaim("iat", entity.RequestedTimeUtc.ToUnixTimeSeconds())
+                .CommitClaims();
+
+            _keyStore.SignJwt(jwt);
+
+            //Return the advertisment jwt
+            entity.CloseResponse(HttpStatusCode.OK, Net.Http.ContentType.Text, jwt.DataBuffer);
+            return VfReturnType.VirtualSkip;
+        }
+    }
+}

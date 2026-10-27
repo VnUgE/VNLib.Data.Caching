@@ -29,9 +29,9 @@ using System.Security.Cryptography;
 
 using VNLib.Hashing;
 using VNLib.Hashing.IdentityUtility;
-using VNLib.Data.Caching.Extensions;
 using VNLib.Utils.Async;
 using VNLib.Utils.Extensions;
+using VNLib.Data.Caching.VNCache;
 
 namespace VNLib.Data.Caching.Providers.VNCache
 {

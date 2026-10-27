@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>VNLib.Data.Caching.VNCache</RootNamespace>
+    <AssemblyName>VNLib.Data.Caching.VNCache</AssemblyName>
+  </PropertyGroup>
+  
+  <PropertyGroup>
+    <PackageId>VNLib.Data.Caching.VNCache</PackageId>
+    <Authors>Vaughn Nugent</Authors>
+    <Company>Vaughn Nugent</Company>
+    <Product>VNLib distributed caching extension library</Product>
+    <Description>A libray for working with VNCache distributed object cache networks.</Description>
+    <Copyright>Copyright © 2026 Vaughn Nugent</Copyright>
+    <PackageProjectUrl>https://www.vaughnnugent.com/resources/software/modules/VNLib.Data.Caching</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/VnUgE/VNLib.Data.Caching/tree/master/lib/VNLib.Data.Caching.VNCache</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <None Include="..\..\..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\core\lib\Hashing.Portable\src\VNLib.Hashing.Portable.csproj" />
+    <ProjectReference Include="..\..\..\..\core\lib\Net.Messaging.FBM\src\VNLib.Net.Messaging.FBM.csproj" />
+    <ProjectReference Include="..\..\..\..\core\lib\Net.Rest.Client\src\VNLib.Net.Rest.Client.csproj" />
+    <ProjectReference Include="..\..\..\..\core\lib\Utils\src\VNLib.Utils.csproj" />
+  </ItemGroup>
+
+</Project>
